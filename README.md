@@ -1,6 +1,8 @@
-# 商业时代2：新纪元 (TycoonCraft²: The New Era)
+<h1><img src="assets/brand/icon.jpg" width="56" height="56" align="absmiddle" alt=""> 商业时代2：新纪元 (TycoonCraft²: The New Era)</h1>
 
 **简体中文** · [English](README.en.md)
+
+![商业时代2：新纪元 (TycoonCraft²: The New Era) 项目封面](assets/brand/cover.jpg)
 
 商业时代2：新纪元（`tyc2`）是一个面向 Minecraft 的商业经营与宏观经济模组。模组把金属铸币与银行、村庄大宗贸易、宏观物价波动以及村庄自动扩建串成一条完整的经营线，在纯原版环境中就能独立游玩，不需要任何前置模组。
 
