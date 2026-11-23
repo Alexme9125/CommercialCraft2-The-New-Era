@@ -1,0 +1,102 @@
+plugins {
+    id 'java'
+    id 'net.minecraftforge.gradle'
+}
+
+group = 'com.tycooncraft.tyc2'
+version = project.property('mod_version')
+base.archivesName = "tyc2-forge-${minecraft_version}"
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+repositories {
+    mavenCentral()
+    flatDir {
+        dirs '../.ic2-deps'
+    }
+}
+
+sourceSets {
+    main {
+        java.srcDir file('../src/common/src/main/java')
+    }
+}
+
+minecraft {
+    mappings channel: 'official', version: minecraft_version
+    runs {
+        configureEach {
+            workingDirectory layout.buildDirectory.dir("run/$name").get().asFile
+            property 'forge.logging.console.level', 'info'
+            mods {
+                tyc2 {
+                    source sourceSets.main
+                }
+            }
+        }
+        client {}
+        server { args '--nogui' }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly fg.deobf("com.industrialage.ia2:ic2-forge-1.19.2:${ic2_version}")
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+def generatedTyc2Resources = layout.buildDirectory.dir('generated/tyc2-resources')
+def generateTyc2Resources = tasks.register('generateTyc2Resources', Exec) {
+    def generator = file('../src/datagen/generate_resources.py')
+    onlyIf { generator.isFile() }
+    inputs.files(fileTree('../src/datagen') { include '*.py', '*.json', '*.tsv' })
+    inputs.files(fileTree('../assets/tyc2/lang') { include '*.json' })
+    outputs.dir(generatedTyc2Resources)
+    commandLine 'python3', generator, '--target', 'forge-1.19.2',
+            '--output', generatedTyc2Resources.get().asFile
+}
+
+tasks.named('processResources') {
+    dependsOn generateTyc2Resources
+    filteringCharset = 'UTF-8'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    includeEmptyDirs = false
+    doFirst { delete destinationDir }
+    inputs.properties(
+            version: project.version,
+            minecraftVersion: minecraft_version,
+            forgeVersion: forge_version,
+            ic2Version: ic2_version
+    )
+    filesMatching('META-INF/mods.toml') {
+        expand version: project.version,
+                minecraftVersion: minecraft_version,
+                forgeVersion: forge_version,
+                ic2Version: ic2_version
+    }
+    from(file('../assets')) {
+        into 'assets'
+        exclude '**/*.md', '**/*.csv', '**/.git*', '**/.DS_Store', '**/preview/**'
+    }
+    from(generatedTyc2Resources) { exclude '.tyc2-generated-output' }
+}
+
+tasks.named('jar') {
+    manifest {
+        attributes 'MixinConfigs': 'tyc2.mixins.json'
+    }
+    from file('../LICENSE')
+    finalizedBy 'reobfJar'
+}
+
+if (file('qa.gradle').isFile()) {
+    apply from: 'qa.gradle'
+}

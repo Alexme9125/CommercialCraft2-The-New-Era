@@ -1,0 +1,442 @@
+import groovy.json.JsonOutput
+import java.util.jar.JarFile
+
+// Dedicated Forge 1.19.2 live-server & live client-server QA sourceSet and tasks for TyC2.
+// Strictly isolated from sourceSets.main so ZERO QA classes or resources enter tyc2-forge-1.19.2-1.0.0.jar.
+
+sourceSets {
+    qa {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        // Do NOT put sourceSets.main.output on qa.runtimeClasspath: at runtime Forge loads the
+        // packaged tyc2-forge-1.19.2-1.0.0.jar directly from mods/.
+        runtimeClasspath += configurations.runtimeClasspath
+    }
+}
+
+configurations {
+    qaIc2Mod {
+        canBeConsumed = false
+        canBeResolved = true
+    }
+}
+
+dependencies {
+    qaIc2Mod fg.deobf("com.industrialage.ia2:ic2-forge-1.19.2:${ic2_version}")
+}
+
+minecraft {
+    runs {
+        serverQaTyc2 {
+            taskName 'runQaTyc2Server'
+            parent runs.server
+            workingDirectory layout.buildDirectory.dir('run/qa-tyc2-server').get().asFile
+            property 'forge.logging.console.level', 'info'
+            property 'tyc2.qa.mode', 'server_write'
+            property 'tyc2.qa.profile', 'standalone'
+            mods {
+                tyc2_qa {
+                    source sourceSets.qa
+                }
+            }
+        }
+        serverLiveTyc2 {
+            taskName 'runLiveTyc2Server'
+            parent runs.server
+            workingDirectory layout.buildDirectory.dir('run/live-tyc2-server').get().asFile
+            property 'forge.logging.console.level', 'info'
+            property 'tyc2.qa.mode', 'live_server'
+            property 'tyc2.qa.profile', 'enhanced'
+            mods {
+                tyc2_qa {
+                    source sourceSets.qa
+                }
+            }
+        }
+        clientLiveTyc2 {
+            taskName 'runLiveTyc2Client'
+            parent runs.client
+            workingDirectory layout.buildDirectory.dir('run/live-tyc2-client').get().asFile
+            property 'forge.logging.console.level', 'info'
+            property 'tyc2.qa.mode', 'live_client'
+            property 'tyc2.qa.profile', 'enhanced'
+            mods {
+                tyc2_qa {
+                    source sourceSets.qa
+                }
+            }
+        }
+    }
+}
+
+def qaBuildDir = layout.buildDirectory.dir('qa-tyc2')
+def qaModsDir = qaBuildDir.map { it.dir('mods') }
+def packagedTyc2Jar = tasks.named('jar', Jar).flatMap { it.archiveFile }
+def packagedIc2Jar = file("../.ic2-deps/ic2-forge-1.19.2-${ic2_version}.jar")
+def lc2Candidates = [
+        providers.gradleProperty('lc2Jar').orNull ? file(providers.gradleProperty('lc2Jar').get()) : null,
+        file('../.ic2-deps/lc2-forge-1.19.2-1.1.0.jar'),
+        file('../../LC2/forge-1.19.2/build/libs/lc2-forge-1.19.2-1.1.0.jar')
+].findAll { it != null }
+def packagedLc2Jar = lc2Candidates.find { it.isFile() } ?: lc2Candidates.last()
+
+// 1. Audit the exact SRG-reobfuscated production JAR before runtime execution.
+def auditPackagedTyc2Jar = tasks.register('auditPackagedTyc2Jar') {
+    group = 'verification'
+    description = 'Verifies production tyc2-forge-1.19.2 JAR has zero QA/preview leaks, zero hard IC2 deps, valid MixinConfigs, assets, datapacks, and SRG bytecode.'
+    dependsOn 'reobfJar'
+    inputs.file(packagedTyc2Jar)
+    doLast {
+        File jarFile = packagedTyc2Jar.get().asFile
+        if (!jarFile.isFile()) {
+            throw new GradleException("Missing packaged production JAR: ${jarFile}")
+        }
+        new JarFile(jarFile).withCloseable { jf ->
+            def manifest = jf.manifest
+            if (manifest == null) {
+                throw new GradleException("Packaged JAR missing META-INF/MANIFEST.MF")
+            }
+            def mixinCfg = manifest.mainAttributes.getValue('MixinConfigs')
+            if (mixinCfg != 'tyc2.mixins.json') {
+                throw new GradleException("Expected MixinConfigs=tyc2.mixins.json in MANIFEST.MF, got: ${mixinCfg}")
+            }
+            def entries = jf.entries().toList().collect { it.name }
+            def qaLeaks = entries.findAll { it.contains('tyc2_qa') || it.startsWith('com/tycooncraft/tyc2/qa/') }
+            if (!qaLeaks.isEmpty()) {
+                throw new GradleException("Production JAR leaked QA entries: ${qaLeaks}")
+            }
+            def previewLeaks = entries.findAll { it.toLowerCase().contains('preview') && it.endsWith('.png') }
+            if (!previewLeaks.isEmpty()) {
+                throw new GradleException("Production JAR leaked preview PNGs: ${previewLeaks}")
+            }
+            def requiredEntries = [
+                    'LICENSE',
+                    'tyc2.mixins.json',
+                    'META-INF/mods.toml',
+                    'assets/tyc2/lang/en_us.json',
+                    'assets/tyc2/lang/zh_cn.json',
+                    'assets/tyc2/textures/block/primitive_mint_machine_front.png',
+                    'assets/tyc2/textures/block/primitive_mint_machine_front_active.png',
+                    'assets/tyc2/textures/gui/primitive_mint_machine.png',
+                    'assets/tyc2/textures/gui/mint_machine.png',
+                    'data/tyc2/recipes/primitive_mint_machine.json',
+                    'data/tyc2/recipes/mint_machine_ic2.json',
+                    'data/tyc2/recipes/mint_machine_standalone.json',
+                    'data/tyc2/mint_recipes/default_vanilla.json',
+                    'data/tyc2/mint_recipes/default_ic2.json',
+                    'data/tyc2/goods/vanilla.json',
+                    'data/tyc2/goods/ic2.json',
+                    'data/tyc2/goods/farmers_delight.json',
+                    'data/tyc2/goods/kaleidoscope_cookery.json',
+                    'data/tyc2/seasons/harvest_seasons.json',
+                    'data/tyc2/levels/village_levels.json'
+            ]
+            for (String req : requiredEntries) {
+                if (!entries.contains(req)) {
+                    throw new GradleException("Production JAR missing required entry: ${req}")
+                }
+            }
+            if (entries.contains('data/tyc2/recipes/mint_machine.json')) {
+                throw new GradleException("Production JAR still contains stale unconditional data/tyc2/recipes/mint_machine.json")
+            }
+            def texturePngs = entries.findAll { it.startsWith('assets/tyc2/textures/') && it.endsWith('.png') }
+            if (texturePngs.size() != 35) {
+                throw new GradleException("Expected 35 texture PNGs in Forge 1.19.2 JAR, found ${texturePngs.size()}: ${texturePngs}")
+            }
+            // Verify ZERO com/industrialage references outside compat/ and mixin/
+            def badIc2Refs = []
+            for (String cls : entries.findAll { it.endsWith('.class') }) {
+                if (cls.contains('/compat/') || cls.contains('/mixin/')) {
+                    continue
+                }
+                String ascii = new String(jf.getInputStream(jf.getEntry(cls)).bytes, 'ISO-8859-1')
+                if (ascii.contains('com/industrialage') || ascii.contains('com.industrialage')) {
+                    badIc2Refs << cls
+                }
+            }
+            if (!badIc2Refs.isEmpty()) {
+                throw new GradleException("Non-compat/mixin classes reference com.industrialage: ${badIc2Refs}")
+            }
+            // Verify SRG reobfuscation on Ic2CableBlockMixin (m_60734_ = BlockState.getBlock)
+            def mixinEntry = jf.getEntry('com/tycooncraft/tyc2/forge/mixin/Ic2CableBlockMixin.class')
+            if (mixinEntry == null) {
+                throw new GradleException("Production JAR missing Ic2CableBlockMixin.class")
+            }
+            String mixinAscii = new String(jf.getInputStream(mixinEntry).bytes, 'ISO-8859-1')
+            if (!mixinAscii.contains('m_60734_')) {
+                throw new GradleException("Ic2CableBlockMixin.class does not appear SRG-reobfuscated (missing m_60734_)")
+            }
+            logger.lifecycle("[TYC2-QA] Packaged Forge 1.19.2 JAR audit PASSED: ${jarFile.name} (${jarFile.length()} bytes, ${entries.size()} entries, 0 QA leaks, 0 hard IC2 deps)")
+        }
+    }
+}
+
+def resolveForgeRenamerAndSrg = {
+    File fgCache = new File(gradle.gradleUserHomeDir, 'caches/forge_gradle')
+    File renamerJar = new File(fgCache, 'maven_downloader/net/minecraftforge/renamer/2.0.4/renamer-2.0.4-all.jar')
+    if (!renamerJar.isFile()) {
+        def found = fileTree(new File(fgCache, 'maven_downloader/net/minecraftforge/renamer')) {
+            include '**/*-all.jar'
+        }.files
+        if (found.isEmpty()) {
+            throw new GradleException("Could not find Forge renamer jar under ${fgCache}")
+        }
+        renamerJar = found.first()
+    }
+    File srgForgeJar = new File(fgCache,
+            "minecraft_user_repo/net/minecraftforge/forge/${minecraft_version}-${forge_version}/forge-${minecraft_version}-${forge_version}-srg.jar")
+    if (!srgForgeJar.isFile()) {
+        throw new GradleException("Missing SRG Forge inheritance jar: ${srgForgeJar}")
+    }
+    return [renamerJar, srgForgeJar]
+}
+
+// 2. Round-trip the exact SRG-reobfuscated production TyC2 JAR to Mojang mappings for ForgeGradle dev runtime.
+def deobfPackagedTyc2Jar = tasks.register('deobfPackagedTyc2Jar', JavaExec) {
+    group = 'verification'
+    description = 'Deobfuscates the exact packaged reobfuscated TyC2 JAR for ForgeGradle runtime.'
+    dependsOn 'reobfJar', auditPackagedTyc2Jar, 'createMcpToSrg'
+    def outJar = qaModsDir.map { it.file("tyc2-forge-${minecraft_version}-${version}.jar") }
+    def mappingsFile = tasks.named('createMcpToSrg').flatMap { it.output }
+    inputs.file(packagedTyc2Jar)
+    inputs.file(packagedIc2Jar)
+    inputs.file(mappingsFile)
+    outputs.file(outJar)
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(17) }
+    mainClass = 'net.minecraftforge.renamer.Main'
+    doFirst {
+        File outFile = outJar.get().asFile
+        outFile.parentFile.mkdirs()
+        if (outFile.exists()) {
+            outFile.delete()
+        }
+        def (File renamerJar, File srgForgeJar) = resolveForgeRenamerAndSrg()
+        classpath = files(renamerJar)
+        def toolArgs = [
+                '--reverse',
+                '--input', packagedTyc2Jar.get().asFile.absolutePath,
+                '--output', outFile.absolutePath,
+                '--names', mappingsFile.get().asFile.absolutePath,
+                '--log', qaBuildDir.get().file('deobf-tyc2.log').asFile.absolutePath,
+                '--lib', srgForgeJar.absolutePath,
+                '--lib', packagedIc2Jar.absolutePath
+        ]
+        configurations.compileClasspath.files.each { File lib ->
+            String n = lib.name
+            if (!n.contains('_mapped_official_') && !n.startsWith('ic2-forge-')) {
+                toolArgs.addAll(['--lib', lib.absolutePath])
+            }
+        }
+        args = toolArgs
+    }
+}
+
+// 3. Round-trip the packaged SRG-reobfuscated LC2 1.19.2 JAR to Mojang mappings for Enhanced Mode QA.
+def deobfPackagedLc2Jar = tasks.register('deobfPackagedLc2Jar', JavaExec) {
+    group = 'verification'
+    description = 'Deobfuscates packaged LC2 Forge 1.19.2 JAR for Enhanced Mode ForgeGradle runtime.'
+    dependsOn 'createMcpToSrg'
+    def outJar = qaModsDir.map { it.file('lc2-forge-1.19.2-1.1.0.jar') }
+    def mappingsFile = tasks.named('createMcpToSrg').flatMap { it.output }
+    inputs.file(packagedIc2Jar)
+    inputs.file(mappingsFile)
+    outputs.file(outJar)
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(17) }
+    mainClass = 'net.minecraftforge.renamer.Main'
+    doFirst {
+        if (!packagedLc2Jar.isFile()) {
+            throw new GradleException("Missing packaged LC2 1.19.2 JAR: ${packagedLc2Jar}")
+        }
+        File outFile = outJar.get().asFile
+        outFile.parentFile.mkdirs()
+        if (outFile.exists()) {
+            outFile.delete()
+        }
+        def (File renamerJar, File srgForgeJar) = resolveForgeRenamerAndSrg()
+        classpath = files(renamerJar)
+        def toolArgs = [
+                '--reverse',
+                '--input', packagedLc2Jar.absolutePath,
+                '--output', outFile.absolutePath,
+                '--names', mappingsFile.get().asFile.absolutePath,
+                '--log', qaBuildDir.get().file('deobf-lc2.log').asFile.absolutePath,
+                '--lib', srgForgeJar.absolutePath,
+                '--lib', packagedIc2Jar.absolutePath
+        ]
+        configurations.compileClasspath.files.each { File lib ->
+            String n = lib.name
+            if (!n.contains('_mapped_official_') && !n.startsWith('ic2-forge-')) {
+                toolArgs.addAll(['--lib', lib.absolutePath])
+            }
+        }
+        args = toolArgs
+    }
+}
+
+// Skip client-only sound/music asset downloads for server-only QA or offline runs when 1.19 assets are already cached.
+tasks.matching { it.name == 'downloadAssets' }.configureEach {
+    onlyIf {
+        if (gradle.startParameter.taskNames.any { name ->
+            name.endsWith('runTyc2QaStandalone') || name.endsWith('runTyc2QaEnhanced') || name.endsWith('prepareTyc2ServerQa')
+        }) {
+            return false
+        }
+        File cachedIndex = new File(gradle.gradleUserHomeDir, 'caches/forge_gradle/assets/indexes/1.19.json')
+        return !(gradle.startParameter.offline && cachedIndex.isFile())
+    }
+}
+
+def exportQaHostLaunch = { run, side ->
+    def generator = plugins.getPlugin('net.minecraftforge.gradle').class.classLoader.loadClass(
+            'net.minecraftforge.gradle.common.util.runs.RunConfigGenerator')
+    def config = run.runConfig.get()
+    def folders = generator.mapModClassesToGradle(project, config)
+    def tokens = generator.configureTokensLazy(project, config, folders,
+            run.minecraftArtifacts, run.runtimeClasspathArtifacts)
+    def expand = { value -> config.replace(tokens, value.toString()) }
+
+    def jvm = config.jvmArgs.collect(expand)
+    if (side == 'client') {
+        jvm += run.additionalClientArgs.get().collect(expand)
+    }
+    jvm += config.properties.collect { key, value -> "-D${key}=${expand(value)}" }
+    def env = config.environment.collectEntries { key, value -> [(key): expand(value)] }
+
+    // Keep ONLY tyc2_qa in MOD_CLASSES so Forge MUST load tyc2 from mods/tyc2-forge-1.19.2-1.0.0.jar!
+    if (env.containsKey('MOD_CLASSES')) {
+        def sep = File.pathSeparator
+        def kept = env['MOD_CLASSES'].split(java.util.regex.Pattern.quote(sep))
+                .findAll { it.startsWith('tyc2_qa%%') }
+        if (kept.isEmpty()) {
+            throw new GradleException("Expected tyc2_qa entries in MOD_CLASSES for ${side}, got: ${env['MOD_CLASSES']}")
+        }
+        env['MOD_CLASSES'] = kept.join(sep)
+    }
+
+    // Strip sourceSets.main output directories from JVM classpath so they cannot shadow mods/tyc2-*.jar
+    Set<File> mainOutputs = sourceSets.main.output.files.collect { it.canonicalFile } as Set
+    def cpFiles = files(run.classpath, sourceSets.qa.runtimeClasspath).files
+            .findAll { !mainOutputs.contains(it.canonicalFile) }
+
+    return [
+            java     : run.javaLauncher.get().executablePath.asFile.absolutePath,
+            main     : run.mainClass.get(),
+            jvm      : jvm,
+            args     : config.args.collect(expand),
+            env      : env,
+            classpath: cpFiles.collect { it.absolutePath }.join(File.pathSeparator)
+    ]
+}
+
+def prepareTyc2ServerQa = tasks.register('prepareTyc2ServerQa') {
+    group = 'verification'
+    description = 'Stages packaged TyC2 (+ IC2/LC2) JARs and exports Forge 1.19.2 dedicated server QA manifest.'
+    dependsOn 'qaClasses', deobfPackagedTyc2Jar, deobfPackagedLc2Jar
+    dependsOn {
+        def run = tasks.getByName('runQaTyc2Server')
+        run.taskDependencies.getDependencies(run).toList()
+    }
+    def launchManifest = qaBuildDir.map { it.file('server-launch.json') }
+    outputs.file(launchManifest)
+    outputs.upToDateWhen { false }
+    doLast {
+        File tyc2DeobfJar = deobfPackagedTyc2Jar.get().outputs.files.singleFile
+        File ic2DeobfJar = configurations.qaIc2Mod.singleFile
+        File lc2DeobfJar = deobfPackagedLc2Jar.get().outputs.files.singleFile
+        def manifest = [
+                server         : exportQaHostLaunch(tasks.getByName('runQaTyc2Server'), 'server'),
+                tyc2ModJar     : tyc2DeobfJar.absolutePath,
+                ic2ModJar      : ic2DeobfJar.absolutePath,
+                lc2ModJar      : lc2DeobfJar.absolutePath,
+                packagedTyc2Jar: packagedTyc2Jar.get().asFile.absolutePath,
+                packagedIc2Jar : packagedIc2Jar.absolutePath,
+                packagedLc2Jar : packagedLc2Jar.absolutePath,
+                runBaseDir     : layout.buildDirectory.dir('run/qa-tyc2').get().asFile.absolutePath,
+                reportDir      : qaBuildDir.get().asFile.absolutePath
+        ]
+        File target = launchManifest.get().asFile
+        target.parentFile.mkdirs()
+        target.setText(JsonOutput.prettyPrint(JsonOutput.toJson(manifest)) + '\n', 'UTF-8')
+    }
+}
+
+def prepareTyc2LiveQa = tasks.register('prepareTyc2LiveQa') {
+    group = 'verification'
+    description = 'Stages packaged TyC2 (+ IC2/LC2) JARs and exports Dedicated Server + Graphical Client manifest.'
+    dependsOn 'qaClasses', deobfPackagedTyc2Jar, deobfPackagedLc2Jar
+    dependsOn {
+        ['runLiveTyc2Server', 'runLiveTyc2Client'].collectMany { name ->
+            def run = tasks.getByName(name)
+            run.taskDependencies.getDependencies(run).toList()
+        }
+    }
+    def launchManifest = qaBuildDir.map { it.file('live-launch.json') }
+    outputs.file(launchManifest)
+    outputs.upToDateWhen { false }
+    doLast {
+        File tyc2DeobfJar = deobfPackagedTyc2Jar.get().outputs.files.singleFile
+        File ic2DeobfJar = configurations.qaIc2Mod.singleFile
+        File lc2DeobfJar = deobfPackagedLc2Jar.get().outputs.files.singleFile
+        def manifest = [
+                server         : exportQaHostLaunch(tasks.getByName('runLiveTyc2Server'), 'server'),
+                client         : exportQaHostLaunch(tasks.getByName('runLiveTyc2Client'), 'client'),
+                tyc2ModJar     : tyc2DeobfJar.absolutePath,
+                ic2ModJar      : ic2DeobfJar.absolutePath,
+                lc2ModJar      : lc2DeobfJar.absolutePath,
+                packagedTyc2Jar: packagedTyc2Jar.get().asFile.absolutePath,
+                packagedIc2Jar : packagedIc2Jar.absolutePath,
+                packagedLc2Jar : packagedLc2Jar.absolutePath,
+                runBaseDir     : layout.buildDirectory.dir('run/live-tyc2').get().asFile.absolutePath,
+                reportDir      : qaBuildDir.get().asFile.absolutePath
+        ]
+        File target = launchManifest.get().asFile
+        target.parentFile.mkdirs()
+        target.setText(JsonOutput.prettyPrint(JsonOutput.toJson(manifest)) + '\n', 'UTF-8')
+    }
+}
+
+tasks.register('runTyc2QaStandalone', Exec) {
+    group = 'verification'
+    description = 'Runs Forge 1.19.2 Standalone Dedicated Server QA (ONLY tyc2, write + cold-restart read).'
+    dependsOn prepareTyc2ServerQa
+    outputs.upToDateWhen { false }
+    doFirst {
+        commandLine 'python3',
+                file('src/qa/run_qa_server.py').absolutePath,
+                '--manifest', qaBuildDir.get().file('server-launch.json').asFile.absolutePath,
+                '--profile', 'standalone'
+    }
+}
+
+tasks.register('runTyc2QaEnhanced', Exec) {
+    group = 'verification'
+    description = 'Runs Forge 1.19.2 Enhanced Dedicated Server QA (tyc2 + ic2 + lc2, write + cold-restart read).'
+    dependsOn prepareTyc2ServerQa
+    outputs.upToDateWhen { false }
+    doFirst {
+        commandLine 'python3',
+                file('src/qa/run_qa_server.py').absolutePath,
+                '--manifest', qaBuildDir.get().file('server-launch.json').asFile.absolutePath,
+                '--profile', 'enhanced'
+    }
+}
+
+tasks.register('runTyc2LiveClientServer', Exec) {
+    group = 'verification'
+    description = 'Runs Forge 1.19.2 Real Graphical Client + Dedicated Server Joint Test.'
+    dependsOn prepareTyc2LiveQa
+    outputs.upToDateWhen { false }
+    doFirst {
+        def profile = providers.gradleProperty('tyc2LiveProfile').getOrElse('enhanced')
+        def shotsDir = providers.gradleProperty('tyc2LiveScreenshotsDir').orNull
+        def cmd = [
+                'python3',
+                file('src/qa/run_client_server_live.py').absolutePath,
+                '--manifest', qaBuildDir.get().file('live-launch.json').asFile.absolutePath,
+                '--profile', profile
+        ]
+        if (shotsDir != null && !shotsDir.trim().isEmpty()) {
+            cmd.addAll(['--screenshots-dir', shotsDir])
+        }
+        commandLine cmd
+    }
+}
