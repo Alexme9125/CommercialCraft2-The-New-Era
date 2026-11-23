@@ -52,8 +52,9 @@ public final class PrimitiveMintMachineScreen extends TyC2ScreenBase<PrimitiveMi
             canvas.blit(GUI_TEX, 78, 53, 176, 32, 14, 14);
             String warnTitle = Component.translatable("gui.tyc2.primitive_mint.requires_industrial").getString();
             String fullDetail = Component.translatable("gui.tyc2.primitive_mint.requires_industrial_detail").getString();
+            String shortDetail = Component.translatable("gui.tyc2.primitive_mint.requires_industrial_short").getString();
             // Keep line 2 crisp and unclipped inside 71px LCD width (full detail shown in hover tooltip)
-            String warnDetail = canvas.textWidth(fullDetail) <= 115 ? fullDetail : "200x-1000x / Alloys";
+            String warnDetail = canvas.textWidth(fullDetail) <= 108 ? fullDetail : shortDetail;
             float titleScale = fitScale(canvas, warnTitle, 70, 0.72F);
             float detailScale = fitScale(canvas, warnDetail, 70, 0.68F);
             canvas.drawScaledString(warnTitle, 94, 52, 71, titleScale, 0xFFFFC14D);

@@ -23,6 +23,20 @@ def _read_mod_version(props_path: Path) -> str:
 NEOFORGE_VER = _read_mod_version(ROOT / "gradle.properties")
 FORGE_VER = _read_mod_version(ROOT / "forge-1.19.2/gradle.properties")
 
+BANNED_ADVERTISING_PHRASES = (
+    "1000 格",
+    "1000格",
+    "千格",
+    "0-499",
+    "500-999",
+    "防爆",
+    "防破坏",
+    "blast-proof",
+    "1000-slot",
+    "1,000-slot",
+    "CL:3x3",
+)
+
 TARGETS = [
     (
         "neoforge-1.21.1",
@@ -145,6 +159,19 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
             zh = json.loads(zf.read("assets/tyc2/lang/zh_cn.json").decode("utf-8"))
             if set(en.keys()) != set(zh.keys()):
                 issues.append(f"[{name}] Lang key mismatch: en={len(en)}, zh={len(zh)}")
+            else:
+                for key in sorted(en.keys()):
+                    en_val = str(en[key])
+                    zh_val = str(zh[key])
+                    if en_val.count("%s") != zh_val.count("%s"):
+                        issues.append(
+                            f"[{name}] Placeholder %s mismatch on '{key}': en={en_val.count('%s')}, zh={zh_val.count('%s')}"
+                        )
+                    for phrase in BANNED_ADVERTISING_PHRASES:
+                        if phrase.lower() in en_val.lower():
+                            issues.append(f"[{name}] Banned advertising phrase '{phrase}' in en_us['{key}']: {en_val}")
+                        if phrase.lower() in zh_val.lower():
+                            issues.append(f"[{name}] Banned advertising phrase '{phrase}' in zh_cn['{key}']: {zh_val}")
 
         models = [e for e in entries if e.startswith("assets/tyc2/models/") and e.endswith(".json")]
         blockstates = [e for e in entries if e.startswith("assets/tyc2/blockstates/") and e.endswith(".json")]

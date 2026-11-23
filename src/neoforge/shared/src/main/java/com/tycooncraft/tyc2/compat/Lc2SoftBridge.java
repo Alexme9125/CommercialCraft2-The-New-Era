@@ -38,7 +38,8 @@ public final class Lc2SoftBridge {
 
     /**
      * Scans already-loaded chunks within {@code radius} blocks of {@code center} for LC2 Smart Ports
-     * and Cargo Stations, returning up to 8 human-readable coordinate labels sorted by distance.
+     * and Cargo Stations, returning up to 8 locale-independent {@code blockId|x,y,z} descriptors
+     * sorted by distance (formatted on the client via {@link #formatStationLabel(String)}).
      */
     public static List<String> findNearbyLogisticsStations(ServerLevel level, BlockPos center, int radius) {
         if (!isLc2Loaded() || level == null || center == null || radius <= 0) {
@@ -50,7 +51,7 @@ public final class Lc2SoftBridge {
         int maxCz = (center.getZ() + radius) >> 4;
         long maxDistSq = (long) radius * (long) radius;
 
-        record StationMatch(String label, double distSq) {
+        record StationMatch(String encoded, double distSq) {
         }
         List<StationMatch> matches = new ArrayList<>();
 
@@ -67,10 +68,9 @@ public final class Lc2SoftBridge {
                         continue;
                     }
                     String blockId = TyC2Native.blockId(entry.getValue().getBlockState());
-                    String label = classifyLc2Block(blockId);
-                    if (label != null) {
+                    if (isLc2LogisticsBlock(blockId)) {
                         matches.add(new StationMatch(
-                                label + " (" + bp.getX() + ", " + bp.getY() + ", " + bp.getZ() + ")",
+                                blockId + "|" + bp.getX() + "," + bp.getY() + "," + bp.getZ(),
                                 dSq
                         ));
                     }
@@ -81,25 +81,38 @@ public final class Lc2SoftBridge {
         matches.sort(Comparator.comparingDouble(StationMatch::distSq));
         List<String> out = new ArrayList<>(Math.min(8, matches.size()));
         for (int i = 0; i < Math.min(8, matches.size()); i++) {
-            out.add(matches.get(i).label());
+            out.add(matches.get(i).encoded());
         }
         return out;
     }
 
-    private static String classifyLc2Block(String blockId) {
+    /**
+     * Formats a {@code blockId|x,y,z} station descriptor produced by
+     * {@link #findNearbyLogisticsStations(ServerLevel, BlockPos, int)} using the client's
+     * localized item/block name, falling back cleanly if {@code |} is absent.
+     */
+    public static String formatStationLabel(String encoded) {
+        if (encoded == null || encoded.isBlank()) {
+            return "";
+        }
+        int sep = encoded.indexOf('|');
+        if (sep <= 0 || sep >= encoded.length() - 1) {
+            return encoded;
+        }
+        String blockId = encoded.substring(0, sep);
+        String coords = encoded.substring(sep + 1);
+        return TyC2Native.localizedItemName(blockId) + " (" + coords + ")";
+    }
+
+    private static boolean isLc2LogisticsBlock(String blockId) {
         if (blockId == null || !blockId.startsWith("lc2:")) {
-            return null;
+            return false;
         }
         String path = blockId.substring("lc2:".length());
-        if (path.contains("smart_port")) {
-            return "Smart Port";
-        }
-        if (path.contains("cargo_station")) {
-            return "Cargo Station";
-        }
-        if (path.contains("drone") || path.contains("port") || path.contains("station")) {
-            return "LC2 " + path;
-        }
-        return null;
+        return path.contains("smart_port")
+                || path.contains("cargo_station")
+                || path.contains("drone")
+                || path.contains("port")
+                || path.contains("station");
     }
 }

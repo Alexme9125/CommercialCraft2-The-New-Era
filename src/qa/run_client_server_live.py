@@ -41,9 +41,10 @@ def write_json_atomic(path: Path, data: dict) -> None:
 
 
 class LiveJointSession:
-    def __init__(self, mc_version: str, profile: str, manifest: dict, run_dir: Path, port: int):
+    def __init__(self, mc_version: str, profile: str, lang: str, manifest: dict, run_dir: Path, port: int):
         self.mc_version = mc_version
         self.profile = profile
+        self.lang = lang
         self.manifest = manifest
         self.run_dir = run_dir
         self.server_dir = run_dir / "server"
@@ -93,7 +94,7 @@ class LiveJointSession:
         (self.client_dir / "options.txt").write_text(
             "\n".join([
                 "onboardAccessibility:false",
-                "lang:en_us",
+                f"lang:{self.lang}",
                 "fullscreen:false",
                 "tutorialStep:none",
                 "pauseOnLostFocus:false",
@@ -324,7 +325,7 @@ def scan_log_for_errors(log_path: Path, role: str) -> None:
         raise AssertionError(f"Errors detected in {role} log ({log_path}):\n" + "\n".join(bad[:25]))
 
 
-def run_joint_test(mc_version: str, profile: str, screenshots_dir: Path | None) -> dict:
+def run_joint_test(mc_version: str, profile: str, lang: str, screenshots_dir: Path | None) -> dict:
     manifest_path = ROOT / "src" / "neoforge" / mc_version / "build" / "client-server-live" / "launch.json"
     if not manifest_path.is_file():
         raise FileNotFoundError(
@@ -332,9 +333,9 @@ def run_joint_test(mc_version: str, profile: str, screenshots_dir: Path | None) 
             f"./gradlew --init-script src/qa/neoforge-init.gradle :neoforge:{mc_version}:prepareClientServerPlay"
         )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    run_dir = ROOT / "src" / "neoforge" / mc_version / "build" / "run" / "client-server-live" / f"session-{profile}"
+    run_dir = ROOT / "src" / "neoforge" / mc_version / "build" / "run" / "client-server-live" / f"session-{profile}-{lang}"
     port = pick_free_port()
-    session = LiveJointSession(mc_version, profile, manifest, run_dir, port)
+    session = LiveJointSession(mc_version, profile, lang, manifest, run_dir, port)
     saved_shots: list[str] = []
 
     def capture(filename: str) -> None:
@@ -369,7 +370,12 @@ def run_joint_test(mc_version: str, profile: str, screenshots_dir: Path | None) 
         # Verify /tyc2 status command works live from client -> server -> client chat!
         before_chat = session.act("state").get("chatCount", 0)
         session.act("command", cmd="tyc2 status")
-        st_chat = session.wait_until("tyc2_status_chat", lambda s: s.get("chatCount", 0) > before_chat, timeout=15.0)
+        st_chat = session.wait_until(
+            "tyc2_status_chat",
+            lambda s: s.get("chatCount", 0) > before_chat
+            and ("[TyC2]" in s.get("lastChat", "") or "Nearest:" in s.get("lastChat", "")),
+            timeout=15.0,
+        )
         last_chat = st_chat.get("lastChat", "")
         if "[TyC2]" not in last_chat and "Nearest:" not in last_chat:
             raise AssertionError(f"Unexpected /tyc2 status chat response: {last_chat}")
@@ -379,7 +385,8 @@ def run_joint_test(mc_version: str, profile: str, screenshots_dir: Path | None) 
         time.sleep(0.8)
         session.act("look", yaw=180.0, pitch=11.0)
         time.sleep(0.5)
-        prefix = f"tyc2_{mc_version.replace('.', '_')}_{profile}"
+        lang_suffix = "" if lang == "en_us" else f"_{lang}"
+        prefix = f"tyc2_{mc_version.replace('.', '_')}_{profile}{lang_suffix}"
         capture(f"{prefix}_01_plaza.png")
 
         # Screenshot 2a & 2b: Open PrimitiveMintMachineScreen (active coal minting + amber upgrade-required warning!)
@@ -415,7 +422,7 @@ def run_joint_test(mc_version: str, profile: str, screenshots_dir: Path | None) 
         capture(f"{prefix}_03_atm_gui.png")
         session.act("close_screen")
 
-        # Screenshot 4 & 5: Open CooperationHubScreen (Orders tab + Economy CPI Chart tab!)
+        # Screenshot 4a..4d: Open CooperationHubScreen (ALL 4 tabs: Orders, Warehouse, Economy/CPI, Expansion!)
         hub = site["hub"]
         session.server_live_action("tp_hub")
         time.sleep(0.4)
@@ -423,28 +430,54 @@ def run_joint_test(mc_version: str, profile: str, screenshots_dir: Path | None) 
         hub_st = session.wait_until("hub_screen_open", lambda s: s.get("screen") == "CooperationHubScreen", timeout=15.0)
         time.sleep(0.6)
         capture(f"{prefix}_04_hub_orders.png")
-        # Switch to Economy/CPI tab (tab button index 2: Orders=0, Warehouse=1, Economy=2, Growth=3)
-        if len(hub_st.get("screenButtons", [])) >= 3:
+        if len(hub_st.get("screenButtons", [])) >= 4:
+            # Tab 1: Warehouse
+            session.act("click_button_index", index=1)
+            time.sleep(0.5)
+            capture(f"{prefix}_04b_hub_warehouse.png")
+            # Tab 2: Economy / CPI Trend
             session.act("click_button_index", index=2)
-            time.sleep(0.6)
+            time.sleep(0.5)
             capture(f"{prefix}_05_hub_cpi_chart.png")
+            # Tab 3: Expansion
+            session.act("click_button_index", index=3)
+            time.sleep(0.5)
+            capture(f"{prefix}_05b_hub_expansion.png")
         session.act("close_screen")
 
-        # Screenshot 6: Open CommTerminalScreen by right-clicking held tyc2:comm_terminal in air!
+        # Screenshot 6a..6d: Open CommTerminalScreen (ALL 4 sub-tabs: Orders, Stock, CPI, Growth!)
         session.act("right_click_air")
-        session.wait_until("terminal_screen_open", lambda s: s.get("screen") == "CommTerminalScreen", timeout=15.0)
+        term_st = session.wait_until("terminal_screen_open", lambda s: s.get("screen") == "CommTerminalScreen", timeout=15.0)
         time.sleep(0.6)
         capture(f"{prefix}_06_comm_terminal.png")
+        if len(term_st.get("screenButtons", [])) >= 6:
+            # CommTerminal buttons 0,1 = rail < >, buttons 2,3,4,5 = Orders, Stock, CPI, Growth
+            session.act("click_button_index", index=3)
+            time.sleep(0.5)
+            capture(f"{prefix}_06b_comm_terminal_stock.png")
+            session.act("click_button_index", index=4)
+            time.sleep(0.5)
+            capture(f"{prefix}_06c_comm_terminal_cpi.png")
+            session.act("click_button_index", index=5)
+            time.sleep(0.5)
+            capture(f"{prefix}_06d_comm_terminal_growth.png")
         session.act("close_screen")
 
-        # Screenshot 7: Teleport to Village #2 and right-click Golden Mayor -> MayorNegotiationScreen!
+        # Screenshot 7: Teleport to Village #2 and right-click Golden Mayor -> MayorNegotiationScreen + verify live hold!
         session.server_live_action("tp_mayor")
         time.sleep(0.8)
         session.act("interact_mayor")
         session.wait_until("mayor_screen_open", lambda s: s.get("screen") == "MayorNegotiationScreen", timeout=15.0)
         time.sleep(0.6)
+        open_state = session.server_live_action("dump_state")
+        if not open_state.get("mayorNegotiatingWithClient"):
+            raise AssertionError(f"Mayor did not lock tradingPlayer during live negotiation: {open_state}")
         capture(f"{prefix}_07_mayor_negotiation.png")
         session.act("close_screen")
+        time.sleep(0.4)
+        closed_state = session.server_live_action("dump_state")
+        if closed_state.get("mayorNegotiatingWithClient"):
+            raise AssertionError(f"Mayor did not release tradingPlayer after closing negotiation: {closed_state}")
 
         srv_state = session.server_live_action("dump_state")
         print(f"[{mc_version}/{profile}] All 6 GUIs + CPI chart + 35/35 sprites verified! serverState={srv_state}", flush=True)
@@ -458,15 +491,17 @@ def run_joint_test(mc_version: str, profile: str, screenshots_dir: Path | None) 
     summary = {
         "mcVersion": mc_version,
         "profile": profile,
+        "lang": lang,
         "status": "PASSED",
         "port": port,
         "spritesChecked": 35,
+        "mayorNegotiationHoldVerified": True,
         "screensVerified": [
             "PrimitiveMintMachineScreen (Active + Blocked Warning)",
             "MintMachineScreen (Pure Electric)",
             "AtmMachineScreen",
-            "CooperationHubScreen (Orders + CPI Chart)",
-            "CommTerminalScreen",
+            "CooperationHubScreen (Orders + Warehouse + Economy/CPI + Expansion)",
+            "CommTerminalScreen (Orders + Stock + CPI + Growth)",
             "MayorNegotiationScreen",
         ],
         "screenshots": saved_shots,
@@ -475,7 +510,7 @@ def run_joint_test(mc_version: str, profile: str, screenshots_dir: Path | None) 
     }
     report_path = run_dir / "joint-qa-report.json"
     report_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
-    print(f"[{mc_version}/{profile}] CLIENT-SERVER JOINT QA PASSED! Report: {report_path}", flush=True)
+    print(f"[{mc_version}/{profile}/{lang}] CLIENT-SERVER JOINT QA PASSED! Report: {report_path}", flush=True)
     return summary
 
 
@@ -483,9 +518,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mc-version", required=True, choices=["1.21.1", "26.1.2", "26.2"])
     parser.add_argument("--profile", default="standalone", choices=["standalone", "enhanced"])
+    parser.add_argument("--lang", default="en_us", choices=["en_us", "zh_cn"])
     parser.add_argument("--screenshots-dir", type=Path, default=None)
     args = parser.parse_args()
-    run_joint_test(args.mc_version, args.profile, args.screenshots_dir)
+    run_joint_test(args.mc_version, args.profile, args.lang, args.screenshots_dir)
     return 0
 
 

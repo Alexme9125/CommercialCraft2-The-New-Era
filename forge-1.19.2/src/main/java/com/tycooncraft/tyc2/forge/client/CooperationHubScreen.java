@@ -2,6 +2,7 @@ package com.tycooncraft.tyc2.forge.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.tycooncraft.tyc2.forge.compat.Lc2SoftBridge;
 import com.tycooncraft.tyc2.forge.gui.CooperationHubMenu;
 import com.tycooncraft.tyc2.forge.network.C2SHubActionPacket;
 import com.tycooncraft.tyc2.forge.network.S2CHubSyncPacket;
@@ -16,6 +17,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
@@ -120,21 +122,21 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
                 }
         ));
         qtyPresetBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 146, topPos + 50, 44, 12, Component.literal("Qty:1"),
+                leftPos + 146, topPos + 50, 56, 12, Component.translatable("gui.tyc2.hub.qty_preset", 1),
                 btn -> {
                     orderQtyPreset = (orderQtyPreset + 1) % 3;
                     refreshWidgetVisibility();
                 }
         ));
         orderPrevBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 206, topPos + 50, 14, 12, Component.literal("<"),
+                leftPos + 206, topPos + 50, 14, 12, Component.translatable("gui.tyc2.prev"),
                 btn -> {
                     orderPage = Math.max(0, orderPage - 1);
                     refreshWidgetVisibility();
                 }
         ));
         orderNextBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 222, topPos + 50, 14, 12, Component.literal(">"),
+                leftPos + 222, topPos + 50, 14, 12, Component.translatable("gui.tyc2.next"),
                 btn -> {
                     orderPage++;
                     refreshWidgetVisibility();
@@ -148,14 +150,14 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
                     btn -> executeOrderRow(row)
             ));
             orderAutoBtns[i] = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                    leftPos + 220, ry, 18, 14, Component.literal("A"),
+                    leftPos + 220, ry, 18, 14, Component.translatable("gui.tyc2.hub.btn.auto_tiny.off"),
                     btn -> toggleOrderAutoRow(row)
             ));
         }
 
-        // --- Tab 1: Warehouse controls ---
+        // --- Tab 1: Warehouse controls (zero slot-count/index advertising) ---
         zoneToggleBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 10, topPos + 50, 62, 12, Component.literal("In 0-499"),
+                leftPos + 10, topPos + 50, 62, 12, Component.translatable("gui.tyc2.hub.zone.inbound"),
                 btn -> {
                     warehouseOutbound = !warehouseOutbound;
                     warehousePage = 0;
@@ -170,14 +172,14 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
         });
         addRenderableWidget(searchBox);
         whPrevBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 150, topPos + 50, 14, 12, Component.literal("<"),
+                leftPos + 150, topPos + 50, 14, 12, Component.translatable("gui.tyc2.prev"),
                 btn -> {
                     warehousePage = Math.max(0, warehousePage - 1);
                     sendWarehouseView();
                 }
         ));
         whNextBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 188, topPos + 50, 14, 12, Component.literal(">"),
+                leftPos + 188, topPos + 50, 14, 12, Component.translatable("gui.tyc2.next"),
                 btn -> {
                     if (sync != null && warehousePage + 1 < sync.totalPages) {
                         warehousePage++;
@@ -186,7 +188,7 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
                 }
         ));
         whDepositBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 204, topPos + 50, 34, 12, Component.literal("Put"),
+                leftPos + 204, topPos + 50, 34, 12, Component.translatable("gui.tyc2.hub.btn.put"),
                 btn -> TyC2ForgeNetwork.sendToServer(C2SHubActionPacket.simple(
                         menu.getHubPos(), C2SHubActionPacket.Action.WAREHOUSE_DEPOSIT_HELD
                 ))
@@ -200,19 +202,19 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
                 ))
         ));
         expDeliverBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 10, topPos + 118, 48, 13, Component.translatable("gui.tyc2.hub.deliver"),
+                leftPos + 10, topPos + 118, 42, 13, Component.translatable("gui.tyc2.hub.deliver"),
                 btn -> TyC2ForgeNetwork.sendToServer(C2SHubActionPacket.simple(
                         menu.getHubPos(), C2SHubActionPacket.Action.DELIVER_EXPANSION
                 ))
         ));
         expAutoBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 60, topPos + 118, 30, 13, Component.literal("Auto"),
+                leftPos + 53, topPos + 118, 34, 13, Component.translatable("gui.tyc2.hub.auto_short.off"),
                 btn -> TyC2ForgeNetwork.sendToServer(C2SHubActionPacket.simple(
                         menu.getHubPos(), C2SHubActionPacket.Action.TOGGLE_EXPANSION_AUTO
                 ))
         ));
         expPauseBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 92, topPos + 118, 30, 13, Component.literal("Run"),
+                leftPos + 88, topPos + 118, 34, 13, Component.translatable("gui.tyc2.hub.pause_btn"),
                 btn -> TyC2ForgeNetwork.sendToServer(C2SHubActionPacket.simple(
                         menu.getHubPos(), C2SHubActionPacket.Action.TOGGLE_EXPANSION_PAUSE
                 ))
@@ -349,11 +351,11 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
         sideFilterBtn.setMessage(Component.translatable(showBuyOrders ? "gui.tyc2.hub.buy_orders" : "gui.tyc2.hub.sell_orders"));
 
         qtyPresetBtn.visible = t0;
-        qtyPresetBtn.setMessage(Component.literal(switch (orderQtyPreset) {
-            case 0 -> "Qty:1";
-            case 1 -> "Qty:8";
-            default -> "Qty:Max";
-        }));
+        qtyPresetBtn.setMessage(switch (orderQtyPreset) {
+            case 0 -> Component.translatable("gui.tyc2.hub.qty_preset", 1);
+            case 1 -> Component.translatable("gui.tyc2.hub.qty_preset", 8);
+            default -> Component.translatable("gui.tyc2.hub.qty_preset", Component.translatable("gui.tyc2.hub.qty_all"));
+        });
 
         orderPrevBtn.visible = t0;
         orderNextBtn.visible = t0;
@@ -371,14 +373,18 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
                         o.isVillageBuy() ? "gui.tyc2.hub.deliver" : "gui.tyc2.hub.buy"
                 ));
                 orderAutoBtns[i].setHighlighted(o.autoFulfill());
-                orderAutoBtns[i].setMessage(Component.literal(o.autoFulfill() ? "ON" : "OF"));
+                orderAutoBtns[i].setMessage(Component.translatable(
+                        o.autoFulfill() ? "gui.tyc2.hub.btn.auto_tiny.on" : "gui.tyc2.hub.btn.auto_tiny.off"
+                ));
             }
         }
 
         // Tab 1
         boolean t1 = activeTab == 1;
         zoneToggleBtn.visible = t1;
-        zoneToggleBtn.setMessage(Component.literal(warehouseOutbound ? "Out 500-999" : "In 0-499"));
+        zoneToggleBtn.setMessage(Component.translatable(
+                warehouseOutbound ? "gui.tyc2.hub.zone.outbound" : "gui.tyc2.hub.zone.inbound"
+        ));
         zoneToggleBtn.setHighlighted(warehouseOutbound);
         zoneToggleBtn.setAccentColor(warehouseOutbound ? 0xFFB86B1A : 0xFF2B6CB0);
         searchBox.visible = t1;
@@ -395,11 +401,16 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
         expAutoBtn.visible = t3 && sync != null && sync.hasExpansion;
         if (sync != null && sync.hasExpansion) {
             expAutoBtn.setHighlighted(sync.expAutoFulfill);
+            expAutoBtn.setMessage(Component.translatable(
+                    sync.expAutoFulfill ? "gui.tyc2.hub.auto_short.on" : "gui.tyc2.hub.auto_short.off"
+            ));
         }
         expPauseBtn.visible = t3;
         if (sync != null) {
             expPauseBtn.setHighlighted(sync.expansionPaused);
-            expPauseBtn.setMessage(Component.literal(sync.expansionPaused ? "Off" : "On"));
+            expPauseBtn.setMessage(Component.translatable(
+                    sync.expansionPaused ? "gui.tyc2.hub.resume_btn" : "gui.tyc2.hub.pause_btn"
+            ));
         }
         renameBox.visible = t3;
         renameSaveBtn.visible = t3;
@@ -465,19 +476,42 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
             return;
         }
 
-        // Banner LCD (8,21,232x24)
-        String head = sync.villageName + " Lv." + sync.level + "  Pop:" + sync.population;
-        font.draw(poseStack, font.plainSubstrByWidth(head, 160), 30, 24, 0xFFDD55);
-        String sub = "Funds:" + TyC2UiWidgets.compactIc(sync.villageBalance) + " IC | CPI:"
-                + String.format(Locale.ROOT, "%.2f", sync.cpi) + " | " + sync.refreshSecondsRemaining + "s";
-        font.draw(poseStack, font.plainSubstrByWidth(sub, 160), 30, 34, 0x88EECC);
+        // Banner LCD (8,21,232x24) — 100% localized
+        String head = Component.translatable("gui.tyc2.hub.level", sync.level, sync.villageName).getString()
+                + "  " + Component.translatable("gui.tyc2.hub.population", sync.population).getString();
+        TyC2UiWidgets.drawFittedString(poseStack, font, head, 30, 24, 160, 0.70F, 0xFFDD55);
+        String sub = Component.translatable("gui.tyc2.hub.village_funds", TyC2UiWidgets.compactIc(sync.villageBalance)).getString()
+                + " | " + Component.translatable("gui.tyc2.hub.status.cpi", String.format(Locale.ROOT, "%.2f", sync.cpi)).getString()
+                + " | " + sync.refreshSecondsRemaining + "s";
+        TyC2UiWidgets.drawFittedString(poseStack, font, sub, 30, 34, 160, 0.65F, 0x88EECC);
 
-        // Status LCD (179,166,61x49)
-        font.draw(poseStack, "B:" + TyC2UiWidgets.compactIc(sync.activeBankBalance), 182, 169, 0x66FF88);
-        font.draw(poseStack, "In:" + sync.inboundUsed + "/500", 182, 179, 0x77BBFF);
-        font.draw(poseStack, "Out:" + sync.outboundUsed + "/500", 182, 189, 0xFFBB66);
+        // Status LCD (179,166,61x49) — 100% localized, zero slot-cap advertising
+        TyC2UiWidgets.drawFittedString(poseStack, font,
+                Component.translatable("gui.tyc2.hub.status.bank", TyC2UiWidgets.compactIc(sync.activeBankBalance)).getString(),
+                182, 169, 56, 0.68F, 0x66FF88);
+        TyC2UiWidgets.drawFittedString(poseStack, font,
+                Component.translatable("gui.tyc2.hub.status.inbound", sync.inboundUsed).getString(),
+                182, 179, 56, 0.68F, 0x77BBFF);
+        TyC2UiWidgets.drawFittedString(poseStack, font,
+                Component.translatable("gui.tyc2.hub.status.outbound", sync.outboundUsed).getString(),
+                182, 189, 56, 0.68F, 0xFFBB66);
         if (!sync.feedback.isEmpty()) {
-            font.draw(poseStack, font.plainSubstrByWidth(sync.feedback, 56), 182, 201, 0xFFDD77);
+            List<FormattedCharSequence> fbLines = font.split(sync.feedbackComponent, 112);
+            if (fbLines.size() <= 1) {
+                TyC2UiWidgets.drawFittedString(poseStack, font, sync.feedback, 182, 200, 56, 0.44F, 0xFFDD77);
+            } else {
+                poseStack.pushPose();
+                poseStack.translate(182.0F, 198.0F, 0.0F);
+                poseStack.scale(0.50F, 0.50F, 1.0F);
+                for (int i = 0; i < Math.min(2, fbLines.size()); i++) {
+                    font.draw(poseStack, fbLines.get(i), 0, i * 11, 0xFFDD77);
+                }
+                poseStack.popPose();
+            }
+        } else {
+            TyC2UiWidgets.drawFittedString(poseStack, font,
+                    Component.translatable(sync.chunkLoaderActive ? "gui.tyc2.hub.status.cl_on" : "gui.tyc2.hub.status.cl_off").getString(),
+                    182, 201, 56, 0.65F, sync.chunkLoaderActive ? 0x66FF88 : 0x8899AA);
         }
 
         // Viewport content (8,48,232x86)
@@ -501,13 +535,12 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
         for (int i = 0; i < ORDERS_PER_PAGE && start + i < list.size(); i++) {
             S2CHubSyncPacket.OrderDto o = list.get(start + i);
             int y = 66 + i * 17;
-            ItemStack icon = TyC2Ids.createStack(o.itemId(), 1, "", o.enchantSpec());
-            String itemName = icon.isEmpty() ? o.itemId() : icon.getHoverName().getString();
-            font.draw(poseStack, font.plainSubstrByWidth(itemName, 74), 30, y + 3, o.seasonalBonus() ? 0xFFEE66 : 0xECEFF4);
-            String qtyStr = o.fulfilledQty() + "/" + o.totalQty();
-            font.draw(poseStack, qtyStr, 106, y + 3, 0xAADDEE);
-            String priceStr = o.unitPrice() + " IC";
-            font.draw(poseStack, priceStr, 142, y + 3, 0x66FF88);
+            String itemName = TyC2Ids.localizedItemName(o.itemId(), o.enchantSpec());
+            TyC2UiWidgets.drawFittedString(poseStack, font, itemName, 30, y + 3, 72, 0.68F, o.seasonalBonus() ? 0xFFEE66 : 0xECEFF4);
+            String qtyStr = Component.translatable("gui.tyc2.hub.order_progress", o.fulfilledQty(), o.totalQty()).getString();
+            TyC2UiWidgets.drawFittedString(poseStack, font, qtyStr, 104, y + 3, 34, 0.72F, 0xAADDEE);
+            String priceStr = Component.translatable("gui.tyc2.hub.unit_price", o.unitPrice()).getString();
+            TyC2UiWidgets.drawFittedString(poseStack, font, priceStr, 140, y + 3, 36, 0.68F, 0x66FF88);
         }
     }
 
@@ -518,60 +551,110 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
 
     private void renderEconomyTab(PoseStack poseStack) {
         int col = sync.cpi > 1.08 ? 0xFF7755 : (sync.cpi < 0.92 ? 0x55DDFF : 0x66FF88);
-        font.draw(poseStack, String.format(Locale.ROOT, "CPI: %.2f", sync.cpi), 12, 52, col);
+        TyC2UiWidgets.drawFittedString(poseStack, font,
+                Component.translatable("gui.tyc2.hub.status.cpi", String.format(Locale.ROOT, "%.2f", sync.cpi)).getString(),
+                12, 52, 90, 0.72F, col);
         String regimeKey = switch (sync.inflationState) {
             case "DEFLATION" -> "gui.tyc2.economy.deflation";
             case "STABLE" -> "gui.tyc2.economy.stable";
             default -> "gui.tyc2.economy.inflation";
         };
-        font.draw(poseStack, Component.translatable(regimeKey), 12, 63, col);
-        font.draw(poseStack, "M: " + TyC2UiWidgets.compactIc(sync.moneySupply) + " IC", 12, 76, 0xFFDD77);
-        font.draw(poseStack, "Q: " + TyC2UiWidgets.compactIc(Math.round(sync.goodsCirculation)), 12, 87, 0x88EECC);
-        font.draw(poseStack, Component.translatable("season.tyc2." + sync.seasonKey), 12, 100, 0xAADDEE);
-        font.draw(poseStack, "Tier: T" + sync.playerTierLevel, 12, 112, 0xCCCCCC);
+        TyC2UiWidgets.drawFittedString(poseStack, font,
+                Component.translatable(regimeKey).getString(), 12, 63, 90, 0.72F, col);
+        TyC2UiWidgets.drawFittedString(poseStack, font,
+                Component.translatable("gui.tyc2.economy.money_supply", TyC2UiWidgets.compactIc(sync.moneySupply)).getString(),
+                12, 76, 90, 0.60F, 0xFFDD77);
+        TyC2UiWidgets.drawFittedString(poseStack, font,
+                Component.translatable("gui.tyc2.economy.goods_circulation", TyC2UiWidgets.compactIc(Math.round(sync.goodsCirculation))).getString(),
+                12, 87, 90, 0.60F, 0x88EECC);
+        TyC2UiWidgets.drawFittedString(poseStack, font,
+                Component.translatable("gui.tyc2.economy.season", Component.translatable("season.tyc2." + sync.seasonKey)).getString(),
+                12, 100, 90, 0.65F, 0xAADDEE);
+        int clampedTier = Math.max(0, Math.min(5, sync.playerTierLevel));
+        TyC2UiWidgets.drawFittedString(poseStack, font,
+                Component.translatable("tier.tyc2." + clampedTier).getString(),
+                12, 112, 90, 0.60F, 0xCCCCCC);
 
         TyC2UiWidgets.drawCpiLineChart(poseStack, font, 106, 51, 130, 78, sync.cpiHistory);
     }
 
     private void renderGrowthLabels(PoseStack poseStack) {
         if (sync.level >= 10) {
-            font.draw(poseStack, Component.translatable("gui.tyc2.hub.max_level"), 10, 52, 0x66FF88);
+            TyC2UiWidgets.drawFittedString(poseStack, font,
+                    Component.translatable("gui.tyc2.hub.max_level").getString(), 10, 52, 114, 0.75F, 0x66FF88);
         } else {
-            font.draw(poseStack, "Lv." + sync.level + " -> " + (sync.level + 1) + " (Sink:" + sync.nextSinkCost + ")", 10, 51, 0xFFDD55);
-            String req = "P:" + sync.population + "/" + sync.nextMinPop + " V:" + TyC2UiWidgets.compactIc(sync.cumulativeVolume) + "/" + TyC2UiWidgets.compactIc(sync.nextMinVol);
-            font.draw(poseStack, font.plainSubstrByWidth(req, 116), 10, 61, 0xAADDEE);
+            TyC2UiWidgets.drawFittedString(poseStack, font,
+                    Component.translatable("gui.tyc2.hub.upgrade_cost", sync.nextSinkCost).getString(),
+                    10, 51, 114, 0.68F, 0xFFDD55);
+            String req = Component.translatable(
+                    "gui.tyc2.hub.upgrade_req",
+                    sync.population + "/" + sync.nextMinPop,
+                    TyC2UiWidgets.compactIc(sync.cumulativeVolume) + "/" + TyC2UiWidgets.compactIc(sync.nextMinVol),
+                    TyC2UiWidgets.compactIc(sync.villageBalance) + "/" + TyC2UiWidgets.compactIc(sync.nextMinBal)
+            ).getString();
+            TyC2UiWidgets.drawFittedString(poseStack, font, req, 10, 61, 114, 0.44F, 0xAADDEE);
         }
 
         if (sync.hasJob) {
             int pct = sync.jobTotal > 0 ? (sync.jobPlaced * 100) / sync.jobTotal : 0;
-            String lbl = Component.translatable("project.tyc2." + sync.jobProjectKey).getString();
-            font.draw(poseStack, font.plainSubstrByWidth("Build: " + lbl + " " + pct + "%", 116), 10, 89, 0x66FF88);
+            String msg = Component.translatable(
+                    "gui.tyc2.expansion.building",
+                    Component.translatable("project.tyc2." + sync.jobProjectKey),
+                    pct
+            ).getString();
+            TyC2UiWidgets.drawFittedString(poseStack, font, msg, 10, 89, 114, 0.65F, 0x66FF88);
         } else if (sync.hasExpansion) {
-            String lbl = Component.translatable("project.tyc2." + sync.expProjectKey).getString();
-            font.draw(poseStack, font.plainSubstrByWidth("Next: " + lbl, 116), 10, 88, 0xFFDD77);
-            StringBuilder mats = new StringBuilder();
-            for (S2CHubSyncPacket.MatDto m : sync.expMaterials) {
-                if (mats.length() > 0) {
-                    mats.append(' ');
+            String proj = Component.translatable(
+                    "gui.tyc2.expansion.project",
+                    Component.translatable("project.tyc2." + sync.expProjectKey)
+            ).getString();
+            TyC2UiWidgets.drawFittedString(poseStack, font, proj, 10, 87, 114, 0.62F, 0xFFDD77);
+            int matCount = sync.expMaterials.size();
+            int splitIdx = matCount <= 2 ? matCount : (matCount + 1) / 2;
+            StringBuilder line1 = new StringBuilder();
+            StringBuilder line2 = new StringBuilder();
+            for (int i = 0; i < matCount; i++) {
+                S2CHubSyncPacket.MatDto m = sync.expMaterials.get(i);
+                StringBuilder dst = i < splitIdx ? line1 : line2;
+                if (dst.length() > 0) {
+                    dst.append(' ');
                 }
-                String shortName = m.itemId().contains(":") ? m.itemId().substring(m.itemId().indexOf(':') + 1) : m.itemId();
-                mats.append(shortName, 0, Math.min(4, shortName.length())).append(':').append(m.delivered()).append('/').append(m.required());
+                dst.append(TyC2Ids.localizedItemName(m.itemId(), null))
+                        .append(':')
+                        .append(m.delivered())
+                        .append('/')
+                        .append(m.required());
             }
-            font.draw(poseStack, font.plainSubstrByWidth(mats.toString(), 116), 10, 99, 0xCCCCCC);
-            font.draw(poseStack, "Budget: " + sync.expBudget + " IC", 10, 108, 0x88EECC);
+            if (line1.length() > 0) {
+                TyC2UiWidgets.drawFittedString(poseStack, font, line1.toString(), 10, 96, 114, 0.45F, 0xCCCCCC);
+            }
+            if (line2.length() > 0) {
+                TyC2UiWidgets.drawFittedString(poseStack, font, line2.toString(), 10, 103, 114, 0.45F, 0xCCCCCC);
+            }
+            TyC2UiWidgets.drawFittedString(poseStack, font,
+                    Component.translatable("gui.tyc2.expansion.budget", sync.expBudget).getString(),
+                    10, 110, 114, 0.60F, 0x88EECC);
         } else {
-            font.draw(poseStack, Component.translatable("gui.tyc2.expansion.none"), 10, 92, 0x99AABB);
+            TyC2UiWidgets.drawFittedString(poseStack, font,
+                    Component.translatable("gui.tyc2.expansion.none").getString(), 10, 92, 114, 0.68F, 0x99AABB);
         }
 
-        // Right column: Nearby LC2 stations
+        // Right column: Nearby stations (localized block names) or village summary
         if (!sync.nearbyLc2Stations.isEmpty()) {
-            font.draw(poseStack, "LC2:", 130, 66, 0x55FFFF);
+            TyC2UiWidgets.drawFittedString(poseStack, font,
+                    Component.translatable("gui.tyc2.terminal.lc2_nearby", sync.nearbyLc2Stations.size()).getString(),
+                    130, 66, 106, 0.65F, 0x55FFFF);
             for (int i = 0; i < Math.min(3, sync.nearbyLc2Stations.size()); i++) {
-                font.draw(poseStack, font.plainSubstrByWidth(sync.nearbyLc2Stations.get(i), 106), 130, 75 + i * 9, 0xAADDEE);
+                String label = Lc2SoftBridge.formatStationLabel(sync.nearbyLc2Stations.get(i));
+                TyC2UiWidgets.drawFittedString(poseStack, font, label, 130, 75 + i * 9, 106, 0.55F, 0xAADDEE);
             }
         } else {
-            font.draw(poseStack, "Vol:" + TyC2UiWidgets.compactIc(sync.cumulativeVolume) + " IC", 130, 72, 0xAADDEE);
-            font.draw(poseStack, "Biome:" + sync.biomeStyleId, 130, 84, 0xCCCCCC);
+            TyC2UiWidgets.drawFittedString(poseStack, font,
+                    Component.translatable("gui.tyc2.hub.trade_volume", TyC2UiWidgets.compactIc(sync.cumulativeVolume)).getString(),
+                    130, 72, 106, 0.65F, 0xAADDEE);
+            TyC2UiWidgets.drawFittedString(poseStack, font,
+                    Component.translatable("biome.tyc2." + sync.biomeStyleId).getString(),
+                    130, 84, 106, 0.72F, 0xCCCCCC);
         }
     }
 

@@ -361,6 +361,15 @@ public final class TyC2ClientLiveServer {
         if (level.getBlockEntity(hubPos) instanceof CooperationHubBlockEntity hub) {
             obj.addProperty("hubChunkLoaderActive", hub.isChunkLoaderActive());
         }
+        boolean mayorHeld = false;
+        if (unpartneredVillageId != null && player != null) {
+            var optV = data.getVillage(unpartneredVillageId);
+            if (optV.isPresent() && optV.get().getMayorState().getMayorEntityUuid() != null) {
+                var mayorEnt = level.getEntity(optV.get().getMayorState().getMayorEntityUuid());
+                mayorHeld = mayorEnt != null && TyC2QaPlatform.villagerTradingPlayer(mayorEnt) == player;
+            }
+        }
+        obj.addProperty("mayorNegotiatingWithClient", mayorHeld);
         writeAtomic(Path.of("server-state.json"), obj);
     }
 

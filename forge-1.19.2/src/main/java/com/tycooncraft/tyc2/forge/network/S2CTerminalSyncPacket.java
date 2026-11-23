@@ -14,6 +14,7 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.api.distmarker.Dist;
@@ -22,7 +23,8 @@ import net.minecraftforge.network.NetworkEvent;
 
 /**
  * S2C snapshot for {@link com.tycooncraft.tyc2.forge.gui.CommTerminalMenu} carrying battery state,
- * up to 16 bound village summaries, selected village full snapshot, and remote Inbound/Outbound stock summaries.
+ * up to 16 bound village summaries, selected village full snapshot, remote stock summaries, and
+ * translatable feedback component.
  */
 public final class S2CTerminalSyncPacket {
 
@@ -47,6 +49,7 @@ public final class S2CTerminalSyncPacket {
     public final S2CHubSyncPacket selectedVillage;
     public final List<StockEntry> inboundSummary;
     public final List<StockEntry> outboundSummary;
+    public final Component feedbackComponent;
     public final String feedback;
 
     public S2CTerminalSyncPacket(
@@ -57,7 +60,7 @@ public final class S2CTerminalSyncPacket {
             @Nullable S2CHubSyncPacket selectedVillage,
             List<StockEntry> inboundSummary,
             List<StockEntry> outboundSummary,
-            String feedback
+            Component feedbackComponent
     ) {
         this.batteryEu = batteryEu;
         this.maxBatteryEu = maxBatteryEu;
@@ -66,11 +69,12 @@ public final class S2CTerminalSyncPacket {
         this.selectedVillage = selectedVillage;
         this.inboundSummary = inboundSummary;
         this.outboundSummary = outboundSummary;
-        this.feedback = feedback == null ? "" : feedback;
+        this.feedbackComponent = feedbackComponent == null ? Component.empty() : feedbackComponent;
+        this.feedback = this.feedbackComponent.getString();
     }
 
-    /** Builds a live remote terminal snapshot (works even when bound village chunks are unloaded!). */
-    public static S2CTerminalSyncPacket buildFor(ServerPlayer player, ItemStack terminalStack, String feedback) {
+    /** Builds a live remote terminal snapshot with translatable feedback. */
+    public static S2CTerminalSyncPacket buildFor(ServerPlayer player, ItemStack terminalStack, Component feedback) {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         int eu = CommTerminalItem.getStoredEu(terminalStack);
         List<UUID> ids = CommTerminalItem.getBoundVillages(terminalStack);
@@ -94,6 +98,7 @@ public final class S2CTerminalSyncPacket {
             }
         }
 
+        Component safeFeedback = feedback == null ? Component.empty() : feedback;
         S2CHubSyncPacket selected = null;
         List<StockEntry> inSum = new ArrayList<>();
         List<StockEntry> outSum = new ArrayList<>();
@@ -103,7 +108,7 @@ public final class S2CTerminalSyncPacket {
             if (vOpt.isPresent()) {
                 VillageRecord v = vOpt.get();
                 selected = S2CHubSyncPacket.buildFor(
-                        player, v, null, CooperationHubStorage.Zone.INBOUND, 0, "", feedback
+                        player, v, null, CooperationHubStorage.Zone.INBOUND, 0, "", safeFeedback
                 );
                 for (Map.Entry<String, Integer> e : v.getStorage().getItemSummary(CooperationHubStorage.Zone.INBOUND).entrySet()) {
                     if (inSum.size() >= 32) {
@@ -128,7 +133,7 @@ public final class S2CTerminalSyncPacket {
                 selected,
                 inSum,
                 outSum,
-                feedback
+                safeFeedback
         );
     }
 
@@ -159,7 +164,7 @@ public final class S2CTerminalSyncPacket {
             buf.writeUtf(e.itemId(), 96);
             buf.writeVarInt(e.count());
         }
-        buf.writeUtf(pkt.feedback, 192);
+        buf.writeComponent(pkt.feedbackComponent);
     }
 
     public static S2CTerminalSyncPacket decode(FriendlyByteBuf buf) {
@@ -189,7 +194,7 @@ public final class S2CTerminalSyncPacket {
         for (int i = 0; i < outCount; i++) {
             outSum.add(new StockEntry(buf.readUtf(96), buf.readVarInt()));
         }
-        String fb = buf.readUtf(192);
+        Component fb = buf.readComponent();
         return new S2CTerminalSyncPacket(eu, maxEu, activeIdx, villages, sel, inSum, outSum, fb);
     }
 

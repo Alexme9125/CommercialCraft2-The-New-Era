@@ -163,13 +163,14 @@ def prepare_server_dir(manifest: dict, run_dir: Path, profile: str, port: int) -
     )
 
 
-def prepare_client_dir(manifest: dict, run_dir: Path, profile: str) -> None:
+def prepare_client_dir(manifest: dict, run_dir: Path, profile: str, lang: str) -> None:
     if run_dir.exists():
         shutil.rmtree(run_dir)
     stage_mods(manifest, run_dir / "mods", profile)
     (run_dir / "options.txt").write_text(
         "\n".join(
             [
+                f"lang:{lang}",
                 "overrideWidth:1280",
                 "overrideHeight:720",
                 "guiScale:3",
@@ -198,26 +199,31 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--profile", required=True, choices=["standalone", "enhanced"])
+    parser.add_argument("--lang", default="en_us")
     parser.add_argument("--screenshots-dir", type=Path, default=None)
     parser.add_argument("--timeout", type=int, default=360)
     args = parser.parse_args()
 
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-    base_dir = Path(manifest["runBaseDir"]) / args.profile
+    base_dir = Path(manifest["runBaseDir"]) / f"{args.profile}-{args.lang}"
     server_dir = base_dir / "server"
     client_dir = base_dir / "client"
     report_dir = Path(manifest["reportDir"])
-    screenshots_dir = args.screenshots_dir or (report_dir / f"live-screenshots-{args.profile}")
+    screenshots_dir = args.screenshots_dir or (report_dir / f"live-screenshots-{args.profile}-{args.lang}")
     screenshots_dir.mkdir(parents=True, exist_ok=True)
 
     port = find_free_port()
     prepare_server_dir(manifest, server_dir, args.profile, port)
-    prepare_client_dir(manifest, client_dir, args.profile)
+    prepare_client_dir(manifest, client_dir, args.profile, args.lang)
 
     server_spec = manifest["server"]
     server_cmd = build_jvm_cmd(
         server_spec,
-        ["-Dtyc2.qa.mode=live_server", f"-Dtyc2.qa.profile={args.profile}"],
+        [
+            "-Dtyc2.qa.mode=live_server",
+            f"-Dtyc2.qa.profile={args.profile}",
+            f"-Dtyc2.live.lang={args.lang}",
+        ],
         [],
         "2048M",
     )
@@ -226,7 +232,7 @@ def main() -> int:
         server_env[str(k)] = str(v)
 
     print(
-        f"\n[TYC2-LIVE] === Starting Forge 1.19.2 Dedicated Server (profile={args.profile}, port={port}) ===",
+        f"\n[TYC2-LIVE] === Starting Forge 1.19.2 Dedicated Server (profile={args.profile}, lang={args.lang}, port={port}) ===",
         flush=True,
     )
     start_time = time.monotonic()
@@ -283,6 +289,7 @@ def main() -> int:
                 [
                     "-Dtyc2.qa.mode=live_client",
                     f"-Dtyc2.qa.profile={args.profile}",
+                    f"-Dtyc2.live.lang={args.lang}",
                     f"-Dtyc2.live.port={live_port}",
                     f"-Dtyc2.live.screenshotsDir={screenshots_dir.resolve()}",
                 ],
@@ -345,11 +352,12 @@ def main() -> int:
     cli_ok = cli_rc == 0 and cli_props.get("status") == "PASSED" and cli_props.get("failedChecks") == "0" and len(cli_errors) == 0
     overall_ok = srv_ok and cli_ok
 
-    report_path = report_dir / f"live-client-server-{args.profile}-report.properties"
+    report_path = report_dir / f"live-client-server-{args.profile}-{args.lang}-report.properties"
     lines = [
-        f"# TycoonCraft 2 Forge 1.19.2 Live Client-Server Report ({args.profile})",
+        f"# TycoonCraft 2 Forge 1.19.2 Live Client-Server Report ({args.profile}, lang={args.lang})",
         f"status={'PASSED' if overall_ok else 'FAILED'}",
         f"profile={args.profile}",
+        f"lang={args.lang}",
         f"server.exitCode={srv_rc}",
         f"server.status={srv_props.get('status', 'MISSING')}",
         f"server.passedChecks={srv_props.get('passedChecks', '0')}",
@@ -365,7 +373,7 @@ def main() -> int:
 
     elapsed = time.monotonic() - start_time
     print("\n[TYC2-LIVE] ==============================================", flush=True)
-    print(f"[TYC2-LIVE] Forge 1.19.2 Client-Server ({args.profile}): {'PASSED' if overall_ok else 'FAILED'} ({elapsed:.1f}s)", flush=True)
+    print(f"[TYC2-LIVE] Forge 1.19.2 Client-Server ({args.profile}, {args.lang}): {'PASSED' if overall_ok else 'FAILED'} ({elapsed:.1f}s)", flush=True)
     print(
         f"[TYC2-LIVE] Server: rc={srv_rc}, status={srv_props.get('status', 'MISSING')}, "
         f"passed={srv_props.get('passedChecks', '0')}, logErrors={len(srv_errors)}",
@@ -376,7 +384,7 @@ def main() -> int:
         f"passed={cli_props.get('passedChecks', '0')}, logErrors={len(cli_errors)}",
         flush=True,
     )
-    for png in sorted(screenshots_dir.glob(f"tyc2_1192_{args.profile}_*.png")):
+    for png in sorted(screenshots_dir.glob(f"tyc2_1192_{args.profile}_{args.lang}_*.png")):
         print(f"  Screenshot: {png.resolve()} ({png.stat().st_size} bytes)", flush=True)
     if srv_errors:
         print("[TYC2-LIVE] Server log errors:", flush=True)

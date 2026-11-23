@@ -202,4 +202,62 @@ class VillageLevelAndMayorTest {
         assertTrue(village.isPartnered());
         assertTrue(village.canGenerateOrders());
     }
+
+    @Test
+    void nitwitsAreStrictlyForbiddenFromBecomingMayor() {
+        VillageRecord village = new VillageRecord(
+                UUID.randomUUID(), "minecraft:overworld", "Greenbelt",
+                new BlockPos3i(50, 64, 50), BiomeStyle.PLAINS);
+        village.establishPartnership(UUID.randomUUID(), null, 200L);
+        MayorState state = village.getMayorState();
+
+        UUID nitwit1Id = UUID.randomUUID();
+        UUID nitwit2Id = UUID.randomUUID();
+        UUID noviceId = UUID.randomUUID();
+
+        MayorElectionRules.MayorCandidate nitwit1 =
+                new MayorElectionRules.MayorCandidate(nitwit1Id, "Nitwit A", true, true, true, 999, 50_000);
+        MayorElectionRules.MayorCandidate nitwit2 =
+                new MayorElectionRules.MayorCandidate(nitwit2Id, "Nitwit B", true, true, true, 500, 40_000);
+        MayorElectionRules.MayorCandidate novice =
+                new MayorElectionRules.MayorCandidate(noviceId, "Novice", true, false, true, 0, 0);
+
+        // 1. Two Nitwit adults -> NO Mayor elected, partnership remains intact
+        assertTrue(MayorElectionRules.selectBestCandidate(List.of(nitwit1, nitwit2)).isEmpty());
+        MayorElectionRules.ElectionOutcome allNitwits =
+                MayorElectionRules.evaluate(state, 2, List.of(nitwit1, nitwit2), 100L);
+        assertEquals(MayorElectionRules.Action.WAITING_FOR_ADULT_CANDIDATE, allNitwits.action());
+        assertNull(allNitwits.mayorUuid());
+        assertFalse(state.hasLivingMayor());
+        assertTrue(state.isReelectionPending());
+        assertEquals(2, state.getLastKnownVillagerCount());
+        assertTrue(village.isPartnered());
+
+        // 2. 1 high-XP Nitwit + 1 0-XP non-nitwit adult -> ALWAYS elects the non-nitwit
+        MayorElectionRules.ElectionOutcome mixed =
+                MayorElectionRules.evaluate(state, 2, List.of(nitwit1, novice), 200L);
+        assertEquals(MayorElectionRules.Action.ELECTED_NEW_MAYOR, mixed.action());
+        assertEquals(noviceId, mixed.mayorUuid());
+        assertEquals(noviceId, state.getMayorEntityUuid());
+
+        // 3a. Legacy save with a Nitwit stored as current Mayor -> automatically disqualified & replaced by non-nitwit
+        state.setMayorEntityUuid(nitwit1Id);
+        state.setMayorName("Legacy Nitwit Mayor");
+        MayorElectionRules.ElectionOutcome replaced =
+                MayorElectionRules.evaluate(state, 2, List.of(nitwit1, novice), 300L);
+        assertEquals(MayorElectionRules.Action.ELECTED_NEW_MAYOR, replaced.action());
+        assertEquals(noviceId, replaced.mayorUuid());
+        assertEquals(noviceId, state.getMayorEntityUuid());
+
+        // 3b. Legacy save with a Nitwit Mayor and NO non-nitwit adults -> cleared & waits cleanly
+        state.setMayorEntityUuid(nitwit1Id);
+        state.setMayorName("Legacy Nitwit Mayor");
+        MayorElectionRules.ElectionOutcome cleared =
+                MayorElectionRules.evaluate(state, 2, List.of(nitwit1, nitwit2), 400L);
+        assertEquals(MayorElectionRules.Action.WAITING_FOR_ADULT_CANDIDATE, cleared.action());
+        assertNull(cleared.mayorUuid());
+        assertFalse(state.hasLivingMayor());
+        assertTrue(state.isReelectionPending());
+        assertTrue(village.isPartnered());
+    }
 }

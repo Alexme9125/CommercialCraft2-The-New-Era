@@ -1,6 +1,5 @@
 package com.tycooncraft.tyc2.forge.network;
 
-import com.tycooncraft.tyc2.core.TriModePowerMath;
 import com.tycooncraft.tyc2.forge.gui.CommTerminalMenu;
 import com.tycooncraft.tyc2.forge.item.CommTerminalItem;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeSavedData;
@@ -79,10 +78,10 @@ public final class C2STerminalActionPacket {
         List<UUID> bound = CommTerminalItem.getBoundVillages(term);
         int activeIdx = Math.min(CommTerminalItem.getActiveIndex(term), Math.max(0, bound.size() - 1));
         UUID activeVillageId = bound.isEmpty() ? null : bound.get(activeIdx);
-        String feedback = "";
+        Component feedback = Component.empty();
 
         switch (pkt.action) {
-            case REQUEST_SYNC -> feedback = "";
+            case REQUEST_SYNC -> feedback = Component.empty();
             case SELECT_VILLAGE -> {
                 if (pkt.intArg >= 0 && pkt.intArg < bound.size()) {
                     CommTerminalItem.setActiveIndex(term, pkt.intArg);
@@ -95,26 +94,18 @@ public final class C2STerminalActionPacket {
             }
             case BUY_FROM_VILLAGE -> {
                 if (activeVillageId != null) {
-                    if (!CommTerminalItem.consumeAction(term, TriModePowerMath.TerminalAction.REMOTE_TRADE)) {
-                        feedback = Component.translatable("status.tyc2.terminal.low_power").getString();
-                    } else {
-                        var res = TycoonForgeWorldManager.executeSellOrder(
-                                player, activeVillageId, pkt.textArg, Math.max(1, pkt.intArg), true, null
-                        );
-                        feedback = res.toComponent().getString();
-                    }
+                    var res = TycoonForgeWorldManager.executeSellOrder(
+                            player, activeVillageId, pkt.textArg, Math.max(1, pkt.intArg), true, null, term
+                    );
+                    feedback = res.toComponent();
                 }
             }
             case SELL_TO_VILLAGE -> {
                 if (activeVillageId != null) {
-                    if (!CommTerminalItem.consumeAction(term, TriModePowerMath.TerminalAction.REMOTE_TRADE)) {
-                        feedback = Component.translatable("status.tyc2.terminal.low_power").getString();
-                    } else {
-                        var res = TycoonForgeWorldManager.executeBuyOrder(
-                                player, activeVillageId, pkt.textArg, Math.max(1, pkt.intArg), true, false
-                        );
-                        feedback = res.toComponent().getString();
-                    }
+                    var res = TycoonForgeWorldManager.executeBuyOrder(
+                            player, activeVillageId, pkt.textArg, Math.max(1, pkt.intArg), true, false, term
+                    );
+                    feedback = res.toComponent();
                 }
             }
             case TOGGLE_ORDER_AUTO -> {
@@ -124,21 +115,13 @@ public final class C2STerminalActionPacket {
             }
             case UPGRADE_VILLAGE -> {
                 if (activeVillageId != null) {
-                    if (!CommTerminalItem.consumeAction(term, TriModePowerMath.TerminalAction.REMOTE_UPGRADE_OR_EXPANSION)) {
-                        feedback = Component.translatable("status.tyc2.terminal.low_power").getString();
-                    } else {
-                        feedback = TycoonForgeWorldManager.upgradeVillage(player, activeVillageId).toComponent().getString();
-                    }
+                    feedback = TycoonForgeWorldManager.upgradeVillage(player, activeVillageId, term).toComponent();
                 }
             }
             case DELIVER_EXPANSION -> {
                 if (activeVillageId != null) {
-                    if (!CommTerminalItem.consumeAction(term, TriModePowerMath.TerminalAction.REMOTE_UPGRADE_OR_EXPANSION)) {
-                        feedback = Component.translatable("status.tyc2.terminal.low_power").getString();
-                    } else {
-                        feedback = TycoonForgeWorldManager.deliverExpansionMaterials(player, activeVillageId, false)
-                                .toComponent().getString();
-                    }
+                    feedback = TycoonForgeWorldManager.deliverExpansionMaterials(player, activeVillageId, false, term)
+                            .toComponent();
                 }
             }
             case TOGGLE_EXPANSION_AUTO -> {

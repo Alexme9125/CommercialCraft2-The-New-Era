@@ -57,7 +57,7 @@ public final class MayorNegotiationScreen extends TyC2ScreenBase<MayorNegotiatio
         canvas.blit(GUI_TEX, 0, 0, 0, 0, imageWidth, imageHeight);
 
         Map<String, Object> snap = menu.snapshot();
-        String name = JsonLite.getString(snap, "villageName", "Village");
+        String name = JsonLite.getString(snap, "villageName", "");
         String biome = JsonLite.getString(snap, "biome", "plains");
         int pop = JsonLite.getInt(snap, "population", 0);
         boolean canSign = JsonLite.getBoolean(snap, "canSign", false);
@@ -108,18 +108,10 @@ public final class MayorNegotiationScreen extends TyC2ScreenBase<MayorNegotiatio
         int haveFood = JsonLite.getInt(snap, "haveFood", 0);
         boolean foodOk = JsonLite.getBoolean(snap, "foodOk", false);
 
-        drawReqRow(canvas, 56, icOk,
-                Component.translatable("gui.tyc2.mayor.req_currency", haveIc + "/" + reqIc).getString(),
-                "Capital: " + haveIc + "/" + reqIc + " IC");
-        drawReqRow(canvas, 70, logsOk,
-                Component.translatable("gui.tyc2.mayor.req_logs", haveLogs + "/" + reqLogs).getString(),
-                "Logs: " + haveLogs + "/" + reqLogs);
-        drawReqRow(canvas, 84, ironOk,
-                Component.translatable("gui.tyc2.mayor.req_iron", haveIron + "/" + reqIron).getString(),
-                "Iron: " + haveIron + "/" + reqIron);
-        drawReqRow(canvas, 98, foodOk,
-                Component.translatable("gui.tyc2.mayor.req_food", haveFood + "/" + reqFood).getString(),
-                "Food: " + haveFood + "/" + reqFood);
+        drawReqRow(canvas, 56, icOk, Component.translatable("gui.tyc2.mayor.req_currency", haveIc + "/" + reqIc).getString());
+        drawReqRow(canvas, 70, logsOk, Component.translatable("gui.tyc2.mayor.req_logs", haveLogs + "/" + reqLogs).getString());
+        drawReqRow(canvas, 84, ironOk, Component.translatable("gui.tyc2.mayor.req_iron", haveIron + "/" + reqIron).getString());
+        drawReqRow(canvas, 98, foodOk, Component.translatable("gui.tyc2.mayor.req_food", haveFood + "/" + reqFood).getString());
 
         // Action Bar Wax Seal at (14, 121, 20x20) from UV (64, 196, 20x20)
         canvas.blit(GUI_TEX, 14, 121, 64, 196, 20, 20);
@@ -129,21 +121,21 @@ public final class MayorNegotiationScreen extends TyC2ScreenBase<MayorNegotiatio
         String b2 = Component.translatable("gui.tyc2.mayor.benefits.line2").getString();
         String b3 = Component.translatable("gui.tyc2.mayor.benefits.line3").getString();
         int maxBenW = Math.max(canvas.textWidth(b1), Math.max(canvas.textWidth(b2), canvas.textWidth(b3)));
-        float benScale = maxBenW <= 194 ? 1.0F : Math.max(0.55F, Math.min(0.68F, 194.0F / (float) maxBenW));
+        float benScale = maxBenW <= 194 ? 1.0F : Math.max(0.55F, Math.min(0.82F, 194.0F / (float) maxBenW));
         canvas.drawScaledString(b1, 12, 153, 196, benScale, 0xFF8BE8B0);
         canvas.drawScaledString(b2, 12, 163, 196, benScale, 0xFF8BE8B0);
         canvas.drawScaledString(b3, 12, 173, 196, benScale, 0xFF8BE8B0);
     }
 
-    private void drawReqRow(ScreenCanvas canvas, int y, boolean ok, String fullLabel, String compactLabel) {
+    private void drawReqRow(ScreenCanvas canvas, int y, boolean ok, String label) {
         // Green Check (8, 196, 14x14) or Red Cross (26, 196, 14x14), cleanly right of x=92..93 divider
         canvas.blit(GUI_TEX, 95, y - 2, ok ? 8 : 26, 196, 14, 14);
-        String text = canvas.textWidth(fullLabel) <= 98 ? fullLabel : compactLabel;
-        if (canvas.textWidth(text) <= 98) {
-            canvas.drawClippedString(text, 110, y + 1, 98, ok ? 0xFF1F6E35 : 0xFFA62626);
+        int w = canvas.textWidth(label);
+        if (w <= 98) {
+            canvas.drawClippedString(label, 110, y + 1, 98, ok ? 0xFF1F6E35 : 0xFFA62626);
         } else {
-            float sc = Math.max(0.68F, 98.0F / (float) canvas.textWidth(text));
-            canvas.drawScaledString(text, 110, y + 1, 98, sc, ok ? 0xFF1F6E35 : 0xFFA62626);
+            float sc = Math.max(0.65F, 98.0F / (float) w);
+            canvas.drawScaledString(label, 110, y + 1, 98, sc, ok ? 0xFF1F6E35 : 0xFFA62626);
         }
     }
 

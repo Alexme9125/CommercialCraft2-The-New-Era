@@ -15,6 +15,7 @@ import com.tycooncraft.tyc2.forge.block.PrimitiveMintMachineBlockEntity;
 import com.tycooncraft.tyc2.forge.compat.Ic2Bridge;
 import com.tycooncraft.tyc2.forge.compat.Lc2SoftBridge;
 import com.tycooncraft.tyc2.forge.data.TyC2RuntimeData;
+import com.tycooncraft.tyc2.forge.gui.MayorNegotiationMenu;
 import com.tycooncraft.tyc2.forge.item.CommTerminalItem;
 import com.tycooncraft.tyc2.forge.util.TyC2Ids;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeSavedData;
@@ -42,13 +43,17 @@ import java.util.UUID;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerProfession;
 import net.minecraft.world.item.Item;
@@ -99,6 +104,7 @@ final class TyC2QaServerRunner {
         W4_VILLAGE_ONE_VILLAGER_SETUP,
         W4_VILLAGE_ONE_VILLAGER_WAIT,
         W4_VILLAGE_MULTI_VILLAGER_WAIT,
+        W4_MAYOR_TETHER_AND_NITWIT_STRIP_WAIT,
         W5_PARTNERSHIP_HUB_AND_ISOLATION,
         W5_WAIT_AUTOFULFILL,
         W6_UPGRADE_AND_EXPANSION_SETUP,
@@ -137,11 +143,19 @@ final class TyC2QaServerRunner {
     private BlockPos ic2CablePrimPos;
     private BlockPos ic2PrimPos;
     private BlockPos ic2SingleUseBatMintPos;
+    private BlockPos nitwitHubPos;
     private BlockPos lc2HubPos;
 
     private FakePlayer playerA;
     private FakePlayer playerB;
     private UUID villageId;
+    private UUID nitwitVillageId;
+    private UUID nitwit1Uuid;
+    private UUID nitwit2Uuid;
+    private UUID eligibleNonNitwitUuid;
+    private UUID tetherMayorUuid;
+    private double tetherInitialDistSq;
+    private boolean checkedMayorTether = false;
     private UUID lc2VillageId;
     private String companyId;
     private UUID firstMayorUuid;
@@ -239,6 +253,7 @@ final class TyC2QaServerRunner {
                 ic2CablePrimPos = new BlockPos(-13, surfaceY, -18);
                 ic2PrimPos = new BlockPos(-14, surfaceY, -18);
                 ic2SingleUseBatMintPos = new BlockPos(-14, surfaceY, -14);
+                nitwitHubPos = new BlockPos(120, surfaceY, 120); // Isolated >169 blocks from origin & lc2HubPos
                 lc2HubPos = new BlockPos(160, surfaceY, 0); // Far chunk (10, 0) with NO QA force ticket!
 
                 if ("write".equals(phase)) {
@@ -442,6 +457,29 @@ final class TyC2QaServerRunner {
                         BiomeStyle.PLAINS
                 );
                 data.putVillage(rec);
+
+                // In parallel, set up isolated Nitwit-only village at (120, y, 120): 2 adult NITWITS MUST NOT elect Mayor!
+                ChunkPos nc = new ChunkPos(nitwitHubPos);
+                for (int dx = -1; dx <= 1; dx++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+                        level.setChunkForced(nc.x + dx, nc.z + dz, true);
+                        level.getChunk(nc.x + dx, nc.z + dz);
+                    }
+                }
+                level.setBlock(nitwitHubPos, Blocks.BELL.defaultBlockState(), Block.UPDATE_ALL);
+                Villager nw1 = spawnAdultVillager(level, nitwitHubPos.offset(2, 0, 0), VillagerProfession.NITWIT, "NitwitOne");
+                Villager nw2 = spawnAdultVillager(level, nitwitHubPos.offset(-2, 0, 0), VillagerProfession.NITWIT, "NitwitTwo");
+                nitwit1Uuid = nw1.getUUID();
+                nitwit2Uuid = nw2.getUUID();
+                nitwitVillageId = UUID.randomUUID();
+                VillageRecord nitwitRec = new VillageRecord(
+                        nitwitVillageId,
+                        level.dimension().location().toString(),
+                        "QA Nitwit Hollow",
+                        TyC2Ids.toCore(nitwitHubPos),
+                        BiomeStyle.PLAINS
+                );
+                data.putVillage(nitwitRec);
                 advance(Stage.W4_VILLAGE_ONE_VILLAGER_WAIT);
             }
 
@@ -456,7 +494,29 @@ final class TyC2QaServerRunner {
                         rec.getMayorState().getMayorEntityUuid() == null,
                         "pop=" + rec.getPopulation() + ", mayor=" + rec.getMayorState().getMayorEntityUuid());
 
-                // Now spawn 2 more adult villagers (total 3 >= 2) -> Mayor MUST be elected on next 100-tick scan!
+                // Verify Nitwit-only village (2 adult Nitwits, 0 non-nitwits) elected NO Mayor!
+                VillageRecord nwRec = data.getVillage(nitwitVillageId).orElseThrow();
+                Villager nw1 = findVillagerByUuid(level, nitwitHubPos, nitwit1Uuid);
+                Villager nw2 = findVillagerByUuid(level, nitwitHubPos, nitwit2Uuid);
+                qa.check("nitwit.two_nitwits_no_mayor_elected",
+                        nwRec.getMayorState().getMayorEntityUuid() == null
+                                && nw1 != null && !nw1.getPersistentData().getBoolean(TycoonForgeWorldManager.TAG_MAYOR)
+                                && nw2 != null && !nw2.getPersistentData().getBoolean(TycoonForgeWorldManager.TAG_MAYOR),
+                        "mayor=" + nwRec.getMayorState().getMayorEntityUuid()
+                                + ", nw1Tag=" + (nw1 != null && nw1.getPersistentData().getBoolean(TycoonForgeWorldManager.TAG_MAYOR))
+                                + ", nw2Tag=" + (nw2 != null && nw2.getPersistentData().getBoolean(TycoonForgeWorldManager.TAG_MAYOR)));
+
+                // Legacy save simulation: force-tag Nitwit #1 as Mayor, then add 1 eligible non-nitwit adult!
+                nw1.getPersistentData().putBoolean(TycoonForgeWorldManager.TAG_MAYOR, true);
+                nw1.getPersistentData().putString(TycoonForgeWorldManager.TAG_VILLAGE_ID, nitwitVillageId.toString());
+                nw1.setCustomName(Component.literal("[Mayor] LegacyNitwit"));
+                nw1.setCustomNameVisible(true);
+                nw1.setGlowingTag(true);
+                nwRec.getMayorState().assignMayor(nw1.getUUID(), "LegacyNitwit", level.getGameTime());
+                Villager eligible = spawnAdultVillager(level, nitwitHubPos.offset(0, 0, 2), VillagerProfession.LIBRARIAN, "EligibleLibrarian");
+                eligibleNonNitwitUuid = eligible.getUUID();
+
+                // Now spawn 2 more adult villagers (total 3 >= 2) at main Bell -> Mayor MUST be elected on next 100-tick scan!
                 spawnAdultVillager(level, hubPos.offset(-2, 0, 0), VillagerProfession.LIBRARIAN, "SecondVillager");
                 spawnAdultVillager(level, hubPos.offset(0, 0, 2), VillagerProfession.CLERIC, "ThirdVillager");
                 advance(Stage.W4_VILLAGE_MULTI_VILLAGER_WAIT);
@@ -488,10 +548,96 @@ final class TyC2QaServerRunner {
                                     && newMayor.isAlive()
                                     && newMayor.getPersistentData().getBoolean(TycoonForgeWorldManager.TAG_MAYOR),
                             "old=" + firstMayorUuid + " -> new=" + afterDeathMayor);
-                    advance(Stage.W5_PARTNERSHIP_HUB_AND_ISOLATION);
+
+                    // Verify Mayor Negotiation Hold (stationary + tradingPlayer + facing player, then clean release!)
+                    newMayor.moveTo(hubPos.getX() + 0.5, surfaceY, hubPos.getZ() + 0.5, 0.0F, 0.0F);
+                    playerA.setPos(hubPos.getX() + 3.5, surfaceY, hubPos.getZ() + 0.5);
+                    newMayor.setDeltaMovement(0.4, 0.0, -0.3);
+                    TycoonForgeWorldManager.startMayorNegotiation(playerA, newMayor);
+                    MayorNegotiationMenu negMenu = new MayorNegotiationMenu(1, playerA.getInventory(), villageId, newMayor.getUUID());
+                    float expectedYaw = (float) (Mth.atan2(playerA.getZ() - newMayor.getZ(), playerA.getX() - newMayor.getX()) * (180.0 / Math.PI)) - 90.0F;
+                    float yawDiff = Math.abs(Mth.wrapDegrees(newMayor.getYHeadRot() - expectedYaw));
+                    qa.check("mayor.negotiation_hold_active",
+                            newMayor.getTradingPlayer() == playerA
+                                    && newMayor.getNavigation().isDone()
+                                    && Math.abs(newMayor.getDeltaMovement().x) < 1e-6
+                                    && Math.abs(newMayor.getDeltaMovement().z) < 1e-6
+                                    && yawDiff < 2.0F,
+                            "trading=" + (newMayor.getTradingPlayer() == playerA)
+                                    + ", navDone=" + newMayor.getNavigation().isDone()
+                                    + ", vel=" + newMayor.getDeltaMovement()
+                                    + ", yawDiff=" + yawDiff);
+                    negMenu.removed(playerA);
+                    qa.check("mayor.negotiation_hold_released_on_close",
+                            newMayor.getTradingPlayer() == null,
+                            "tradingAfterClose=" + newMayor.getTradingPlayer());
+
+                    // Setup daytime Plaza Tether test: move Mayor >18 blocks away from Bell during daytime!
+                    level.setDayTime(6000L);
+                    tetherMayorUuid = newMayor.getUUID();
+                    newMayor.moveTo(hubPos.getX() + 20.5, surfaceY, hubPos.getZ() + 0.5, 0.0F, 0.0F);
+                    newMayor.getNavigation().stop();
+                    tetherInitialDistSq = newMayor.distanceToSqr(hubPos.getX() + 0.5, surfaceY, hubPos.getZ() + 0.5);
+                    advance(Stage.W4_MAYOR_TETHER_AND_NITWIT_STRIP_WAIT);
                 } else if (stageTicks > 130) {
                     throw new AssertionError("Mayor was not elected with 3 villagers within 130 ticks");
                 }
+            }
+
+            case W4_MAYOR_TETHER_AND_NITWIT_STRIP_WAIT -> {
+                level.setDayTime(6000L);
+                if (stageTicks < 35) {
+                    return;
+                }
+                TycoonForgeSavedData data = TycoonForgeSavedData.get(server);
+                // 1. Verify Plaza Tether ONCE after >=35 ticks so 20-tick tickMayorAnchors ran!
+                if (!checkedMayorTether) {
+                    checkedMayorTether = true;
+                    Villager tetherMayor = findVillagerByUuid(level, hubPos, tetherMayorUuid);
+                    qa.check("mayor.tether_mayor_alive", tetherMayor != null && tetherMayor.isAlive(), "uuid=" + tetherMayorUuid);
+                    Optional<GlobalPos> mpOpt = tetherMayor.getBrain().getMemory(MemoryModuleType.MEETING_POINT);
+                    GlobalPos expectedMp = GlobalPos.of(level.dimension(), hubPos);
+                    qa.check("mayor.tether_meeting_point_bound_to_hub",
+                            mpOpt.isPresent() && expectedMp.equals(mpOpt.get()),
+                            "meetingPoint=" + mpOpt);
+                    double curDistSq = tetherMayor.distanceToSqr(hubPos.getX() + 0.5, surfaceY, hubPos.getZ() + 0.5);
+                    var navPath = tetherMayor.getNavigation().getPath();
+                    boolean movingOrTargetingPlaza = curDistSq < tetherInitialDistSq - 0.25
+                            || (navPath != null && navPath.getTarget().distSqr(hubPos) < 16.0);
+                    qa.check("mayor.tether_navigates_back_toward_plaza",
+                            movingOrTargetingPlaza,
+                            String.format("initDist=%.2f -> curDist=%.2f, navTarget=%s",
+                                    Math.sqrt(tetherInitialDistSq), Math.sqrt(curDistSq),
+                                    navPath == null ? "null" : navPath.getTarget()));
+                    // Return Mayor back near Bell so subsequent stages run cleanly
+                    tetherMayor.moveTo(hubPos.getX() + 1.5, surfaceY, hubPos.getZ() + 1.5, 0.0F, 0.0F);
+                }
+
+                // 2. Verify legacy Nitwit Mayor was disqualified & stripped and non-nitwit became Mayor!
+                VillageRecord nwRec = data.getVillage(nitwitVillageId).orElseThrow();
+                if (!eligibleNonNitwitUuid.equals(nwRec.getMayorState().getMayorEntityUuid())) {
+                    if (stageTicks > 130) {
+                        throw new AssertionError("Legacy Nitwit Mayor was not replaced by eligible adult within 130 ticks: "
+                                + nwRec.getMayorState().getMayorEntityUuid());
+                    }
+                    return;
+                }
+                Villager nw1 = findVillagerByUuid(level, nitwitHubPos, nitwit1Uuid);
+                Villager eligible = findVillagerByUuid(level, nitwitHubPos, eligibleNonNitwitUuid);
+                qa.check("nitwit.legacy_nitwit_replaced_by_non_nitwit",
+                        eligibleNonNitwitUuid.equals(nwRec.getMayorState().getMayorEntityUuid())
+                                && eligible != null && eligible.getPersistentData().getBoolean(TycoonForgeWorldManager.TAG_MAYOR),
+                        "elected=" + nwRec.getMayorState().getMayorEntityUuid());
+                qa.check("nitwit.legacy_nitwit_tags_and_name_stripped",
+                        nw1 != null
+                                && !nw1.getPersistentData().getBoolean(TycoonForgeWorldManager.TAG_MAYOR)
+                                && !nw1.getPersistentData().contains(TycoonForgeWorldManager.TAG_VILLAGE_ID)
+                                && !nw1.hasCustomName()
+                                && !nw1.hasGlowingTag(),
+                        "tagMayor=" + (nw1 != null && nw1.getPersistentData().getBoolean(TycoonForgeWorldManager.TAG_MAYOR))
+                                + ", hasName=" + (nw1 != null && nw1.hasCustomName())
+                                + ", glowing=" + (nw1 != null && nw1.hasGlowingTag()));
+                advance(Stage.W5_PARTNERSHIP_HUB_AND_ISOLATION);
             }
 
             case W5_PARTNERSHIP_HUB_AND_ISOLATION -> {
@@ -905,10 +1051,62 @@ final class TyC2QaServerRunner {
         qa.check("hub.outbound_extract_succeeds", !extractedOutbound.isEmpty(),
                 "extractedOutbound=" + extractedOutbound);
 
-        // Setup Auto-Fulfill on a Village Buy Order & pipe required items into Inbound 0..499!
+        // Setup Buy-Order delivery & accurate village-funds error message verification (#73)!
         village.adjustVillageBalance(5000L);
+        String qaCopperOrderId = "qa_buy_copper_" + level.getGameTime();
+        List<VillageTradeOrder> withQaOrder = new ArrayList<>(village.getActiveOrders());
+        withQaOrder.add(new VillageTradeOrder(
+                qaCopperOrderId, OrderSide.VILLAGE_BUYS, "minecraft:copper_ingot", "vanilla_copper_ingot",
+                "", 10, 0, 25L, level.getGameTime(), level.getGameTime() + 12_000L, false, false
+        ));
+        village.setActiveOrders(withQaOrder);
+
+        // (b) Comm Terminal SELL_ORDER with 0 matching Inbound items while village has plenty of funds
+        // -> MUST return status.tyc2.terminal.insufficient_goods (NOT village_low_funds) AND NOT deduct 50 EU!
+        ItemStack termGuard = new ItemStack(TyC2ForgeRegistries.COMM_TERMINAL.get());
+        CommTerminalItem.setStoredEu(termGuard, 5000);
+        TycoonForgeWorldManager.ActionFeedback termNoGoods = TycoonForgeWorldManager.executeBuyOrder(
+                playerA, villageId, qaCopperOrderId, 4, true, false, termGuard
+        );
+        qa.check("trade.terminal_missing_goods_exact_error",
+                !termNoGoods.success() && "status.tyc2.terminal.insufficient_goods".equals(termNoGoods.translationKey()),
+                "success=" + termNoGoods.success() + ", key=" + termNoGoods.translationKey());
+        qa.checkEquals("trade.terminal_missing_goods_preserves_50eu", 5000, CommTerminalItem.getStoredEu(termGuard));
+
+        // (c) Hub SELL_ORDER when villageBalance < order.unitPrice()
+        // -> MUST return status.tyc2.hub.village_low_funds_detail AND NOT drain player inventory into Inbound!
+        long savedVillageBal = village.getVillageBalance();
+        village.adjustVillageBalance(-(savedVillageBal - 10L)); // Leave 10 IC < 25 IC unitPrice
+        playerA.getInventory().clearContent();
+        playerA.getInventory().add(new ItemStack(Items.COPPER_INGOT, 8));
+        TycoonForgeWorldManager.ActionFeedback lowFundsRes = TycoonForgeWorldManager.executeBuyOrder(
+                playerA, villageId, qaCopperOrderId, 4, true, true, null
+        );
+        int playerCopperAfterLowFunds = playerA.getInventory().countItem(Items.COPPER_INGOT);
+        int inboundCopperAfterLowFunds = village.getStorage().countInInbound("minecraft:copper_ingot");
+        qa.check("trade.hub_low_funds_exact_error",
+                !lowFundsRes.success() && "status.tyc2.hub.village_low_funds_detail".equals(lowFundsRes.translationKey()),
+                "success=" + lowFundsRes.success() + ", key=" + lowFundsRes.translationKey());
+        qa.checkEquals("trade.hub_low_funds_keeps_player_items_intact", 8, playerCopperAfterLowFunds);
+        qa.checkEquals("trade.hub_low_funds_does_not_drain_to_inbound", 0, inboundCopperAfterLowFunds);
+        village.adjustVillageBalance(savedVillageBal - 10L);
+
+        // (a) Buy-Order delivery with sufficient funds succeeds (pulls exact 4 from player inv + tag matcher verified)!
+        qa.check("trade.tag_matcher_matches_copper_tag",
+                TyC2Ids.matchesItemOrTag("minecraft:copper_ingot", "#ingots/copper"),
+                "minecraft:copper_ingot vs #ingots/copper");
+        TycoonForgeWorldManager.ActionFeedback okBuyRes = TycoonForgeWorldManager.executeBuyOrder(
+                playerA, villageId, qaCopperOrderId, 4, true, true, null
+        );
+        qa.check("trade.hub_buy_order_delivery_succeeds",
+                okBuyRes.success()
+                        && "status.tyc2.hub.order_fulfilled".equals(okBuyRes.translationKey())
+                        && playerA.getInventory().countItem(Items.COPPER_INGOT) == 4,
+                "key=" + okBuyRes.translationKey() + ", playerRem=" + playerA.getInventory().countItem(Items.COPPER_INGOT));
+
+        // Setup Auto-Fulfill on a Village Buy Order & pipe required items into Inbound 0..499!
         VillageTradeOrder buyOrder = village.getActiveOrders().stream()
-                .filter(o -> o.side() == OrderSide.VILLAGE_BUYS)
+                .filter(o -> o.side() == OrderSide.VILLAGE_BUYS && !o.orderId().equals(qaCopperOrderId))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("No initial Lv 1 Buy Orders generated!"));
         autoFulfillOrderId = buyOrder.orderId();
@@ -973,6 +1171,19 @@ final class TyC2QaServerRunner {
                 rem -= chunk;
             }
         }
+        // (d) DELIVER_EXPANSION with insufficient village budget MUST return status.tyc2.expansion.low_funds!
+        long balBeforeExpTest = village.getVillageBalance();
+        if (desire.constructionBudgetCost() > 0L) {
+            village.adjustVillageBalance(-balBeforeExpTest);
+            TycoonForgeWorldManager.ActionFeedback expLowFunds = TycoonForgeWorldManager.deliverExpansionMaterials(
+                    playerA, villageId, false
+            );
+            qa.check("expansion.low_funds_exact_error",
+                    !expLowFunds.success() && "status.tyc2.expansion.low_funds".equals(expLowFunds.translationKey()),
+                    "success=" + expLowFunds.success() + ", key=" + expLowFunds.translationKey());
+            village.adjustVillageBalance(balBeforeExpTest);
+        }
+
         TycoonForgeWorldManager.ActionFeedback expRes = TycoonForgeWorldManager.deliverExpansionMaterials(
                 playerA, villageId, false
         );

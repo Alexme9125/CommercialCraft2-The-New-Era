@@ -108,23 +108,23 @@ public final class C2SHubActionPacket {
         }
         VillageRecord village = vOpt.get();
         CooperationHubMenu menu = player.containerMenu instanceof CooperationHubMenu m ? m : null;
-        String feedback = "";
+        Component feedback = Component.empty();
         boolean closeScreen = false;
 
         switch (pkt.action) {
-            case REQUEST_SYNC -> feedback = "";
+            case REQUEST_SYNC -> feedback = Component.empty();
             case BUY_FROM_VILLAGE -> {
                 var res = TycoonForgeWorldManager.executeSellOrder(
                         player, vid, pkt.textArg, Math.max(1, pkt.intArgA),
                         pkt.flagArg, menu != null ? menu.getCashContainer() : null
                 );
-                feedback = res.toComponent().getString();
+                feedback = res.toComponent();
             }
             case SELL_TO_VILLAGE -> {
                 var res = TycoonForgeWorldManager.executeBuyOrder(
                         player, vid, pkt.textArg, Math.max(1, pkt.intArgA), pkt.flagArg, true
                 );
-                feedback = res.toComponent().getString();
+                feedback = res.toComponent();
             }
             case TOGGLE_ORDER_AUTO -> {
                 TycoonForgeWorldManager.toggleOrderAutoFulfill(player.getServer(), vid, pkt.textArg);
@@ -194,10 +194,10 @@ public final class C2SHubActionPacket {
                 }
             }
             case UPGRADE_VILLAGE -> {
-                feedback = TycoonForgeWorldManager.upgradeVillage(player, vid).toComponent().getString();
+                feedback = TycoonForgeWorldManager.upgradeVillage(player, vid).toComponent();
             }
             case DELIVER_EXPANSION -> {
-                feedback = TycoonForgeWorldManager.deliverExpansionMaterials(player, vid, true).toComponent().getString();
+                feedback = TycoonForgeWorldManager.deliverExpansionMaterials(player, vid, true).toComponent();
             }
             case TOGGLE_EXPANSION_AUTO -> {
                 ExpansionDesire exp = village.getActiveExpansion();
@@ -212,7 +212,7 @@ public final class C2SHubActionPacket {
             }
             case RENAME_VILLAGE -> {
                 if (!TycoonForgeWorldManager.canManageVillage(player, data, village)) {
-                    feedback = Component.translatable("status.tyc2.hub.not_owner").getString();
+                    feedback = Component.translatable("status.tyc2.hub.not_owner");
                 } else {
                     String cleaned = pkt.textArg.trim();
                     if (!cleaned.isEmpty()) {
@@ -223,7 +223,7 @@ public final class C2SHubActionPacket {
             }
             case RELOCATE_HUB -> {
                 var res = TycoonForgeWorldManager.relocateHub(player, vid);
-                feedback = res.toComponent().getString();
+                feedback = res.toComponent();
                 player.sendSystemMessage(res.toComponent());
                 if (res.success()) {
                     closeScreen = true;
@@ -231,7 +231,7 @@ public final class C2SHubActionPacket {
             }
             case TERMINATE_PARTNERSHIP -> {
                 var res = TycoonForgeWorldManager.terminatePartnership(player, vid);
-                feedback = res.toComponent().getString();
+                feedback = res.toComponent();
                 player.sendSystemMessage(res.toComponent());
                 if (res.success()) {
                     closeScreen = true;

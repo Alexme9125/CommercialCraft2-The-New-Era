@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
@@ -41,10 +42,12 @@ import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.tags.TagKey;
+import net.minecraft.util.Mth;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerProfession;
@@ -601,6 +604,69 @@ public final class TyC2Native {
     public static List<Entity> findVillagersInRadius(ServerLevel level, BlockPos center, double radius) {
         AABB box = new AABB(center).inflate(radius);
         return new ArrayList<>(level.getEntitiesOfClass(Villager.class, box, Entity::isAlive));
+    }
+
+    /** Returns the client-localized display name for a registered item ID, falling back to {@code itemId}. */
+    public static String localizedItemName(String itemId) {
+        ItemStack st = stack(itemId, 1);
+        return st.isEmpty() ? (itemId == null ? "" : itemId) : st.getHoverName().getString();
+    }
+
+    /** Returns {@code true} if it is currently daytime in {@code level}. */
+    public static boolean isDaytime(ServerLevel level) {
+        return level != null && level.isDay();
+    }
+
+    /** Sets or clears the trading player on a Villager entity so it halts and faces the player. */
+    public static void setVillagerTradingPlayer(Entity entity, Player player) {
+        if (entity instanceof Villager v) {
+            v.setTradingPlayer(player);
+        }
+    }
+
+    /** Holds a Mayor Villager still and facing {@code player} while negotiation UI is open. */
+    public static void holdMayorForNegotiation(Entity entity, ServerPlayer player) {
+        if (!(entity instanceof Villager v) || !v.isAlive() || player == null) {
+            return;
+        }
+        v.setTradingPlayer(player);
+        v.getNavigation().stop();
+        v.setDeltaMovement(0.0, Math.min(0.0, v.getDeltaMovement().y), 0.0);
+        v.getLookControl().setLookAt(player, 30.0F, 30.0F);
+        double dx = player.getX() - v.getX();
+        double dz = player.getZ() - v.getZ();
+        if (dx * dx + dz * dz > 1.0E-4) {
+            float yaw = (float) (Mth.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0F;
+            v.setYRot(yaw);
+            v.setYHeadRot(yaw);
+            v.yBodyRot = yaw;
+        }
+    }
+
+    /**
+     * Anchors a Mayor Villager's Brain {@code MEETING_POINT} to the village Bell/Hub, smoothly
+     * walks them back if they drift > 14 blocks away during daytime, and faces nearby players.
+     */
+    public static void anchorMayorToPlaza(ServerLevel level, Entity entity, BlockPos hubPos) {
+        if (!(entity instanceof Villager v) || !v.isAlive() || level == null || hubPos == null) {
+            return;
+        }
+        if (v.isSleeping() || v.hurtTime > 0 || v.getLastHurtByMob() != null) {
+            return;
+        }
+        v.getBrain().setMemory(MemoryModuleType.MEETING_POINT, GlobalPos.of(level.dimension(), hubPos));
+        double dx = v.getX() - (hubPos.getX() + 0.5);
+        double dz = v.getZ() - (hubPos.getZ() + 0.5);
+        double distSq = dx * dx + dz * dz;
+        if (isDaytime(level) && distSq > 14.0 * 14.0) {
+            v.getNavigation().moveTo(hubPos.getX() + 0.5, hubPos.getY(), hubPos.getZ() + 0.5, 0.55D);
+        } else if (distSq <= 10.0 * 10.0) {
+            Player near = level.getNearestPlayer(v, 5.0);
+            if (near != null) {
+                v.getNavigation().stop();
+                v.getLookControl().setLookAt(near, 30.0F, 30.0F);
+            }
+        }
     }
 
     /** Spawns a new adult Villager at {@code pos}. */

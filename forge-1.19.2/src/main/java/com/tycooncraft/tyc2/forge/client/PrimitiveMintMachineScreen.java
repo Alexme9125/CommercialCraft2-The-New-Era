@@ -10,7 +10,6 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
@@ -69,21 +68,9 @@ public class PrimitiveMintMachineScreen extends AbstractContainerScreen<Primitiv
         // Status / Upgrade-Required Banner LCD (76, 48, 92x25) -> inner (78..166, 50..71)
         if (menu.isBlockedByIndustrialTier()) {
             String warnTitle = Component.translatable("gui.tyc2.primitive_mint.requires_industrial").getString();
-            drawFittedString(poseStack, warnTitle, 94, 51, 70, 0.50F, 0xFFCC44);
-            List<FormattedCharSequence> detailLines = font.split(
-                    Component.translatable("gui.tyc2.primitive_mint.requires_industrial_detail"), 130
-            );
-            if (detailLines.size() <= 2) {
-                poseStack.pushPose();
-                poseStack.translate(94.0F, 59.0F, 0.0F);
-                poseStack.scale(0.54F, 0.54F, 1.0F);
-                for (int i = 0; i < detailLines.size(); i++) {
-                    font.draw(poseStack, detailLines.get(i), 0, i * 11, 0xFFAA66);
-                }
-                poseStack.popPose();
-            } else {
-                drawFittedString(poseStack, "200x-1000x / Alloys", 94, 62, 70, 0.50F, 0xFFAA66);
-            }
+            String warnShort = Component.translatable("gui.tyc2.primitive_mint.requires_industrial_short").getString();
+            TyC2UiWidgets.drawFittedString(poseStack, font, warnTitle, 94, 51, 70, 0.50F, 0xFFCC44);
+            TyC2UiWidgets.drawFittedString(poseStack, font, warnShort, 94, 62, 70, 0.50F, 0xFFAA66);
         } else {
             String line1;
             int color1;
@@ -99,36 +86,9 @@ public class PrimitiveMintMachineScreen extends AbstractContainerScreen<Primitiv
                 color1 = 0xDDE6EE;
             }
             String scope = Component.translatable("gui.tyc2.primitive_mint.scope_hint").getString();
-            drawFittedString(poseStack, line1, 80, 52, 85, 0.65F, color1);
-            drawFittedString(poseStack, scope, 80, 63, 85, 0.65F, 0xAACCDD);
+            TyC2UiWidgets.drawFittedString(poseStack, font, line1, 80, 52, 85, 0.60F, color1);
+            TyC2UiWidgets.drawFittedString(poseStack, font, scope, 80, 63, 85, 0.60F, 0xAACCDD);
         }
-    }
-
-    private void drawFittedString(
-            PoseStack poseStack,
-            String text,
-            int x,
-            int y,
-            int maxWidth,
-            float minScale,
-            int color
-    ) {
-        int w = font.width(text);
-        if (w <= maxWidth) {
-            font.draw(poseStack, text, x, y, color);
-            return;
-        }
-        float needed = maxWidth / (float) w;
-        float scale = Math.max(minScale, needed);
-        // Draw full string when needed >= minScale to avoid float-truncation cutoff of the final glyph
-        String rendered = needed >= minScale
-                ? text
-                : font.plainSubstrByWidth(text, (int) Math.floor(maxWidth / scale));
-        poseStack.pushPose();
-        poseStack.translate(x, y, 0.0F);
-        poseStack.scale(scale, scale, 1.0F);
-        font.draw(poseStack, rendered, 0, 0, color);
-        poseStack.popPose();
     }
 
     @Override

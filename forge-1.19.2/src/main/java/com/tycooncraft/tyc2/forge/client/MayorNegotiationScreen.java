@@ -124,35 +124,29 @@ public class MayorNegotiationScreen extends AbstractContainerScreen<MayorNegotia
                     Component.translatable("gui.tyc2.hub.population", sync.population).getString(), 77
             ), 12, 95, 0x1F6E35);
 
-            // Right half of Contract Box (95..208): 4 Requirements with high-contrast ink on parchment
+            // Right half of Contract Box (95..208): 4 Requirements with high-contrast ink on parchment (100% localized)
             long totalIc = sync.cashIc + sync.bankIc;
             drawReqLine(poseStack, 57, sync.currencyMet(),
-                    Component.translatable("gui.tyc2.mayor.req_currency", TyC2UiWidgets.compactIc(totalIc) + "/" + sync.reqIc).getString(),
-                    "Capital: " + TyC2UiWidgets.compactIc(totalIc) + "/" + sync.reqIc);
+                    Component.translatable("gui.tyc2.mayor.req_currency", TyC2UiWidgets.compactIc(totalIc) + "/" + sync.reqIc).getString());
             drawReqLine(poseStack, 71, sync.logsMet(),
-                    Component.translatable("gui.tyc2.mayor.req_logs", sync.haveLogs + "/" + sync.reqLogs).getString(),
-                    "Logs: " + sync.haveLogs + "/" + sync.reqLogs);
+                    Component.translatable("gui.tyc2.mayor.req_logs", sync.haveLogs + "/" + sync.reqLogs).getString());
             drawReqLine(poseStack, 85, sync.ironMet(),
-                    Component.translatable("gui.tyc2.mayor.req_iron", sync.haveIron + "/" + sync.reqIron).getString(),
-                    "Iron: " + sync.haveIron + "/" + sync.reqIron);
+                    Component.translatable("gui.tyc2.mayor.req_iron", sync.haveIron + "/" + sync.reqIron).getString());
             drawReqLine(poseStack, 99, sync.foodMet(),
-                    Component.translatable("gui.tyc2.mayor.req_food", sync.haveFood + "/" + sync.reqFood).getString(),
-                    "Food: " + sync.haveFood + "/" + sync.reqFood);
+                    Component.translatable("gui.tyc2.mayor.req_food", sync.haveFood + "/" + sync.reqFood).getString());
 
-            // Benefits LCD (8,148,204x36) — 0.60F scale gives 326px width so all 3 lines fit with zero clipping
-            poseStack.pushPose();
-            poseStack.translate(12.0F, 152.0F, 0.0F);
-            poseStack.scale(0.60F, 0.60F, 1.0F);
-            font.draw(poseStack, font.plainSubstrByWidth(Component.translatable("gui.tyc2.mayor.benefits.line1").getString(), 326), 0, 0, 0x8BE8B0);
-            font.draw(poseStack, font.plainSubstrByWidth(Component.translatable("gui.tyc2.mayor.benefits.line2").getString(), 326), 0, 14, 0x8BE8B0);
-            font.draw(poseStack, font.plainSubstrByWidth(Component.translatable("gui.tyc2.mayor.benefits.line3").getString(), 326), 0, 28, 0x8BE8B0);
-            poseStack.popPose();
+            // Benefits LCD (8,148,204x36) — 0.65F fit-scale so all 3 localized lines fit with zero clipping
+            TyC2UiWidgets.drawFittedString(poseStack, font,
+                    Component.translatable("gui.tyc2.mayor.benefits.line1").getString(), 12, 152, 196, 0.58F, 0x8BE8B0);
+            TyC2UiWidgets.drawFittedString(poseStack, font,
+                    Component.translatable("gui.tyc2.mayor.benefits.line2").getString(), 12, 162, 196, 0.58F, 0x8BE8B0);
+            TyC2UiWidgets.drawFittedString(poseStack, font,
+                    Component.translatable("gui.tyc2.mayor.benefits.line3").getString(), 12, 172, 196, 0.58F, 0x8BE8B0);
         }
     }
 
-    private void drawReqLine(PoseStack poseStack, int y, boolean ok, String fullLabel, String compactLabel) {
-        String text = font.width(fullLabel) <= 98 ? fullLabel : compactLabel;
-        font.draw(poseStack, font.plainSubstrByWidth(text, 98), 110, y, ok ? 0x1F6E35 : 0xA62626);
+    private void drawReqLine(PoseStack poseStack, int y, boolean ok, String localizedLabel) {
+        TyC2UiWidgets.drawFittedString(poseStack, font, localizedLabel, 110, y, 98, 0.58F, ok ? 0x1F6E35 : 0xA62626);
     }
 
     @Override

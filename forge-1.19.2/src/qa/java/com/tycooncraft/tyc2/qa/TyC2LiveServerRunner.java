@@ -11,10 +11,13 @@ import com.tycooncraft.tyc2.forge.block.MintMachineBlock;
 import com.tycooncraft.tyc2.forge.block.MintMachineBlockEntity;
 import com.tycooncraft.tyc2.forge.block.PrimitiveMintMachineBlock;
 import com.tycooncraft.tyc2.forge.block.PrimitiveMintMachineBlockEntity;
+import com.tycooncraft.tyc2.forge.gui.MayorNegotiationMenu;
 import com.tycooncraft.tyc2.forge.item.CommTerminalItem;
 import com.tycooncraft.tyc2.forge.util.TyC2Ids;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeSavedData;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeWorldManager;
+import com.tycooncraft.tyc2.village.ExpansionDesire;
+import com.tycooncraft.tyc2.village.ProjectType;
 import com.tycooncraft.tyc2.village.VillageRecord;
 import java.io.Writer;
 import java.nio.file.Files;
@@ -74,6 +77,7 @@ final class TyC2LiveServerRunner {
     }
 
     private final String profile;
+    private final String lang;
     private final boolean enhanced;
     private final TyC2QaAssert qa;
 
@@ -93,13 +97,21 @@ final class TyC2LiveServerRunner {
     private BlockPos ic2CablePos;
     private ServerPlayer tester;
     private UUID villageId;
+    private UUID mayorUuid;
     private int mayorEntityId = -1;
+    private int mayorHoldTicks = 0;
+    private boolean mayorHoldVerified = false;
 
     TyC2LiveServerRunner(String profile) {
         this.profile = profile;
+        this.lang = System.getProperty("tyc2.live.lang", "en_us");
         this.enhanced = "enhanced".equalsIgnoreCase(profile);
-        this.qa = new TyC2QaAssert("live-server-" + profile);
+        this.qa = new TyC2QaAssert("live-server-" + profile + "-" + this.lang);
         instance = this;
+    }
+
+    private String shotName(String suffix) {
+        return "tyc2_1192_" + profile + "_" + lang + "_" + suffix;
     }
 
     static void onClientAck(TyC2LiveNetwork.C2SLiveAck ack) {
@@ -208,9 +220,10 @@ final class TyC2LiveServerRunner {
                 if (vOpt.isPresent() && vOpt.get().getMayorState().getMayorEntityUuid() != null) {
                     VillageRecord v = vOpt.get();
                     villageId = v.getVillageId();
-                    UUID mayorUuid = v.getMayorState().getMayorEntityUuid();
-                    Villager mayor = findVillager(level, bellHubPos, mayorUuid);
+                    UUID mUuid = v.getMayorState().getMayorEntityUuid();
+                    Villager mayor = findVillager(level, bellHubPos, mUuid);
                     if (mayor != null && mayor.hasCustomName()) {
+                        this.mayorUuid = mUuid;
                         mayorEntityId = mayor.getId();
                         // Pose Mayor right beside Bell facing South toward camera for a crisp plaza shot!
                         mayor.moveTo(bellHubPos.getX() + 0.5, surfaceY, bellHubPos.getZ() + 1.4, 0.0F, 0.0F);
@@ -228,7 +241,7 @@ final class TyC2LiveServerRunner {
 
             case STEP_AUDIT_ASSETS -> {
                 if (waitingStepId < 0) {
-                    sendDirective("AUDIT_ASSETS", BlockPos.ZERO, 0, profile);
+                    sendDirective("AUDIT_ASSETS", BlockPos.ZERO, 0, lang);
                     return;
                 }
                 TyC2LiveNetwork.C2SLiveAck ack = pollAck(400, "AUDIT_ASSETS");
@@ -251,7 +264,7 @@ final class TyC2LiveServerRunner {
                     }
                     tester.teleportTo(level, 0.0, surfaceY + 1.4, 5.4, 180.0F, 14.0F);
                     sendDirective("CAPTURE_SCREENSHOT", bellHubPos, mayorEntityId,
-                            "tyc2_1192_" + profile + "_01_plaza_mayor.png");
+                            shotName("01_plaza_mayor.png"));
                     return;
                 }
                 TyC2LiveNetwork.C2SLiveAck ack = pollAck(500, "CAPTURE_SCREENSHOT_PLAZA");
@@ -263,13 +276,45 @@ final class TyC2LiveServerRunner {
 
             case STEP_MAYOR_NEGOTIATION_GUI -> {
                 if (waitingStepId < 0) {
+                    // Re-enable full Mayor AI so tickActiveNegotiations is genuinely tested against a live ServerPlayer!
+                    Villager mayor = findVillager(level, bellHubPos, mayorUuid);
+                    if (mayor != null) {
+                        mayor.setNoAi(false);
+                        mayor.moveTo(bellHubPos.getX() + 0.5, surfaceY, bellHubPos.getZ() + 1.3, 0.0F, 0.0F);
+                    }
+                    mayorHoldTicks = 0;
+                    mayorHoldVerified = false;
                     tester.teleportTo(level, bellHubPos.getX() + 0.5, surfaceY, bellHubPos.getZ() + 2.8, 180.0F, 8.0F);
                     sendDirective("TEST_MAYOR_GUI", bellHubPos, mayorEntityId,
-                            "tyc2_1192_" + profile + "_02_mayor_negotiation.png");
+                            shotName("02_mayor_negotiation.png"));
                     return;
+                }
+                if (!mayorHoldVerified && tester.containerMenu instanceof MayorNegotiationMenu) {
+                    mayorHoldTicks++;
+                    if (mayorHoldTicks >= 4) {
+                        Villager mayor = findVillager(level, bellHubPos, mayorUuid);
+                        double horizSpeed = mayor == null ? 999.0
+                                : Math.hypot(mayor.getDeltaMovement().x, mayor.getDeltaMovement().z);
+                        boolean held = mayor != null
+                                && mayor.getTradingPlayer() == tester
+                                && mayor.getNavigation().isDone()
+                                && horizSpeed < 0.05;
+                        qa.check("live.mayor_negotiation_hold_verified", held,
+                                "tradingPlayer=" + (mayor == null || mayor.getTradingPlayer() == null
+                                        ? "null" : mayor.getTradingPlayer().getGameProfile().getName())
+                                        + ", navDone=" + (mayor != null && mayor.getNavigation().isDone())
+                                        + ", horizSpeed=" + String.format("%.4f", horizSpeed));
+                        mayorHoldVerified = true;
+                    }
                 }
                 TyC2LiveNetwork.C2SLiveAck ack = pollAck(600, "TEST_MAYOR_GUI");
                 if (ack != null) {
+                    qa.check("live.mayor_negotiation_hold_observed", mayorHoldVerified,
+                            "holdTicks=" + mayorHoldTicks);
+                    Villager mayorAfter = findVillager(level, bellHubPos, mayorUuid);
+                    qa.check("live.mayor_negotiation_released_after_sign",
+                            mayorAfter != null && mayorAfter.getTradingPlayer() == null,
+                            "tradingPlayer=" + (mayorAfter == null ? "null-entity" : mayorAfter.getTradingPlayer()));
                     qa.check("live.mayor_gui_signed_partnership",
                             level.getBlockState(bellHubPos).is(TyC2ForgeRegistries.COOPERATION_HUB_BLOCK.get()),
                             ack.summary() + " | block=" + level.getBlockState(bellHubPos));
@@ -280,12 +325,15 @@ final class TyC2LiveServerRunner {
                             hubBe.upgradeContainer.setItem(0, new ItemStack(upg, 1));
                         }
                     }
-                    // Seed Inbound stock so Warehouse tab displays live items!
+                    // Seed Inbound stock & active ExpansionDesire so ALL 4 Hub tabs + ALL 4 Terminal tabs have live data!
                     TycoonForgeSavedData data = TycoonForgeSavedData.get(server);
                     data.getVillage(villageId).ifPresent(v -> {
                         v.getStorage().insertExternal("minecraft:iron_ingot", 32, "", 64, false);
                         v.getStorage().insertExternal("minecraft:coal", 48, "", 64, false);
                         v.adjustVillageBalance(2000L);
+                        v.setActiveExpansion(ExpansionDesire.createDefault(
+                                "live_exp_cottage", ProjectType.SMALL_COTTAGE, v.getBiomeStyle(), false
+                        ));
                     });
                     data.setDirty();
                     advance(Stage.STEP_PRIMITIVE_MINT_ACTIVE_GUI);
@@ -302,7 +350,7 @@ final class TyC2LiveServerRunner {
                     }
                     tester.teleportTo(level, primMintPos.getX() + 0.5, surfaceY, primMintPos.getZ() + 2.2, 180.0F, 12.0F);
                     sendDirective("TEST_PRIMITIVE_MINT_ACTIVE_GUI", primMintPos, 0,
-                            "tyc2_1192_" + profile + "_03a_primitive_mint_active.png");
+                            shotName("03a_primitive_mint_active.png"));
                     return;
                 }
                 TyC2LiveNetwork.C2SLiveAck ack = pollAck(500, "TEST_PRIMITIVE_MINT_ACTIVE_GUI");
@@ -326,7 +374,7 @@ final class TyC2LiveServerRunner {
                     }
                     tester.teleportTo(level, primMintPos.getX() + 0.5, surfaceY, primMintPos.getZ() + 2.2, 180.0F, 12.0F);
                     sendDirective("TEST_PRIMITIVE_MINT_BLOCKED_GUI", primMintPos, 0,
-                            "tyc2_1192_" + profile + "_03b_primitive_mint_blocked.png");
+                            shotName("03b_primitive_mint_blocked.png"));
                     return;
                 }
                 TyC2LiveNetwork.C2SLiveAck ack = pollAck(500, "TEST_PRIMITIVE_MINT_BLOCKED_GUI");
@@ -353,7 +401,7 @@ final class TyC2LiveServerRunner {
                     }
                     tester.teleportTo(level, mintPos.getX() + 0.5, surfaceY, mintPos.getZ() + 2.2, 180.0F, 12.0F);
                     sendDirective("TEST_MINT_GUI", mintPos, 0,
-                            "tyc2_1192_" + profile + "_03_mint_machine_gui.png");
+                            shotName("03_mint_machine_gui.png"));
                     return;
                 }
                 TyC2LiveNetwork.C2SLiveAck ack = pollAck(500, "TEST_MINT_GUI");
@@ -371,7 +419,7 @@ final class TyC2LiveServerRunner {
                     }
                     tester.teleportTo(level, atmPos.getX() + 0.5, surfaceY, atmPos.getZ() + 2.2, 180.0F, 12.0F);
                     sendDirective("TEST_ATM_GUI", atmPos, 0,
-                            "tyc2_1192_" + profile + "_04_atm_machine_gui.png");
+                            shotName("04_atm_machine_gui.png"));
                     return;
                 }
                 TyC2LiveNetwork.C2SLiveAck ack = pollAck(600, "TEST_ATM_GUI");
@@ -391,11 +439,10 @@ final class TyC2LiveServerRunner {
             case STEP_HUB_GUI -> {
                 if (waitingStepId < 0) {
                     tester.teleportTo(level, bellHubPos.getX() + 0.5, surfaceY, bellHubPos.getZ() + 2.2, 180.0F, 12.0F);
-                    sendDirective("TEST_HUB_GUI", bellHubPos, 0,
-                            "tyc2_1192_" + profile + "_05_hub_cpi_chart_gui.png");
+                    sendDirective("TEST_HUB_GUI", bellHubPos, 0, shotName("05"));
                     return;
                 }
-                TyC2LiveNetwork.C2SLiveAck ack = pollAck(700, "TEST_HUB_GUI");
+                TyC2LiveNetwork.C2SLiveAck ack = pollAck(1000, "TEST_HUB_GUI");
                 if (ack != null) {
                     TycoonForgeSavedData data = TycoonForgeSavedData.get(server);
                     String renamed = data.getVillage(villageId).map(VillageRecord::getVillageName).orElse("");
@@ -414,11 +461,10 @@ final class TyC2LiveServerRunner {
                     tester.getInventory().selected = 0;
                     tester.inventoryMenu.broadcastChanges();
                     tester.teleportTo(level, bellHubPos.getX() + 0.5, surfaceY, bellHubPos.getZ() + 2.0, 180.0F, 15.0F);
-                    sendDirective("TEST_TERMINAL_GUI", bellHubPos, 0,
-                            "tyc2_1192_" + profile + "_06_comm_terminal_gui.png");
+                    sendDirective("TEST_TERMINAL_GUI", bellHubPos, 0, shotName("06"));
                     return;
                 }
-                TyC2LiveNetwork.C2SLiveAck ack = pollAck(600, "TEST_TERMINAL_GUI");
+                TyC2LiveNetwork.C2SLiveAck ack = pollAck(1000, "TEST_TERMINAL_GUI");
                 if (ack != null) {
                     qa.check("live.terminal_gui_verified", true, ack.summary());
                     advance(Stage.STEP_FINISH);
@@ -433,7 +479,7 @@ final class TyC2LiveServerRunner {
                 TyC2LiveNetwork.C2SLiveAck ack = pollAck(300, "FINISH_AND_DISCONNECT");
                 if (ack != null) {
                     qa.check("live.client_clean_finish", true, ack.summary());
-                    qa.writePassedReport(reportPath(), Map.of("profile", profile));
+                    qa.writePassedReport(reportPath(), Map.of("profile", profile, "lang", lang));
                     advance(Stage.WAIT_HALT);
                 }
             }

@@ -90,23 +90,23 @@ public final class C2SAtmActionPacket {
         BankAccountManager bank = data.bank();
         bank.getOrCreatePersonal(player.getUUID(), player.getGameProfile().getName());
         long tick = player.getServer().overworld().getGameTime();
-        String feedback = "";
+        Component feedback = Component.empty();
 
         switch (pkt.action) {
-            case REQUEST_SYNC -> feedback = "";
-            case DEPOSIT_SLOT -> feedback = atm.handleDepositSlot(player).getString();
-            case DEPOSIT_ALL -> feedback = atm.handleDepositAll(player).getString();
-            case WITHDRAW_AMOUNT -> feedback = atm.handleWithdrawAmount(player, pkt.amount).getString();
+            case REQUEST_SYNC -> feedback = Component.empty();
+            case DEPOSIT_SLOT -> feedback = atm.handleDepositSlot(player);
+            case DEPOSIT_ALL -> feedback = atm.handleDepositAll(player);
+            case WITHDRAW_AMOUNT -> feedback = atm.handleWithdrawAmount(player, pkt.amount);
             case WITHDRAW_DENOM -> {
                 CurrencyDenomination[] values = CurrencyDenomination.values();
                 int idx = Math.max(0, Math.min(values.length - 1, pkt.denomIndex));
                 int count = (int) Math.max(1L, Math.min(640L, pkt.amount <= 0 ? 1 : pkt.amount));
-                feedback = atm.handleWithdrawDenom(player, values[idx], count).getString();
+                feedback = atm.handleWithdrawDenom(player, values[idx], count);
             }
             case CREATE_COMPANY -> {
                 String name = pkt.textA.trim();
                 if (name.isEmpty()) {
-                    feedback = Component.translatable("status.tyc2.atm.invalid_amount").getString();
+                    feedback = Component.translatable("status.tyc2.atm.invalid_amount");
                 } else {
                     BankAccountManager.CompanyAccount co = bank.createCompany(
                             player.getUUID(), player.getGameProfile().getName(), name
@@ -115,7 +115,7 @@ public final class C2SAtmActionPacket {
                     data.setDirty();
                     feedback = Component.translatable(
                             "status.tyc2.atm.company_created", co.name(), co.inviteCode()
-                    ).getString();
+                    );
                 }
             }
             case JOIN_COMPANY -> {
@@ -127,9 +127,9 @@ public final class C2SAtmActionPacket {
                     data.setDirty();
                     String coName = bank.getCompany(res.accountRef().accountId())
                             .map(BankAccountManager.CompanyAccount::name).orElse("");
-                    feedback = Component.translatable("status.tyc2.atm.company_joined", coName).getString();
+                    feedback = Component.translatable("status.tyc2.atm.company_joined", coName);
                 } else {
-                    feedback = Component.translatable(res.errorKey()).getString();
+                    feedback = Component.translatable(res.errorKey());
                 }
             }
             case LEAVE_COMPANY -> {
@@ -141,9 +141,9 @@ public final class C2SAtmActionPacket {
                 if (res.success()) {
                     data.syncMacroAccountTotals();
                     data.setDirty();
-                    feedback = Component.translatable("status.tyc2.atm.company_left", coName).getString();
+                    feedback = Component.translatable("status.tyc2.atm.company_left", coName);
                 } else {
-                    feedback = Component.translatable(res.errorKey()).getString();
+                    feedback = Component.translatable(res.errorKey());
                 }
             }
             case SWITCH_TO_PERSONAL -> {
@@ -163,7 +163,7 @@ public final class C2SAtmActionPacket {
                     if (res.success()) {
                         data.setDirty();
                     } else {
-                        feedback = Component.translatable(res.errorKey()).getString();
+                        feedback = Component.translatable(res.errorKey());
                     }
                 }
             }
@@ -171,7 +171,7 @@ public final class C2SAtmActionPacket {
                 String recipient = pkt.textA.trim();
                 long amt = pkt.amount;
                 if (recipient.isEmpty() || amt <= 0L) {
-                    feedback = Component.translatable("status.tyc2.atm.invalid_amount").getString();
+                    feedback = Component.translatable("status.tyc2.atm.invalid_amount");
                 } else {
                     BankAccountManager.BankResult res = null;
                     // 1. Try company ID or exact company name
@@ -185,27 +185,27 @@ public final class C2SAtmActionPacket {
                         }
                     }
                     if (targetCo.isPresent()) {
-                        res = bank.transferToCompany(player.getUUID(), targetCo.get().companyId(), amt, tick, "ATM Transfer");
+                        res = bank.transferToCompany(player.getUUID(), targetCo.get().companyId(), amt, tick, "");
                     } else {
                         // 2. Try online or offline player name
                         ServerPlayer online = player.getServer().getPlayerList().getPlayerByName(recipient);
                         if (online != null) {
                             bank.getOrCreatePersonal(online.getUUID(), online.getGameProfile().getName());
-                            res = bank.transferToPlayer(player.getUUID(), online.getUUID(), amt, tick, "ATM Transfer");
+                            res = bank.transferToPlayer(player.getUUID(), online.getUUID(), amt, tick, "");
                         } else {
                             Optional<BankAccountManager.PersonalAccount> offline = bank.findPersonalByName(recipient);
                             if (offline.isPresent()) {
-                                res = bank.transferToPlayer(player.getUUID(), offline.get().playerUuid(), amt, tick, "ATM Transfer");
+                                res = bank.transferToPlayer(player.getUUID(), offline.get().playerUuid(), amt, tick, "");
                             }
                         }
                     }
                     if (res == null) {
-                        feedback = Component.translatable("status.tyc2.atm.invalid_recipient").getString();
+                        feedback = Component.translatable("status.tyc2.atm.invalid_recipient");
                     } else if (res.success()) {
                         data.setDirty();
-                        feedback = Component.translatable("status.tyc2.atm.transferred", amt, recipient).getString();
+                        feedback = Component.translatable("status.tyc2.atm.transferred", amt, recipient);
                     } else {
-                        feedback = Component.translatable(res.errorKey()).getString();
+                        feedback = Component.translatable(res.errorKey());
                     }
                 }
             }

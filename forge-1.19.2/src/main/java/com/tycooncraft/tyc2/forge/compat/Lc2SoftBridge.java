@@ -57,13 +57,27 @@ public final class Lc2SoftBridge {
                     BlockState state = level.getBlockState(cursor);
                     String bid = TyC2Ids.blockId(state.getBlock());
                     if (SMART_PORT_ID.equals(bid)) {
-                        results.add("Port (" + wx + "," + y + "," + wz + ")");
+                        results.add(SMART_PORT_ID + "|" + wx + "," + y + "," + wz);
                     } else if (CARGO_STATION_ID.equals(bid)) {
-                        results.add("Cargo (" + wx + "," + y + "," + wz + ")");
+                        results.add(CARGO_STATION_ID + "|" + wx + "," + y + "," + wz);
                     }
                 }
             }
         }
         return results;
+    }
+
+    /** Formats a station entry ({@code "<blockId>|<x>,<y>,<z>"}) using the client-localized block name. */
+    public static String formatStationLabel(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return "";
+        }
+        int sep = raw.indexOf('|');
+        if (sep <= 0 || sep + 1 >= raw.length()) {
+            return raw;
+        }
+        String blockId = raw.substring(0, sep);
+        String coords = raw.substring(sep + 1);
+        return TyC2Ids.localizedItemName(blockId, null) + " (" + coords + ")";
     }
 }

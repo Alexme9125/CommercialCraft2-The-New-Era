@@ -11,8 +11,10 @@ import java.util.UUID;
  *
  * <ul>
  *   <li>Never elects or spawns a Mayor when {@code villagerCount <= 1}.</li>
- *   <li>Elects the highest-XP, oldest adult non-nitwit candidate (falling back to any living adult)
- *       when {@code villagerCount >= 2} and no living Mayor exists.</li>
+ *   <li>Elects the highest-XP, oldest adult non-nitwit candidate when {@code villagerCount >= 2}
+ *       and no living eligible Mayor exists. Nitwits are strictly ineligible and are never elected
+ *       Mayor under any circumstance.</li>
+ *   <li>Disqualifies and replaces any pre-existing Nitwit Mayor (e.g., from legacy saves).</li>
  *   <li>On Mayor death, clears the Mayor and marks re-election pending.</li>
  *   <li>On village depopulation ({@code villagerCount == 0}), pauses order generation while
  *       preserving partnership state, resuming and re-electing automatically once {@code >= 2}
@@ -67,7 +69,7 @@ public final class MayorElectionRules {
         PAUSED_DEPOPULATED,
         /** Depopulated village recovered to {@code >= 2} villagers and elected a new Mayor. */
         RESUMED_AND_ELECTED,
-        /** Village reached {@code >= 2} villagers but no living adult candidate is available yet. */
+        /** Village reached {@code >= 2} villagers but no living adult non-nitwit candidate is available yet. */
         WAITING_FOR_ADULT_CANDIDATE,
         /** Population is {@code <= 1}; no Mayor may be elected or spawned. */
         INSUFFICIENT_POPULATION
@@ -89,8 +91,7 @@ public final class MayorElectionRules {
     }
 
     private static final Comparator<MayorCandidate> CANDIDATE_RANKING = Comparator
-            .comparing(MayorCandidate::nitwit) // false (non-nitwit) sorts before true (nitwit)
-            .thenComparing(Comparator.comparingInt(MayorCandidate::villagerXp).reversed())
+            .comparingInt(MayorCandidate::villagerXp).reversed()
             .thenComparing(Comparator.comparingInt(MayorCandidate::ageTicks).reversed())
             .thenComparing(c -> c.entityUuid().toString());
 
@@ -110,11 +111,12 @@ public final class MayorElectionRules {
     }
 
     /**
-     * Selects the best eligible living adult candidate, strictly prioritizing non-nitwits,
-     * then highest villager XP, then oldest age, then deterministic UUID ordering.
+     * Selects the best eligible living adult non-nitwit candidate, ranked by highest villager XP,
+     * then oldest age, then deterministic UUID ordering. Nitwits are strictly excluded and may
+     * never be elected Mayor.
      *
      * @param candidates scanned village candidates
-     * @return best eligible candidate, or empty if no living adult exists
+     * @return best eligible non-nitwit adult candidate, or empty if none exists
      */
     public static Optional<MayorCandidate> selectBestCandidate(Collection<MayorCandidate> candidates) {
         if (candidates == null || candidates.isEmpty()) {
@@ -124,6 +126,7 @@ public final class MayorElectionRules {
                 .filter(Objects::nonNull)
                 .filter(MayorCandidate::alive)
                 .filter(MayorCandidate::adult)
+                .filter(c -> !c.nitwit())
                 .min(CANDIDATE_RANKING);
     }
 
@@ -273,7 +276,11 @@ public final class MayorElectionRules {
             return false;
         }
         for (MayorCandidate candidate : candidates) {
-            if (candidate != null && candidate.alive() && mayorUuid.equals(candidate.entityUuid())) {
+            if (candidate != null
+                    && candidate.alive()
+                    && candidate.adult()
+                    && !candidate.nitwit()
+                    && mayorUuid.equals(candidate.entityUuid())) {
                 return true;
             }
         }

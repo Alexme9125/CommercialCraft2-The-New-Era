@@ -9,14 +9,52 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
 /**
- * Shared compact Forge 1.19.2 UI widgets and 48-point CPI line chart renderer for TyC2 screens.
+ * Shared compact Forge 1.19.2 UI widgets, fit-scaled text helpers, and CPI line chart renderer
+ * for TyC2 screens.
  */
 public final class TyC2UiWidgets {
 
     private TyC2UiWidgets() {
     }
 
-    /** Compact metallic/industrial button that renders crisply at heights as small as 11-14px. */
+    /**
+     * Draws {@code text} at {@code (x, y)} scaled cleanly to fit within {@code maxWidth} without
+     * float-truncation cutoff of the final glyph.
+     */
+    public static void drawFittedString(
+            PoseStack poseStack,
+            Font font,
+            String text,
+            int x,
+            int y,
+            int maxWidth,
+            float minScale,
+            int color
+    ) {
+        if (text == null || text.isEmpty() || maxWidth <= 0) {
+            return;
+        }
+        int w = font.width(text);
+        if (w <= maxWidth) {
+            font.draw(poseStack, text, x, y, color);
+            return;
+        }
+        float needed = maxWidth / (float) w;
+        float scale = Math.max(minScale, needed);
+        String rendered = needed >= minScale
+                ? text
+                : font.plainSubstrByWidth(text, (int) Math.floor(maxWidth / scale));
+        poseStack.pushPose();
+        poseStack.translate(x, y, 0.0F);
+        poseStack.scale(scale, scale, 1.0F);
+        font.draw(poseStack, rendered, 0, 0, color);
+        poseStack.popPose();
+    }
+
+    /**
+     * Compact metallic/industrial button that renders crisply at heights as small as 11-14px and
+     * automatically fit-scales localized {@code zh_cn}/{@code en_us} labels to prevent clipping.
+     */
     public static final class CompactButton extends Button {
         private boolean highlighted = false;
         private int accentColor = 0xFF3A7BD5;
@@ -59,16 +97,36 @@ public final class TyC2UiWidgets {
             fill(poseStack, this.x + 1, this.y + 1, this.x + this.width - 1, this.y + this.height - 1, bg);
 
             Font font = Minecraft.getInstance().font;
-            String label = font.plainSubstrByWidth(this.getMessage().getString(), Math.max(4, this.width - 2));
+            String raw = this.getMessage().getString();
+            int availW = Math.max(4, this.width - 3);
+            int rawW = font.width(raw);
             int textColor = this.active ? (this.highlighted ? 0xFFFFFF : 0xECEFF4) : 0x8A929C;
-            int textX = this.x + (this.width - font.width(label)) / 2;
-            int textY = this.y + Math.max(1, (this.height - font.lineHeight) / 2);
-            font.draw(poseStack, label, textX, textY, textColor);
+            if (rawW <= availW) {
+                int textX = this.x + (this.width - rawW) / 2;
+                int textY = this.y + Math.max(1, (this.height - font.lineHeight) / 2);
+                font.draw(poseStack, raw, textX, textY, textColor);
+            } else {
+                float minScale = 0.50F;
+                float needed = availW / (float) rawW;
+                float scale = Math.max(minScale, needed);
+                String label = needed >= minScale
+                        ? raw
+                        : font.plainSubstrByWidth(raw, (int) Math.floor(availW / scale));
+                float scaledW = font.width(label) * scale;
+                float scaledH = font.lineHeight * scale;
+                float tx = this.x + (this.width - scaledW) * 0.5F;
+                float ty = this.y + Math.max(1.0F, (this.height - scaledH) * 0.5F);
+                poseStack.pushPose();
+                poseStack.translate(tx, ty, 0.0F);
+                poseStack.scale(scale, scale, 1.0F);
+                font.draw(poseStack, label, 0, 0, textColor);
+                poseStack.popPose();
+            }
         }
     }
 
     /**
-     * Renders an interactive 48-point CPI & Inflation trend line chart inside {@code (x, y, w, h)}.
+     * Renders a localized price-trend line chart inside {@code (x, y, w, h)}.
      */
     public static void drawCpiLineChart(
             PoseStack poseStack,
@@ -83,7 +141,7 @@ public final class TyC2UiWidgets {
         GuiComponent.fill(poseStack, x + 1, y + 1, x + w - 1, y + h - 1, 0xFF13202B);
 
         int plotX = x + 3;
-        int plotY = y + 10;
+        int plotY = y + 11;
         int plotW = Math.max(10, w - 6);
         int plotH = Math.max(10, h - 14);
 
@@ -108,10 +166,30 @@ public final class TyC2UiWidgets {
             GuiComponent.fill(poseStack, gx, base1Y, Math.min(plotX + plotW, gx + 2), base1Y + 1, 0x8088AABB);
         }
 
-        // Top mini scale labels
-        font.draw(poseStack, String.format("%.2f", maxV), plotX, y + 2, 0x7FA4B8);
+        // Top scale bounds + localized centered chart title ("Price Trend" / "物价走势")
+        String maxLabel = String.format("%.2f", maxV);
         String minLabel = String.format("%.2f", minV);
-        font.draw(poseStack, minLabel, plotX + plotW - font.width(minLabel), y + 2, 0x7FA4B8);
+        int maxW = font.width(maxLabel);
+        int minW = font.width(minLabel);
+        font.draw(poseStack, maxLabel, plotX, y + 2, 0x7FA4B8);
+        font.draw(poseStack, minLabel, plotX + plotW - minW, y + 2, 0x7FA4B8);
+
+        int titleArea = plotW - maxW - minW - 6;
+        if (titleArea >= 24) {
+            String chartTitle = Component.translatable("gui.tyc2.economy.cpi_chart").getString();
+            int tw = font.width(chartTitle);
+            float scale = tw <= titleArea ? 1.0F : Math.max(0.55F, titleArea / (float) tw);
+            String rendered = tw <= titleArea || titleArea / (float) tw >= 0.55F
+                    ? chartTitle
+                    : font.plainSubstrByWidth(chartTitle, (int) Math.floor(titleArea / scale));
+            float renderedW = font.width(rendered) * scale;
+            float tx = plotX + maxW + 3 + (titleArea - renderedW) * 0.5F;
+            poseStack.pushPose();
+            poseStack.translate(tx, y + 2.0F, 0.0F);
+            poseStack.scale(scale, scale, 1.0F);
+            font.draw(poseStack, rendered, 0, 0, 0xA8D4EC);
+            poseStack.popPose();
+        }
 
         if (history == null || history.length == 0) {
             return;
@@ -163,12 +241,13 @@ public final class TyC2UiWidgets {
         }
     }
 
-    /** Formats large IC values compactly for tight LCD boxes. */
+    /** Formats large IC values compactly (e.g., {@code 12500 -> "12.5k"}). */
     public static String compactIc(long value) {
-        if (value >= 1_000_000L) {
+        long abs = Math.abs(value);
+        if (abs >= 1_000_000L) {
             return String.format("%.1fM", value / 1_000_000.0);
         }
-        if (value >= 10_000L) {
+        if (abs >= 10_000L) {
             return String.format("%.1fk", value / 1_000.0);
         }
         return Long.toString(value);
