@@ -50,7 +50,9 @@ public final class ServerTerrainProbe implements TerrainProbe {
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos(x, topY, z);
         while (cursor.getY() > level.getMinBuildHeight()) {
             BlockState state = level.getBlockState(cursor);
-            if (!state.isAir() && !isNaturalClutterOnly(state)) {
+            boolean naturalTree = (state.is(BlockTags.LOGS) || state.is(BlockTags.LEAVES))
+                    && !placedBlocks.isPlayerPlaced(dimensionId, cursor.getX(), cursor.getY(), cursor.getZ());
+            if (!state.isAir() && !isNaturalClutterOnly(state) && !naturalTree) {
                 return cursor.getY();
             }
             cursor.move(0, -1, 0);
@@ -149,6 +151,7 @@ public final class ServerTerrainProbe implements TerrainProbe {
         Block b = state.getBlock();
         if (b == Blocks.GRASS || b == Blocks.TALL_GRASS || b == Blocks.FERN
                 || b == Blocks.LARGE_FERN || b == Blocks.DEAD_BUSH || b == Blocks.SNOW
+                || b == Blocks.MOSS_CARPET || b == Blocks.POWDER_SNOW
                 || b == Blocks.VINE || b == Blocks.SEAGRASS || b == Blocks.TALL_SEAGRASS
                 || b == Blocks.SWEET_BERRY_BUSH || b == Blocks.BROWN_MUSHROOM
                 || b == Blocks.RED_MUSHROOM || b == Blocks.CACTUS || b == Blocks.SUGAR_CANE) {

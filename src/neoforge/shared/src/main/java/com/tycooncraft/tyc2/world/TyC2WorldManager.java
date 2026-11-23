@@ -518,15 +518,19 @@ public final class TyC2WorldManager {
             }
         }
 
-        // Auto-fulfill Expansion Desire
+        // Auto-fulfill Expansion Desire & auto-launch ready desires once funds/site are available
         ExpansionDesire desire = v.getActiveExpansion();
-        if (desire != null && !desire.completed() && desire.autoFulfill()) {
-            ExpansionDesire updated = desire.pullAvailableFromInbound(v.getStorage());
-            if (!updated.equals(desire)) {
-                v.setActiveExpansion(updated);
-                data.setDirty();
+        if (desire != null && !desire.completed() && !v.isExpansionPaused()) {
+            ExpansionDesire current = desire;
+            if (current.autoFulfill()) {
+                ExpansionDesire updated = current.pullAvailableFromInbound(v.getStorage());
+                if (!updated.equals(current)) {
+                    v.setActiveExpansion(updated);
+                    data.setDirty();
+                    current = updated;
+                }
             }
-            if (updated.allMaterialsDelivered()) {
+            if (current.allMaterialsDelivered()) {
                 tryLaunchExpansionFromDesire(overworld, data, v, gameTime, null);
             }
         }
@@ -1666,12 +1670,42 @@ public final class TyC2WorldManager {
                 });
             }
             case "DELIVER_EXPANSION" -> {
-                if (isTerminal && !CommTerminalItem.consumeActionEu(terminalStack, player, TriModePowerMath.TerminalAction.REMOTE_UPGRADE_OR_EXPANSION)) {
-                    TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.terminal.low_power").withStyle(ChatFormatting.RED));
-                    return;
-                }
                 ExpansionDesire desire = village.getActiveExpansion();
                 if (desire == null) {
+                    return;
+                }
+                if (desire.allMaterialsDelivered() && village.getVillageBalance() < desire.constructionBudgetCost()) {
+                    TyC2Native.sendActionBar(
+                            player,
+                            Component.translatable(
+                                    "status.tyc2.expansion.low_funds",
+                                    desire.constructionBudgetCost(),
+                                    village.getVillageBalance()
+                            ).withStyle(ChatFormatting.RED)
+                    );
+                    return;
+                }
+                if (isTerminal && !desire.allMaterialsDelivered()) {
+                    boolean anyInboundMatch = false;
+                    for (Map.Entry<String, Integer> rem : desire.remainingMaterials().entrySet()) {
+                        if (rem.getValue() > 0 && village.getStorage().countInInbound(rem.getKey()) > 0) {
+                            anyInboundMatch = true;
+                            break;
+                        }
+                    }
+                    if (!anyInboundMatch) {
+                        TyC2Native.sendActionBar(
+                                player,
+                                Component.translatable(
+                                        "status.tyc2.expansion.missing_materials",
+                                        buildMissingMaterialsComponent(desire)
+                                ).withStyle(ChatFormatting.RED)
+                        );
+                        return;
+                    }
+                }
+                if (isTerminal && !CommTerminalItem.consumeActionEu(terminalStack, player, TriModePowerMath.TerminalAction.REMOTE_UPGRADE_OR_EXPANSION)) {
+                    TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.terminal.low_power").withStyle(ChatFormatting.RED));
                     return;
                 }
                 if (!isTerminal) {
@@ -1680,10 +1714,28 @@ public final class TyC2WorldManager {
                     }
                 }
                 ExpansionDesire updated = desire.pullAvailableFromInbound(village.getStorage());
-                village.setActiveExpansion(updated);
-                data.setDirty();
+                boolean deliveredAny = !updated.equals(desire);
+                if (deliveredAny) {
+                    village.setActiveExpansion(updated);
+                    data.setDirty();
+                }
                 if (updated.allMaterialsDelivered()) {
                     tryLaunchExpansionFromDesire(level, data, village, now, player);
+                } else {
+                    MutableComponent missingComp = buildMissingMaterialsComponent(updated);
+                    if (deliveredAny) {
+                        TyC2Native.sendActionBar(
+                                player,
+                                Component.translatable("status.tyc2.expansion.delivered_partial", missingComp)
+                                        .withStyle(ChatFormatting.YELLOW)
+                        );
+                    } else {
+                        TyC2Native.sendActionBar(
+                                player,
+                                Component.translatable("status.tyc2.expansion.missing_materials", missingComp)
+                                        .withStyle(ChatFormatting.RED)
+                        );
+                    }
                 }
             }
             case "TOGGLE_EXPANSION_AUTO" -> {
@@ -2476,6 +2528,26 @@ public final class TyC2WorldManager {
             return bank.getCompany(ref.accountId()).map(BankAccountManager.CompanyAccount::name).orElse(ref.accountId());
         }
         return "";
+    }
+
+    private static MutableComponent buildMissingMaterialsComponent(ExpansionDesire desire) {
+        MutableComponent out = Component.empty();
+        boolean first = true;
+        for (Map.Entry<String, Integer> rem : desire.remainingMaterials().entrySet()) {
+            if (rem.getValue() <= 0) {
+                continue;
+            }
+            if (!first) {
+                out.append(", ");
+            }
+            first = false;
+            ItemStack st = TyC2Native.stack(rem.getKey(), 1);
+            Component itemComp = st.isEmpty()
+                    ? Component.literal(rem.getKey())
+                    : Component.translatable(st.getItem().getDescriptionId());
+            out.append(itemComp).append(" ×" + rem.getValue());
+        }
+        return out;
     }
 
     private static Component activeAccountLabelComponent(BankAccountManager bank, UUID playerUuid) {

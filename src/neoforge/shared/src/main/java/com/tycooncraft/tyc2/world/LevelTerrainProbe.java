@@ -135,6 +135,13 @@ public final class LevelTerrainProbe implements TerrainProbe {
     }
 
     private boolean isSurfaceClutter(BlockState state, BlockPos pos) {
+        if (!state.getFluidState().isEmpty()
+                || isProtectedOrOccupied(pos.getX(), pos.getY(), pos.getZ())) {
+            return false;
+        }
+        if (state.canBeReplaced()) {
+            return true;
+        }
         if (state.is(Blocks.SNOW)
                 || state.is(Blocks.DEAD_BUSH)
                 || state.is(Blocks.FERN)
@@ -146,11 +153,18 @@ public final class LevelTerrainProbe implements TerrainProbe {
                 || state.is(Blocks.BROWN_MUSHROOM)
                 || state.is(Blocks.RED_MUSHROOM)
                 || state.is(Blocks.DANDELION)
-                || state.is(Blocks.POPPY)) {
+                || state.is(Blocks.POPPY)
+                || state.is(Blocks.MOSS_CARPET)
+                || state.is(Blocks.POWDER_SNOW)
+                || state.is(Blocks.SWEET_BERRY_BUSH)) {
             return true;
         }
         String id = TyC2Native.blockId(state);
         if (id.equals("minecraft:short_grass") || id.equals("minecraft:grass")
+                || id.contains("leaf_litter") || id.contains("pink_petals")
+                || id.contains("wildflowers") || id.contains("dry_grass")
+                || id.contains("moss_carpet") || id.contains("powder_snow")
+                || id.contains("sweet_berry_bush")
                 || id.contains("bush") || id.contains("flower") || id.contains("tulip")
                 || id.contains("daisy") || id.contains("orchid") || id.contains("allium")
                 || id.contains("bluet") || id.contains("cornflower") || id.contains("lily")) {
@@ -162,8 +176,7 @@ public final class LevelTerrainProbe implements TerrainProbe {
             return true;
         }
         // Natural (non-player-placed) tree logs may be cleared cleanly
-        if (TyC2Native.blockHasTag(state, "minecraft:logs")
-                && !savedData.isPlayerPlaced(dimensionId, pos.getX(), pos.getY(), pos.getZ())) {
+        if (TyC2Native.blockHasTag(state, "minecraft:logs")) {
             return true;
         }
         return false;

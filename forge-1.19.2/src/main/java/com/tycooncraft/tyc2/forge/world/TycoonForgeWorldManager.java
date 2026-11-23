@@ -50,6 +50,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -748,20 +749,28 @@ public final class TycoonForgeWorldManager {
             }
         }
 
-        // Auto-fulfill enabled Expansion Desire from Inbound 0..499
+        // Auto-fulfill enabled Expansion Desire from Inbound 0..499 & auto-launch once all materials + funds/site are ready
         ExpansionDesire exp = village.getActiveExpansion();
-        if (exp != null && exp.autoFulfill() && !exp.completed()) {
-            ExpansionDesire updated = exp.pullAvailableFromInbound(village.getStorage());
-            if (updated != exp) {
-                village.setActiveExpansion(updated);
-                changed = true;
+        if (exp != null && !exp.completed() && !village.isExpansionPaused()) {
+            ExpansionDesire current = exp;
+            if (current.autoFulfill()) {
+                ExpansionDesire updated = current.pullAvailableFromInbound(village.getStorage());
+                if (updated != current) {
+                    village.setActiveExpansion(updated);
+                    current = updated;
+                    changed = true;
+                }
             }
-            if (updated.allMaterialsDelivered() && village.getVillageBalance() >= updated.constructionBudgetCost()) {
+            if (current.allMaterialsDelivered()
+                    && village.getActiveConstructionJob().isEmpty()
+                    && village.getVillageBalance() >= current.constructionBudgetCost()) {
                 MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
                 ServerLevel dimLevel = server == null ? null : resolveLevel(server, village.getDimensionId());
                 if (dimLevel != null && dimLevel.hasChunkAt(TyC2Ids.toMc(village.getHubPos()))) {
-                    tryLaunchExpansionConstruction(dimLevel, data, village, gameTime);
-                    changed = true;
+                    ActionFeedback launched = tryLaunchExpansionConstruction(dimLevel, data, village, gameTime);
+                    if (launched.success()) {
+                        changed = true;
+                    }
                 }
             }
         }
@@ -1381,6 +1390,7 @@ public final class TycoonForgeWorldManager {
                     false
             );
             village.setActiveExpansion(exp);
+            data.setDirty();
         }
 
         if (exp.allMaterialsDelivered() && village.getVillageBalance() < exp.constructionBudgetCost()) {
@@ -1392,11 +1402,30 @@ public final class TycoonForgeWorldManager {
             );
         }
 
+        // Guard Comm Terminal 100 EU when no remaining expansion materials exist in Hub Inbound
+        if (terminalStack != null && !exp.allMaterialsDelivered()) {
+            boolean hasAnyInbound = false;
+            for (String reqItemId : exp.remainingMaterials().keySet()) {
+                if (village.getStorage().countInInbound(reqItemId) > 0) {
+                    hasAnyInbound = true;
+                    break;
+                }
+            }
+            if (!hasAnyInbound) {
+                return new ActionFeedback(
+                        false,
+                        "status.tyc2.expansion.missing_materials",
+                        buildMissingMaterialsComponent(exp)
+                );
+            }
+        }
+
         if (terminalStack != null
                 && !CommTerminalItem.consumeAction(terminalStack, TriModePowerMath.TerminalAction.REMOTE_UPGRADE_OR_EXPANSION)) {
             return new ActionFeedback(false, "status.tyc2.terminal.low_power");
         }
 
+        int deliveredBefore = totalDelivered(exp);
         if (pullFromPlayerInventory) {
             for (var entry : exp.remainingMaterials().entrySet()) {
                 pullItemsFromPlayerIntoInbound(player.getInventory(), village, entry.getKey(), entry.getValue());
@@ -1407,7 +1436,14 @@ public final class TycoonForgeWorldManager {
         data.setDirty();
 
         if (!updated.allMaterialsDelivered()) {
-            return new ActionFeedback(true, "gui.tyc2.expansion.deliver");
+            boolean deliveredAny = totalDelivered(updated) > deliveredBefore;
+            return new ActionFeedback(
+                    deliveredAny,
+                    deliveredAny
+                            ? "status.tyc2.expansion.delivered_partial"
+                            : "status.tyc2.expansion.missing_materials",
+                    buildMissingMaterialsComponent(updated)
+            );
         }
         if (village.getVillageBalance() < updated.constructionBudgetCost()) {
             return new ActionFeedback(
@@ -1422,6 +1458,32 @@ public final class TycoonForgeWorldManager {
             return new ActionFeedback(false, "status.tyc2.expansion.no_site");
         }
         return tryLaunchExpansionConstruction(dimLevel, data, village, player.getServer().overworld().getGameTime());
+    }
+
+    private static int totalDelivered(ExpansionDesire desire) {
+        int sum = 0;
+        for (int qty : desire.deliveredMaterials().values()) {
+            sum += Math.max(0, qty);
+        }
+        return sum;
+    }
+
+    /** Builds a client-translatable comma-separated list of missing expansion materials ({@code <Item> ×N}). */
+    private static MutableComponent buildMissingMaterialsComponent(ExpansionDesire desire) {
+        MutableComponent list = Component.empty();
+        boolean first = true;
+        for (Map.Entry<String, Integer> entry : desire.remainingMaterials().entrySet()) {
+            if (!first) {
+                list.append(Component.literal(", "));
+            }
+            first = false;
+            Item item = TyC2Ids.getItem(entry.getKey());
+            Component itemName = item != null
+                    ? Component.translatable(item.getDescriptionId())
+                    : Component.literal(entry.getKey());
+            list.append(itemName).append(Component.literal(" \u00D7" + entry.getValue()));
+        }
+        return list;
     }
 
     /** Plans and launches gradual construction for the village's current {@link ExpansionDesire}. */

@@ -432,14 +432,53 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             drawFitString(
                     canvas,
                     Component.translatable("project.tyc2." + pType).getString() + " (" + budget + " IC)",
-                    80, 108, 156, 0xFFFFE066
+                    80, 103, 156, 0xFFFFE066
             );
-            boolean auto = JsonLite.getBoolean(desire, "autoFulfill", false);
-            drawFitString(
-                    canvas,
-                    Component.translatable(auto ? "gui.tyc2.hub.auto_fulfill.on" : "gui.tyc2.hub.auto_fulfill.off").getString(),
-                    80, 119, 156, 0xFF9AF5B0
-            );
+            Map<String, Object> req = JsonLite.asObject(desire.get("required"));
+            Map<String, Object> del = JsonLite.asObject(desire.get("delivered"));
+            if (req != null && !req.isEmpty()) {
+                List<String> parts = new ArrayList<>(req.size());
+                List<Boolean> met = new ArrayList<>(req.size());
+                for (Map.Entry<String, Object> e : req.entrySet()) {
+                    int need = JsonLite.getInt(req, e.getKey(), 0);
+                    int have = del == null ? 0 : JsonLite.getInt(del, e.getKey(), 0);
+                    parts.add(TyC2Native.localizedItemName(e.getKey()) + " " + have + "/" + need);
+                    met.add(have >= need);
+                }
+                int split = (parts.size() + 1) / 2;
+                StringBuilder line1 = new StringBuilder();
+                boolean line1Met = true;
+                for (int i = 0; i < split; i++) {
+                    if (i > 0) {
+                        line1.append(" · ");
+                    }
+                    line1.append(parts.get(i));
+                    line1Met &= met.get(i);
+                }
+                drawFitString(
+                        canvas,
+                        line1.toString(),
+                        80, 113, 156, 0.46F,
+                        line1Met ? 0xFF66FF99 : 0xFFFFCC66
+                );
+                if (split < parts.size()) {
+                    StringBuilder line2 = new StringBuilder();
+                    boolean line2Met = true;
+                    for (int i = split; i < parts.size(); i++) {
+                        if (i > split) {
+                            line2.append(" · ");
+                        }
+                        line2.append(parts.get(i));
+                        line2Met &= met.get(i);
+                    }
+                    drawFitString(
+                            canvas,
+                            line2.toString(),
+                            80, 122, 156, 0.46F,
+                            line2Met ? 0xFF66FF99 : 0xFFFFCC66
+                    );
+                }
+            }
         } else {
             drawFitString(
                     canvas,
@@ -555,11 +594,17 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
     }
 
     private static void drawFitString(ScreenCanvas canvas, String text, int x, int y, int maxWidth, int color) {
+        drawFitString(canvas, text, x, y, maxWidth, 0.62F, color);
+    }
+
+    private static void drawFitString(
+            ScreenCanvas canvas, String text, int x, int y, int maxWidth, float minScale, int color
+    ) {
         int w = canvas.textWidth(text);
         if (w <= maxWidth) {
             canvas.drawClippedString(text, x, y, maxWidth, color);
         } else {
-            float sc = Math.max(0.62F, maxWidth / (float) w);
+            float sc = Math.max(minScale, maxWidth / (float) w);
             canvas.drawScaledString(text, x, y, maxWidth, sc, color);
         }
     }

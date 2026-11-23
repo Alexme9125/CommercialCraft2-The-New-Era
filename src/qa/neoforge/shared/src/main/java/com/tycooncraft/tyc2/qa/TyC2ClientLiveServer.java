@@ -32,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
@@ -169,7 +170,15 @@ public final class TyC2ClientLiveServer {
         metro.getStorage().setSlotRaw(1, new SlotStack("minecraft:coal", 64, ""));
         metro.getStorage().setSlotRaw(500, new SlotStack("minecraft:wheat", 48, ""));
         metro.getStorage().setSlotRaw(501, new SlotStack("minecraft:leather", 16, ""));
-        metro.setActiveExpansion(ExpansionDesire.createDefault("live_exp", ProjectType.SMALL_COTTAGE, BiomeStyle.PLAINS, false));
+        // Pre-deliver 4 of 5 SMALL_COTTAGE materials (leaving minecraft:white_wool 0/3) so screenshots visually
+        // verify ALL 5 materials (green met + amber 5th item) in BOTH Hub Expansion & Terminal Growth tabs!
+        ExpansionDesire liveExp = ExpansionDesire.createDefault("live_exp", ProjectType.SMALL_COTTAGE, BiomeStyle.PLAINS, false);
+        for (Map.Entry<String, Integer> entry : liveExp.requiredMaterials().entrySet()) {
+            if (!"minecraft:white_wool".equals(entry.getKey())) {
+                liveExp = liveExp.withDelivered(entry.getKey(), entry.getValue());
+            }
+        }
+        metro.setActiveExpansion(liveExp);
         data.putVillage(metro);
         TyC2QaPlatform.spawnAdultVillager(level, hubPos.getX() - 1.5, surfaceY, hubPos.getZ() - 2.0);
         TyC2QaPlatform.spawnAdultVillager(level, hubPos.getX() + 1.5, surfaceY, hubPos.getZ() - 2.0);
