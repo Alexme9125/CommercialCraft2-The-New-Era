@@ -220,29 +220,51 @@ public final class TyC2Ids {
         if (stack == null || stack.isEmpty() || spec == null || spec.isBlank()) {
             return false;
         }
+        return matchesItemOrTag(itemId(stack), spec);
+    }
+
+    /** Checks whether {@code candidateItemId} matches either an exact item ID or a {@code #tag} ({@code forge:}/{@code c:}/{@code minecraft:}). */
+    public static boolean matchesItemOrTag(@Nullable String candidateItemId, @Nullable String spec) {
+        if (candidateItemId == null || candidateItemId.isBlank() || spec == null || spec.isBlank()) {
+            return false;
+        }
+        String normItem = candidateItemId.trim().toLowerCase(Locale.ROOT);
         String trimmed = spec.trim().toLowerCase(Locale.ROOT);
         if (trimmed.startsWith("#")) {
+            Item item = getItem(normItem);
+            if (item == null) {
+                return false;
+            }
             String rawTag = trimmed.substring(1);
             if (rawTag.contains(":")) {
-                if (hasItemTag(stack.getItem(), rawTag)) {
+                if (hasItemTag(item, rawTag)) {
                     return true;
                 }
                 int colon = rawTag.indexOf(':');
                 String ns = rawTag.substring(0, colon);
                 String path = rawTag.substring(colon + 1);
                 if ("c".equals(ns)) {
-                    return hasItemTag(stack.getItem(), "forge:" + path);
+                    return hasItemTag(item, "forge:" + path);
                 }
                 if ("forge".equals(ns)) {
-                    return hasItemTag(stack.getItem(), "c:" + path);
+                    return hasItemTag(item, "c:" + path);
                 }
                 return false;
             }
-            return hasItemTag(stack.getItem(), "forge:" + rawTag)
-                    || hasItemTag(stack.getItem(), "c:" + rawTag)
-                    || hasItemTag(stack.getItem(), "minecraft:" + rawTag);
+            return hasItemTag(item, "forge:" + rawTag)
+                    || hasItemTag(item, "c:" + rawTag)
+                    || hasItemTag(item, "minecraft:" + rawTag);
         }
-        return itemId(stack).equals(trimmed);
+        return normItem.equals(trimmed);
+    }
+
+    /** Resolves the localized display name of an item ID from Forge's live item registry. */
+    public static String localizedItemName(@Nullable String itemId, @Nullable String enchantSpec) {
+        if (itemId == null || itemId.isBlank()) {
+            return "";
+        }
+        ItemStack stack = createStack(itemId, 1, "", enchantSpec);
+        return stack.isEmpty() ? itemId : stack.getHoverName().getString();
     }
 
     /** Converts {@link BlockPos} to pure-Java {@link BlockPos3i}. */

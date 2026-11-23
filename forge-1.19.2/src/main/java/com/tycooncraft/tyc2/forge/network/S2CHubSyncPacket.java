@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.api.distmarker.Dist;
@@ -111,6 +112,7 @@ public final class S2CHubSyncPacket {
     public final int jobPlaced;
     public final int jobTotal;
     public final List<String> nearbyLc2Stations;
+    public final Component feedbackComponent;
     public final String feedback;
 
     public S2CHubSyncPacket(
@@ -157,7 +159,7 @@ public final class S2CHubSyncPacket {
             int jobPlaced,
             int jobTotal,
             List<String> nearbyLc2Stations,
-            String feedback
+            Component feedbackComponent
     ) {
         this.villageId = villageId;
         this.villageName = villageName;
@@ -202,10 +204,11 @@ public final class S2CHubSyncPacket {
         this.jobPlaced = jobPlaced;
         this.jobTotal = jobTotal;
         this.nearbyLc2Stations = nearbyLc2Stations;
-        this.feedback = feedback == null ? "" : feedback;
+        this.feedbackComponent = feedbackComponent == null ? Component.empty() : feedbackComponent;
+        this.feedback = this.feedbackComponent.getString();
     }
 
-    /** Builds a full village snapshot for Hub or Comm Terminal screens. */
+    /** Builds a full village snapshot for Hub or Comm Terminal screens with translatable feedback. */
     public static S2CHubSyncPacket buildFor(
             ServerPlayer player,
             VillageRecord village,
@@ -213,7 +216,7 @@ public final class S2CHubSyncPacket {
             CooperationHubStorage.Zone zone,
             int pageIndex,
             String searchQuery,
-            String feedback
+            Component feedback
     ) {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         data.syncMacroAccountTotals();
@@ -416,7 +419,7 @@ public final class S2CHubSyncPacket {
         for (String st : p.nearbyLc2Stations) {
             buf.writeUtf(st, 64);
         }
-        buf.writeUtf(p.feedback, 192);
+        buf.writeComponent(p.feedbackComponent);
     }
 
     public static S2CHubSyncPacket decode(FriendlyByteBuf buf) {
@@ -499,7 +502,7 @@ public final class S2CHubSyncPacket {
         for (int i = 0; i < lc2Count; i++) {
             lc2.add(buf.readUtf(64));
         }
-        String fb = buf.readUtf(192);
+        Component fb = buf.readComponent();
 
         return new S2CHubSyncPacket(
                 vid, name, biome, lv, pop, vol, bal, mayor, depop, expPaused, manage, chunk,

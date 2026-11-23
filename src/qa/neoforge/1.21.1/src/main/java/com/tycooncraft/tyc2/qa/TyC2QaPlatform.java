@@ -6,11 +6,15 @@ import java.util.TreeSet;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerProfession;
 import net.minecraft.world.item.ItemStack;
@@ -40,10 +44,44 @@ public final class TyC2QaPlatform {
         return ids;
     }
 
+    public static final class CapturingFakePlayer extends FakePlayer {
+        private String lastActionBarKey = "";
+        private String lastActionBarText = "";
+
+        public CapturingFakePlayer(ServerLevel level, GameProfile profile) {
+            super(level, profile);
+        }
+
+        @Override
+        public void displayClientMessage(Component chatComponent, boolean actionBar) {
+            if (actionBar && chatComponent != null) {
+                this.lastActionBarText = chatComponent.getString();
+                this.lastActionBarKey = chatComponent.getContents() instanceof TranslatableContents tc
+                        ? tc.getKey()
+                        : chatComponent.getString();
+            }
+        }
+    }
+
     public static FakePlayer createFakePlayer(ServerLevel level, UUID uuid, String name) {
-        FakePlayer fp = FakePlayerFactory.get(level, new GameProfile(uuid, name));
+        FakePlayer fp = new CapturingFakePlayer(level, new GameProfile(uuid, name));
         fp.setGameMode(GameType.SURVIVAL);
         return fp;
+    }
+
+    public static String lastActionBarKey(FakePlayer player) {
+        return player instanceof CapturingFakePlayer c ? c.lastActionBarKey : "";
+    }
+
+    public static String lastActionBarText(FakePlayer player) {
+        return player instanceof CapturingFakePlayer c ? c.lastActionBarText : "";
+    }
+
+    public static void clearActionBarKey(FakePlayer player) {
+        if (player instanceof CapturingFakePlayer c) {
+            c.lastActionBarKey = "";
+            c.lastActionBarText = "";
+        }
     }
 
     public static void teleportPlayer(
@@ -69,6 +107,51 @@ public final class TyC2QaPlatform {
             throw new AssertionError("Failed to add Villager to level");
         }
         return v;
+    }
+
+    public static Entity spawnAdultNitwitVillager(ServerLevel level, double x, double y, double z, int xp) {
+        Villager v = EntityType.VILLAGER.create(level);
+        if (v == null) {
+            throw new AssertionError("Failed to create Nitwit Villager on 1.21.1");
+        }
+        v.setAge(0);
+        v.setVillagerData(v.getVillagerData().setProfession(VillagerProfession.NITWIT));
+        v.setVillagerXp(xp);
+        v.moveTo(x, y, z, 0.0F, 0.0F);
+        v.setNoAi(true);
+        if (!level.addFreshEntity(v)) {
+            throw new AssertionError("Failed to add Nitwit Villager to level");
+        }
+        return v;
+    }
+
+    public static Entity villagerTradingPlayer(Entity entity) {
+        return entity instanceof Villager v ? v.getTradingPlayer() : null;
+    }
+
+    public static boolean villagerNavigationDone(Entity entity) {
+        return entity instanceof Villager v && v.getNavigation().isDone();
+    }
+
+    public static boolean villagerHasNavPath(Entity entity) {
+        return entity instanceof Villager v && !v.getNavigation().isDone();
+    }
+
+    public static BlockPos villagerMeetingPoint(Entity entity) {
+        if (entity instanceof Villager v) {
+            return v.getBrain().getMemory(MemoryModuleType.MEETING_POINT).map(GlobalPos::pos).orElse(null);
+        }
+        return null;
+    }
+
+    public static void setVillagerAiEnabled(Entity entity, boolean enabled) {
+        if (entity instanceof Villager v) {
+            v.setNoAi(!enabled);
+        }
+    }
+
+    public static void moveEntityTo(Entity entity, double x, double y, double z, float yaw) {
+        entity.moveTo(x, y, z, yaw, 0.0F);
     }
 
     public static void killEntity(ServerLevel level, Entity entity) {

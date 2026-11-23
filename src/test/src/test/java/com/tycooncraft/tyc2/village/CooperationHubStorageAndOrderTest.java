@@ -200,4 +200,105 @@ class CooperationHubStorageAndOrderTest {
         assertTrue(full.allMaterialsDelivered());
         assertEquals(1.0, full.completionRatio(), 1e-9);
     }
+
+    @Test
+    void tradeFailureCodesDistinguishMissingItemsFromLowFundsAndSupportTagMatching() {
+        VillageRecord village = new VillageRecord(
+                UUID.randomUUID(), "minecraft:overworld", "Tradehaven",
+                new BlockPos3i(0, 64, 0), BiomeStyle.PLAINS);
+        village.establishPartnership(UUID.randomUUID(), null, 500L);
+
+        VillageTradeOrder buyOrder = new VillageTradeOrder(
+                "buy-iron", OrderSide.VILLAGE_BUYS, "minecraft:iron_ingot", "Iron Ingot", "",
+                10, 0, 20L, 0L, 12_000L, true, false);
+        VillageTradeOrder logTagBuyOrder = new VillageTradeOrder(
+                "buy-logs", OrderSide.VILLAGE_BUYS, "#minecraft:logs", "Any Logs", "",
+                10, 0, 5L, 0L, 12_000L, true, false);
+        VillageTradeOrder sellOrder = new VillageTradeOrder(
+                "sell-coal", OrderSide.VILLAGE_SELLS, "minecraft:coal", "Coal", "",
+                16, 0, 4L, 0L, 12_000L, false, false);
+        village.addOrder(buyOrder);
+        village.addOrder(logTagBuyOrder);
+        village.addOrder(sellOrder);
+
+        // 1. Plenty of village funds (500 IC) but 0 matching items in Inbound -> INSUFFICIENT_INBOUND_ITEMS
+        VillageRecord.TradeExecutionResult noItems = village.executeBuyOrderFromInbound("buy-iron", 5);
+        assertFalse(noItems.success());
+        assertEquals(VillageRecord.TradeFailureCode.INSUFFICIENT_INBOUND_ITEMS, noItems.failureCode());
+        assertEquals(500L, village.getVillageBalance());
+
+        // 2. Inbound has 10 items, but villageBalance (15 IC) < unitPrice (20 IC) -> INSUFFICIENT_VILLAGE_FUNDS
+        village.getStorage().insertExternal("minecraft:iron_ingot", 10, "");
+        village.setVillageBalance(15L);
+        VillageRecord.TradeExecutionResult lowFunds = village.executeBuyOrderFromInbound("buy-iron", 5);
+        assertFalse(lowFunds.success());
+        assertEquals(VillageRecord.TradeFailureCode.INSUFFICIENT_VILLAGE_FUNDS, lowFunds.failureCode());
+        assertEquals(10, village.getStorage().countInInbound("minecraft:iron_ingot"));
+
+        // 3. Partial delivery succeeds when villageBalance >= unitPrice even if < remainingQty * unitPrice
+        village.setVillageBalance(45L); // affords 2 * 20 = 40 IC (order remaining value is 200 IC)
+        VillageRecord.TradeExecutionResult partialBuy = village.executeBuyOrderFromInbound("buy-iron", 10);
+        assertTrue(partialBuy.success());
+        assertEquals(VillageRecord.TradeFailureCode.NONE, partialBuy.failureCode());
+        assertEquals(2, partialBuy.executedQty());
+        assertEquals(40L, partialBuy.totalCurrency());
+        assertEquals(5L, village.getVillageBalance());
+        assertEquals(8, village.getStorage().countInInbound("minecraft:iron_ingot"));
+        assertEquals(8, partialBuy.updatedOrder().remainingQty());
+
+        // Remaining 5 IC can no longer afford another unit -> INSUFFICIENT_VILLAGE_FUNDS
+        VillageRecord.TradeExecutionResult afterPartial = village.executeBuyOrderFromInbound("buy-iron", 1);
+        assertFalse(afterPartial.success());
+        assertEquals(VillageRecord.TradeFailureCode.INSUFFICIENT_VILLAGE_FUNDS, afterPartial.failureCode());
+
+        // 4. Tag-matching buy delivery across mixed log species
+        village.setVillageBalance(500L);
+        java.util.function.Predicate<SlotStack> isLog = stack -> stack.itemId().endsWith("_log");
+        VillageRecord.TradeExecutionResult tagMissing =
+                village.executeBuyOrderFromInboundMatching("buy-logs", 10, isLog);
+        assertFalse(tagMissing.success());
+        assertEquals(VillageRecord.TradeFailureCode.INSUFFICIENT_INBOUND_ITEMS, tagMissing.failureCode());
+
+        village.getStorage().insertExternal("minecraft:oak_log", 3, "");
+        village.getStorage().insertExternal("minecraft:spruce_log", 4, "");
+        VillageRecord.TradeExecutionResult tagDelivered =
+                village.executeBuyOrderFromInboundMatching("buy-logs", 10, isLog);
+        assertTrue(tagDelivered.success());
+        assertEquals(VillageRecord.TradeFailureCode.NONE, tagDelivered.failureCode());
+        assertEquals(7, tagDelivered.executedQty());
+        assertEquals(35L, tagDelivered.totalCurrency());
+        assertEquals(0, village.getStorage().countInInbound(isLog));
+        assertEquals(3, tagDelivered.updatedOrder().remainingQty());
+
+        // 5. Validation & Outbound-full failure codes + 5-arg backwards-compatible constructor
+        assertEquals(VillageRecord.TradeFailureCode.INVALID_QTY,
+                village.executeBuyOrderFromInbound("buy-iron", 0).failureCode());
+        assertEquals(VillageRecord.TradeFailureCode.ORDER_NOT_FOUND,
+                village.executeBuyOrderFromInbound("missing-id", 1).failureCode());
+        assertEquals(VillageRecord.TradeFailureCode.WRONG_SIDE,
+                village.executeBuyOrderFromInbound("sell-coal", 1).failureCode());
+        assertEquals(VillageRecord.TradeFailureCode.WRONG_SIDE,
+                village.executeSellOrderToOutbound("buy-iron", 1, "", 64).failureCode());
+
+        // Fill all 500 Outbound slots with non-matching items -> OUTBOUND_FULL
+        for (int s = CooperationHubStorage.OUTBOUND_START; s < CooperationHubStorage.OUTBOUND_END_EXCLUSIVE; s++) {
+            village.getStorage().setSlotRaw(s, SlotStack.of("minecraft:stone", 64));
+        }
+        VillageRecord.TradeExecutionResult outFull =
+                village.executeSellOrderToOutbound("sell-coal", 4, "", 64);
+        assertFalse(outFull.success());
+        assertEquals(VillageRecord.TradeFailureCode.OUTBOUND_FULL, outFull.failureCode());
+
+        // Clear slot 500, finish sell order, then verify ALREADY_COMPLETED
+        village.getStorage().setSlotRaw(500, null);
+        assertEquals(VillageRecord.TradeFailureCode.NONE,
+                village.executeSellOrderToOutbound("sell-coal", 16, "", 64).failureCode());
+        assertEquals(VillageRecord.TradeFailureCode.ALREADY_COMPLETED,
+                village.executeSellOrderToOutbound("sell-coal", 1, "", 64).failureCode());
+
+        // Backwards-compatible 5-arg constructor infers failureCode cleanly
+        VillageRecord.TradeExecutionResult legacyCtor =
+                new VillageRecord.TradeExecutionResult(false, 0, 0L, null, "Insufficient items in Inbound zone");
+        assertEquals(VillageRecord.TradeFailureCode.INSUFFICIENT_INBOUND_ITEMS, legacyCtor.failureCode());
+    }
 }

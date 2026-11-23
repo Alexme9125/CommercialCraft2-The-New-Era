@@ -5,6 +5,8 @@ import com.tycooncraft.tyc2.core.DemandGenerator;
 import com.tycooncraft.tyc2.core.IndustrialTier;
 import com.tycooncraft.tyc2.core.MacroEconomyEngine;
 import com.tycooncraft.tyc2.core.Season;
+import com.tycooncraft.tyc2.core.TradeGood;
+import com.tycooncraft.tyc2.core.TriModePowerMath;
 import com.tycooncraft.tyc2.core.TyC2Config;
 import com.tycooncraft.tyc2.forge.TyC2ForgeRegistries;
 import com.tycooncraft.tyc2.forge.block.CooperationHubBlockEntity;
@@ -12,6 +14,7 @@ import com.tycooncraft.tyc2.forge.compat.Ic2Bridge;
 import com.tycooncraft.tyc2.forge.compat.SeasonSoftBridge;
 import com.tycooncraft.tyc2.forge.data.TyC2RuntimeData;
 import com.tycooncraft.tyc2.forge.gui.MayorNegotiationMenu;
+import com.tycooncraft.tyc2.forge.item.CommTerminalItem;
 import com.tycooncraft.tyc2.forge.item.TyC2BlockItem;
 import com.tycooncraft.tyc2.forge.util.TyC2ChunkTickets;
 import com.tycooncraft.tyc2.forge.util.TyC2Ids;
@@ -24,6 +27,7 @@ import com.tycooncraft.tyc2.village.ExpansionPlanner;
 import com.tycooncraft.tyc2.village.MayorElectionRules;
 import com.tycooncraft.tyc2.village.OrderSide;
 import com.tycooncraft.tyc2.village.ProjectType;
+import com.tycooncraft.tyc2.village.SlotStack;
 import com.tycooncraft.tyc2.village.SpawnMarker;
 import com.tycooncraft.tyc2.village.VillageLevelTable;
 import com.tycooncraft.tyc2.village.VillageRecord;
@@ -31,13 +35,17 @@ import com.tycooncraft.tyc2.village.VillageTradeOrder;
 import com.tycooncraft.tyc2.village.WorldBlockPlacement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
@@ -50,6 +58,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -57,6 +66,7 @@ import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerProfession;
@@ -74,6 +84,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
@@ -110,6 +121,12 @@ public final class TycoonForgeWorldManager {
 
     private static final ExpansionPlanner PLANNER = new ExpansionPlanner();
     private static final Random RNG = new Random();
+
+    private record ActiveNegotiation(UUID mayorUuid, UUID playerUuid, String dimensionId) {
+    }
+
+    /** Active Mayor negotiations keyed by Mayor entity UUID so the Mayor stays stationary and faces the player. */
+    private static final Map<UUID, ActiveNegotiation> ACTIVE_NEGOTIATIONS = new ConcurrentHashMap<>();
 
     private TycoonForgeWorldManager() {
     }
@@ -170,18 +187,29 @@ public final class TycoonForgeWorldManager {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(server);
         TyC2Config cfg = TyC2RuntimeData.config();
 
+        // 0. Keep actively negotiating Mayors stationary and facing the player every server tick
+        tickActiveNegotiations(server);
+
         // 1. Scan for village Bells / Hubs and update Mayor elections every 100 ticks
         if (gameTime % 100L == 0L) {
             scanAndUpdateVillages(server, data, gameTime);
         }
 
-        // 2. Virtual village economy, demand refresh, upkeep, and auto-fulfillment
+        // 2. Virtual village economy, demand refresh, upkeep, auto-fulfillment, and Mayor plaza anchoring
         if (gameTime % 20L == 0L) {
             tickVirtualVillages(server, overworld, data, cfg, gameTime);
+            tickMayorAnchors(server, data);
         }
 
         // 3. Gradual collision-safe construction jobs (ticks every tick; ConstructionJob throttles blocks/step)
         tickConstructionJobs(server, data);
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            endMayorNegotiation(player, null);
+        }
     }
 
     @SubscribeEvent
@@ -287,8 +315,11 @@ public final class TycoonForgeWorldManager {
                 event.setCanceled(true);
                 event.setCancellationResult(InteractionResult.SUCCESS);
                 if (!village.isPartnered()) {
-                    openMayorNegotiationScreen(player, village);
+                    startMayorNegotiation(player, villager);
+                    openMayorNegotiationScreen(player, village, villager.getUUID());
                 } else {
+                    villager.getNavigation().stop();
+                    villager.getLookControl().setLookAt(player, 30.0F, 30.0F);
                     player.sendSystemMessage(Component.translatable(
                             "mayor.tyc2.partnered_status",
                             village.getVillageName(),
@@ -345,13 +376,15 @@ public final class TycoonForgeWorldManager {
         village.setPopulation(others.size());
         data.setDirty();
 
+        ACTIVE_NEGOTIATIONS.remove(villager.getUUID());
+        syncMayorEntityTags(level, others, outcome.mayorUuid(), village);
+
         broadcastToVillageStakeholders(
                 level, hubPos, village,
                 Component.translatable("mayor.tyc2.died", village.getVillageName()).withStyle(ChatFormatting.RED)
         );
         if (outcome.action() == MayorElectionRules.Action.ELECTED_NEW_MAYOR
                 || outcome.action() == MayorElectionRules.Action.RESUMED_AND_ELECTED) {
-            applyMayorEntityTag(level, others, outcome.mayorUuid(), village);
             broadcastToVillageStakeholders(
                     level, hubPos, village,
                     Component.translatable("mayor.tyc2.elected", village.getVillageName()).withStyle(ChatFormatting.GOLD)
@@ -369,6 +402,8 @@ public final class TycoonForgeWorldManager {
     public static void onLevelUnload(LevelEvent.Unload event) {
         if (event.getLevel() instanceof ServerLevel level) {
             TyC2ChunkTickets.clearLevel(level);
+            String dim = level.dimension().location().toString();
+            ACTIVE_NEGOTIATIONS.values().removeIf(neg -> dim.equals(neg.dimensionId()));
         }
     }
 
@@ -427,9 +462,11 @@ public final class TycoonForgeWorldManager {
                     candidates,
                     gameTime
             );
+            // Always synchronize Mayor tags and immediately strip any disqualified Nitwit / stale Mayors
+            syncMayorEntityTags(level, villagers, outcome.mayorUuid(), village);
+
             switch (outcome.action()) {
                 case ELECTED_NEW_MAYOR -> {
-                    applyMayorEntityTag(level, villagers, outcome.mayorUuid(), village);
                     data.setDirty();
                     if (village.isPartnered()) {
                         broadcastToVillageStakeholders(
@@ -440,7 +477,6 @@ public final class TycoonForgeWorldManager {
                     }
                 }
                 case RESUMED_AND_ELECTED -> {
-                    applyMayorEntityTag(level, villagers, outcome.mayorUuid(), village);
                     data.setDirty();
                     broadcastToVillageStakeholders(
                             level, hubPos, village,
@@ -461,13 +497,142 @@ public final class TycoonForgeWorldManager {
                     }
                 }
                 case NO_CHANGE -> {
-                    // Ensure existing Mayor keeps custom golden title & persistence
-                    if (outcome.mayorUuid() != null) {
-                        applyMayorEntityTag(level, villagers, outcome.mayorUuid(), village);
-                    }
+                    // Mayor tags already verified by syncMayorEntityTags above
                 }
                 default -> {
-                    // INSUFFICIENT_POPULATION or WAITING_FOR_ADULT_CANDIDATE
+                    // INSUFFICIENT_POPULATION or WAITING_FOR_ADULT_CANDIDATE (disqualified Mayors already stripped)
+                    data.setDirty();
+                }
+            }
+        }
+    }
+
+    /** Begins an active Mayor negotiation: stops the Mayor immediately and faces {@code player}. */
+    public static void startMayorNegotiation(ServerPlayer player, Villager mayor) {
+        if (player == null || mayor == null || !mayor.isAlive()) {
+            return;
+        }
+        String dim = mayor.level.dimension().location().toString();
+        ACTIVE_NEGOTIATIONS.put(mayor.getUUID(), new ActiveNegotiation(mayor.getUUID(), player.getUUID(), dim));
+        freezeMayorFacingPlayer(mayor, player);
+    }
+
+    /** Releases a negotiating Mayor when the menu closes, partnership is signed, or player logs out. */
+    public static void endMayorNegotiation(ServerPlayer player, @Nullable UUID mayorUuid) {
+        if (player == null || player.getServer() == null) {
+            return;
+        }
+        MinecraftServer server = player.getServer();
+        if (mayorUuid != null) {
+            ActiveNegotiation removed = ACTIVE_NEGOTIATIONS.remove(mayorUuid);
+            if (removed != null) {
+                releaseMayorTradingState(server, removed);
+            }
+            return;
+        }
+        List<ActiveNegotiation> toRelease = new ArrayList<>();
+        ACTIVE_NEGOTIATIONS.values().removeIf(neg -> {
+            if (neg.playerUuid().equals(player.getUUID())) {
+                toRelease.add(neg);
+                return true;
+            }
+            return false;
+        });
+        for (ActiveNegotiation neg : toRelease) {
+            releaseMayorTradingState(server, neg);
+        }
+    }
+
+    private static void releaseMayorTradingState(MinecraftServer server, ActiveNegotiation neg) {
+        ServerLevel level = resolveLevel(server, neg.dimensionId());
+        if (level == null) {
+            return;
+        }
+        Entity e = level.getEntity(neg.mayorUuid());
+        if (e instanceof Villager mayor) {
+            mayor.setTradingPlayer(null);
+        }
+    }
+
+    private static void tickActiveNegotiations(MinecraftServer server) {
+        if (ACTIVE_NEGOTIATIONS.isEmpty()) {
+            return;
+        }
+        for (ActiveNegotiation neg : new ArrayList<>(ACTIVE_NEGOTIATIONS.values())) {
+            ServerPlayer player = server.getPlayerList().getPlayer(neg.playerUuid());
+            ServerLevel level = resolveLevel(server, neg.dimensionId());
+            Entity entity = level != null ? level.getEntity(neg.mayorUuid()) : null;
+            if (player == null || !player.isAlive()
+                    || !(player.containerMenu instanceof MayorNegotiationMenu)
+                    || !(entity instanceof Villager mayor) || !mayor.isAlive()
+                    || mayor.level != player.level
+                    || mayor.distanceToSqr(player) > 256.0) {
+                ACTIVE_NEGOTIATIONS.remove(neg.mayorUuid());
+                if (entity instanceof Villager v && (player == null || v.getTradingPlayer() == player)) {
+                    v.setTradingPlayer(null);
+                }
+                continue;
+            }
+            freezeMayorFacingPlayer(mayor, player);
+        }
+    }
+
+    private static void freezeMayorFacingPlayer(Villager mayor, ServerPlayer player) {
+        mayor.setTradingPlayer(player);
+        mayor.getNavigation().stop();
+        Vec3 vel = mayor.getDeltaMovement();
+        mayor.setDeltaMovement(0.0, Math.min(0.0, vel.y), 0.0);
+        mayor.getLookControl().setLookAt(player, 30.0F, 30.0F);
+        double dx = player.getX() - mayor.getX();
+        double dz = player.getZ() - mayor.getZ();
+        if (dx * dx + dz * dz > 1.0E-4) {
+            float targetYaw = (float) (Mth.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0F;
+            mayor.setYHeadRot(targetYaw);
+            mayor.setYBodyRot(targetYaw);
+            mayor.setYRot(targetYaw);
+        }
+    }
+
+    /** Anchors each loaded village's Mayor near the Bell / Cooperation Hub plaza during daytime. */
+    private static void tickMayorAnchors(MinecraftServer server, TycoonForgeSavedData data) {
+        for (VillageRecord village : data.allVillages()) {
+            UUID mayorUuid = village.getMayorState().getMayorEntityUuid();
+            if (mayorUuid == null || ACTIVE_NEGOTIATIONS.containsKey(mayorUuid)) {
+                continue;
+            }
+            ServerLevel level = resolveLevel(server, village.getDimensionId());
+            if (level == null) {
+                continue;
+            }
+            BlockPos hubPos = TyC2Ids.toMc(village.getHubPos());
+            if (!level.hasChunkAt(hubPos)) {
+                continue;
+            }
+            Entity entity = level.getEntity(mayorUuid);
+            if (!(entity instanceof Villager mayor) || !mayor.isAlive()) {
+                continue;
+            }
+            if (mayor.isSleeping() || mayor.getLastHurtByMob() != null || mayor.hurtTime > 0) {
+                continue;
+            }
+            // Bind Brain MEETING_POINT memory to the village Bell / Cooperation Hub
+            mayor.getBrain().setMemory(MemoryModuleType.MEETING_POINT, GlobalPos.of(level.dimension(), hubPos));
+
+            if (!level.isDay()) {
+                continue;
+            }
+            double hx = hubPos.getX() + 0.5;
+            double hz = hubPos.getZ() + 0.5;
+            double dx = mayor.getX() - hx;
+            double dz = mayor.getZ() - hz;
+            double horizDistSq = dx * dx + dz * dz;
+            if (horizDistSq > 14.0 * 14.0) {
+                mayor.getNavigation().moveTo(hx, hubPos.getY() + 1.0, hz, 0.55D);
+            } else if (horizDistSq <= 10.0 * 10.0) {
+                Player nearPlayer = level.getNearestPlayer(mayor, 5.0);
+                if (nearPlayer != null && !nearPlayer.isSpectator()) {
+                    mayor.getNavigation().stop();
+                    mayor.getLookControl().setLookAt(nearPlayer, 30.0F, 30.0F);
                 }
             }
         }
@@ -552,16 +717,19 @@ public final class TycoonForgeWorldManager {
         BankAccountManager.AccountRef payoutAccount = resolveVillageSettlementAccount(data, village);
         boolean changed = false;
 
-        // Auto-fulfill enabled Village Buy Orders from Inbound 0..499
+        // Auto-fulfill enabled Village Buy Orders from Inbound 0..499 (tag-aware)
         for (VillageTradeOrder order : new ArrayList<>(village.getActiveOrders())) {
             if (order.side() != OrderSide.VILLAGE_BUYS || !order.autoFulfill() || order.isCompleted()) {
                 continue;
             }
-            int available = village.getStorage().countInInbound(order.itemId());
+            Predicate<SlotStack> slotMatcher = buildOrderSlotMatcher(order.itemId());
+            int available = village.getStorage().countInInbound(slotMatcher);
             if (available <= 0) {
                 continue;
             }
-            VillageRecord.TradeExecutionResult res = village.executeBuyOrderFromInbound(order.orderId(), available);
+            VillageRecord.TradeExecutionResult res = village.executeBuyOrderFromInboundMatching(
+                    order.orderId(), available, slotMatcher
+            );
             if (res.success() && res.executedQty() > 0) {
                 if (payoutAccount != null) {
                     data.bank().creditAccount(
@@ -769,13 +937,28 @@ public final class TycoonForgeWorldManager {
 
     /** Opens the Mayor Negotiation GUI for an unpartnered village. */
     public static void openMayorNegotiationScreen(ServerPlayer player, VillageRecord village) {
+        openMayorNegotiationScreen(player, village, village.getMayorState().getMayorEntityUuid());
+    }
+
+    /** Opens the Mayor Negotiation GUI for an unpartnered village carrying {@code mayorEntityUuid}. */
+    public static void openMayorNegotiationScreen(
+            ServerPlayer player,
+            VillageRecord village,
+            @Nullable UUID mayorEntityUuid
+    ) {
         NetworkHooks.openScreen(
                 player,
                 new SimpleMenuProvider(
-                        (id, inv, p) -> new MayorNegotiationMenu(id, inv, village.getVillageId()),
+                        (id, inv, p) -> new MayorNegotiationMenu(id, inv, village.getVillageId(), mayorEntityUuid),
                         Component.translatable("container.tyc2.mayor_negotiation")
                 ),
-                buf -> buf.writeUUID(village.getVillageId())
+                buf -> {
+                    buf.writeUUID(village.getVillageId());
+                    buf.writeBoolean(mayorEntityUuid != null);
+                    if (mayorEntityUuid != null) {
+                        buf.writeUUID(mayorEntityUuid);
+                    }
+                }
         );
     }
 
@@ -863,8 +1046,9 @@ public final class TycoonForgeWorldManager {
             villageLevel.playSound(null, hubPos, SoundEvents.BELL_RESONATE, SoundSource.BLOCKS, 1.0F, 1.0F);
         }
 
-        // 5. Generate initial Lv 1 orders immediately
+        // 5. Generate initial Lv 1 orders immediately & release negotiating Mayor
         refreshVillageOrders(villageLevel, data, village, tick);
+        endMayorNegotiation(player, village.getMayorState().getMayorEntityUuid());
         data.syncMacroAccountTotals();
         data.setDirty();
         return new ActionFeedback(true, "status.tyc2.hub.partnership_signed", village.getVillageName());
@@ -879,6 +1063,22 @@ public final class TycoonForgeWorldManager {
             boolean useBank,
             @Nullable Container cashSlot
     ) {
+        return executeSellOrder(player, villageId, orderId, requestedQty, useBank, cashSlot, null);
+    }
+
+    /**
+     * Executes a player purchasing from a {@link OrderSide#VILLAGE_SELLS} order, validating
+     * Outbound capacity and player balance BEFORE deducting {@code terminalStack} 50 EU.
+     */
+    public static ActionFeedback executeSellOrder(
+            ServerPlayer player,
+            UUID villageId,
+            String orderId,
+            int requestedQty,
+            boolean useBank,
+            @Nullable Container cashSlot,
+            @Nullable ItemStack terminalStack
+    ) {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         Optional<VillageRecord> vOpt = data.getVillage(villageId);
         if (vOpt.isEmpty()) {
@@ -890,6 +1090,9 @@ public final class TycoonForgeWorldManager {
             return new ActionFeedback(false, "gui.tyc2.hub.no_orders");
         }
         VillageTradeOrder order = oOpt.get();
+        if (order.side() != OrderSide.VILLAGE_SELLS || order.isCompleted()) {
+            return new ActionFeedback(false, "gui.tyc2.hub.no_orders");
+        }
         int qty = Math.min(Math.max(1, requestedQty), order.remainingQty());
         if (qty <= 0) {
             return new ActionFeedback(false, "gui.tyc2.hub.no_orders");
@@ -903,13 +1106,29 @@ public final class TycoonForgeWorldManager {
         }
 
         long totalCost = order.totalPriceFor(qty);
-        long tick = player.getServer().overworld().getGameTime();
+        // Pre-validate player balance BEFORE deducting Terminal 50 EU
         if (useBank) {
             data.bank().getOrCreatePersonal(player.getUUID(), player.getGameProfile().getName());
+            if (data.bank().getActiveBalance(player.getUUID()) < totalCost) {
+                return new ActionFeedback(false, "status.tyc2.atm.insufficient_balance");
+            }
+        } else {
+            long cash = TyC2Ids.countPlayerCash(player) + (cashSlot == null ? 0L : TyC2Ids.coinStackValue(cashSlot.getItem(0)));
+            if (cash < totalCost) {
+                return new ActionFeedback(false, "status.tyc2.atm.insufficient_balance");
+            }
+        }
+
+        if (terminalStack != null && !CommTerminalItem.consumeAction(terminalStack, TriModePowerMath.TerminalAction.REMOTE_TRADE)) {
+            return new ActionFeedback(false, "status.tyc2.terminal.low_power");
+        }
+
+        long tick = player.getServer().overworld().getGameTime();
+        if (useBank) {
             BankAccountManager.AccountRef ref = data.bank().resolveSettlementAccount(player.getUUID());
             BankAccountManager.BankResult debit = data.bank().debitAccount(
                     ref, totalCost, BankAccountManager.TransactionType.TRADE_BUY,
-                    tick, village.getVillageName(), "Bought " + qty + "x " + order.itemId()
+                    tick, village.getVillageName(), ""
             );
             if (!debit.success()) {
                 return new ActionFeedback(false, debit.errorKey());
@@ -925,11 +1144,13 @@ public final class TycoonForgeWorldManager {
             // Refund on unexpected failure
             if (useBank) {
                 BankAccountManager.AccountRef ref = data.bank().resolveSettlementAccount(player.getUUID());
-                data.bank().creditAccount(ref, totalCost, BankAccountManager.TransactionType.SYSTEM_ADJUST, tick, "Refund", "");
+                data.bank().creditAccount(ref, totalCost, BankAccountManager.TransactionType.SYSTEM_ADJUST, tick, village.getVillageName(), "");
             } else {
                 TyC2Ids.giveCoinsToPlayer(player, totalCost, Ic2Bridge.isLoaded());
             }
-            return new ActionFeedback(false, "status.tyc2.hub.outbound_full");
+            return new ActionFeedback(false, res.failureCode() == VillageRecord.TradeFailureCode.OUTBOUND_FULL
+                    ? "status.tyc2.hub.outbound_full"
+                    : "gui.tyc2.hub.no_orders");
         }
 
         long basePrice = TyC2RuntimeData.goodsCatalog().findByItemId(order.itemId())
@@ -949,6 +1170,24 @@ public final class TycoonForgeWorldManager {
             boolean useBank,
             boolean allowPlayerInventoryFallback
     ) {
+        return executeBuyOrder(player, villageId, orderId, requestedQty, useBank, allowPlayerInventoryFallback, null);
+    }
+
+    /**
+     * Executes a player fulfilling a {@link OrderSide#VILLAGE_BUYS} order using tag-aware matching,
+     * checking village treasury affordability and Inbound stock BEFORE pulling from player inventory
+     * or deducting {@code terminalStack} 50 EU.
+     */
+    public static ActionFeedback executeBuyOrder(
+            ServerPlayer player,
+            UUID villageId,
+            String orderId,
+            int requestedQty,
+            boolean useBank,
+            boolean allowPlayerInventoryFallback,
+            @Nullable ItemStack terminalStack
+    ) {
+        boolean isTerminal = terminalStack != null || !allowPlayerInventoryFallback;
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         Optional<VillageRecord> vOpt = data.getVillage(villageId);
         if (vOpt.isEmpty()) {
@@ -960,29 +1199,69 @@ public final class TycoonForgeWorldManager {
             return new ActionFeedback(false, "gui.tyc2.hub.no_orders");
         }
         VillageTradeOrder order = oOpt.get();
+        if (order.side() != OrderSide.VILLAGE_BUYS || order.isCompleted()) {
+            return new ActionFeedback(false, "gui.tyc2.hub.no_orders");
+        }
         int desired = Math.min(Math.max(1, requestedQty), order.remainingQty());
         if (desired <= 0) {
             return new ActionFeedback(false, "gui.tyc2.hub.no_orders");
         }
 
-        // If Inbound doesn't have enough yet and player is at the physical Hub, pull from player inventory into Inbound
-        int inInbound = village.getStorage().countInInbound(order.itemId());
-        if (allowPlayerInventoryFallback && inInbound < desired) {
-            int need = desired - inInbound;
-            int pulled = pullItemsFromPlayerIntoInbound(player.getInventory(), village, order.itemId(), need);
-            inInbound += pulled;
+        // 1. Check village funds affordability FIRST (before pulling player items or deducting Terminal EU)
+        int affordableQty = (int) Math.min(Integer.MAX_VALUE, village.getVillageBalance() / Math.max(1L, order.unitPrice()));
+        if (affordableQty <= 0) {
+            return new ActionFeedback(
+                    false,
+                    "status.tyc2.hub.village_low_funds_detail",
+                    village.getVillageBalance(),
+                    order.unitPrice()
+            );
         }
 
-        if (inInbound <= 0) {
-            return new ActionFeedback(false, "status.tyc2.negotiation.missing_requirements");
-        }
-        if (village.getVillageBalance() < order.unitPrice()) {
-            return new ActionFeedback(false, "status.tyc2.hub.village_low_funds");
+        // 2. Build tag-aware item matcher (exact itemId OR GoodsCatalog optionalTag)
+        Predicate<SlotStack> slotMatcher = buildOrderSlotMatcher(order.itemId());
+        Predicate<ItemStack> stackMatcher = buildOrderStackMatcher(order.itemId());
+
+        // 3. At local Hub, pull at most (min(desired, affordableQty) - currentMatchingInbound) from player inv
+        int cappedTarget = Math.min(desired, affordableQty);
+        int currentMatchingInbound = village.getStorage().countInInbound(slotMatcher);
+        if (allowPlayerInventoryFallback && currentMatchingInbound < cappedTarget) {
+            int need = cappedTarget - currentMatchingInbound;
+            pullMatchingItemsFromPlayerIntoInbound(player.getInventory(), village, stackMatcher, need);
+            currentMatchingInbound = village.getStorage().countInInbound(slotMatcher);
         }
 
-        VillageRecord.TradeExecutionResult res = village.executeBuyOrderFromInbound(orderId, Math.min(desired, inInbound));
+        // 4. Verify matching Inbound stock > 0 BEFORE deducting Terminal 50 EU (never falsely report low funds!)
+        if (currentMatchingInbound <= 0) {
+            return new ActionFeedback(
+                    false,
+                    isTerminal ? "status.tyc2.terminal.insufficient_goods" : "status.tyc2.hub.insufficient_goods"
+            );
+        }
+
+        // 5. Deduct Terminal 50 EU only when ready to settle
+        if (terminalStack != null && !CommTerminalItem.consumeAction(terminalStack, TriModePowerMath.TerminalAction.REMOTE_TRADE)) {
+            return new ActionFeedback(false, "status.tyc2.terminal.low_power");
+        }
+
+        VillageRecord.TradeExecutionResult res = village.executeBuyOrderFromInboundMatching(
+                orderId, cappedTarget, slotMatcher
+        );
         if (!res.success()) {
-            return new ActionFeedback(false, "status.tyc2.hub.village_low_funds");
+            return switch (res.failureCode()) {
+                case INSUFFICIENT_INBOUND_ITEMS -> new ActionFeedback(
+                        false,
+                        isTerminal ? "status.tyc2.terminal.insufficient_goods" : "status.tyc2.hub.insufficient_goods"
+                );
+                case INSUFFICIENT_VILLAGE_FUNDS -> new ActionFeedback(
+                        false,
+                        "status.tyc2.hub.village_low_funds_detail",
+                        village.getVillageBalance(),
+                        order.unitPrice()
+                );
+                case OUTBOUND_FULL -> new ActionFeedback(false, "status.tyc2.hub.outbound_full");
+                default -> new ActionFeedback(false, "gui.tyc2.hub.no_orders");
+            };
         }
 
         long tick = player.getServer().overworld().getGameTime();
@@ -991,7 +1270,7 @@ public final class TycoonForgeWorldManager {
             BankAccountManager.AccountRef ref = data.bank().resolveSettlementAccount(player.getUUID());
             data.bank().creditAccount(
                     ref, res.totalCurrency(), BankAccountManager.TransactionType.TRADE_SELL,
-                    tick, village.getVillageName(), "Sold " + res.executedQty() + "x " + order.itemId()
+                    tick, village.getVillageName(), ""
             );
         } else {
             TyC2Ids.giveCoinsToPlayer(player, res.totalCurrency(), Ic2Bridge.isLoaded());
@@ -1025,12 +1304,28 @@ public final class TycoonForgeWorldManager {
 
     /** Attempts to upgrade a partnered village to {@code level + 1}, burning the municipal capital sink. */
     public static ActionFeedback upgradeVillage(ServerPlayer player, UUID villageId) {
+        return upgradeVillage(player, villageId, null);
+    }
+
+    /** Attempts to upgrade a partnered village, validating eligibility BEFORE deducting {@code terminalStack} 100 EU. */
+    public static ActionFeedback upgradeVillage(
+            ServerPlayer player,
+            UUID villageId,
+            @Nullable ItemStack terminalStack
+    ) {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         Optional<VillageRecord> vOpt = data.getVillage(villageId);
         if (vOpt.isEmpty()) {
             return new ActionFeedback(false, "status.tyc2.hub.upgrade_failed");
         }
         VillageRecord village = vOpt.get();
+        if (!village.evaluateUpgrade(TyC2RuntimeData.levelTable()).eligible()) {
+            return new ActionFeedback(false, "status.tyc2.hub.upgrade_failed");
+        }
+        if (terminalStack != null
+                && !CommTerminalItem.consumeAction(terminalStack, TriModePowerMath.TerminalAction.REMOTE_UPGRADE_OR_EXPANSION)) {
+            return new ActionFeedback(false, "status.tyc2.terminal.low_power");
+        }
         long burned = village.tryUpgrade(TyC2RuntimeData.levelTable());
         if (burned <= 0L) {
             return new ActionFeedback(false, "status.tyc2.hub.upgrade_failed");
@@ -1057,6 +1352,16 @@ public final class TycoonForgeWorldManager {
             UUID villageId,
             boolean pullFromPlayerInventory
     ) {
+        return deliverExpansionMaterials(player, villageId, pullFromPlayerInventory, null);
+    }
+
+    /** Pulls available expansion materials and starts construction, returning accurate expansion fund errors. */
+    public static ActionFeedback deliverExpansionMaterials(
+            ServerPlayer player,
+            UUID villageId,
+            boolean pullFromPlayerInventory,
+            @Nullable ItemStack terminalStack
+    ) {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         Optional<VillageRecord> vOpt = data.getVillage(villageId);
         if (vOpt.isEmpty()) {
@@ -1078,6 +1383,20 @@ public final class TycoonForgeWorldManager {
             village.setActiveExpansion(exp);
         }
 
+        if (exp.allMaterialsDelivered() && village.getVillageBalance() < exp.constructionBudgetCost()) {
+            return new ActionFeedback(
+                    false,
+                    "status.tyc2.expansion.low_funds",
+                    exp.constructionBudgetCost(),
+                    village.getVillageBalance()
+            );
+        }
+
+        if (terminalStack != null
+                && !CommTerminalItem.consumeAction(terminalStack, TriModePowerMath.TerminalAction.REMOTE_UPGRADE_OR_EXPANSION)) {
+            return new ActionFeedback(false, "status.tyc2.terminal.low_power");
+        }
+
         if (pullFromPlayerInventory) {
             for (var entry : exp.remainingMaterials().entrySet()) {
                 pullItemsFromPlayerIntoInbound(player.getInventory(), village, entry.getKey(), entry.getValue());
@@ -1091,7 +1410,12 @@ public final class TycoonForgeWorldManager {
             return new ActionFeedback(true, "gui.tyc2.expansion.deliver");
         }
         if (village.getVillageBalance() < updated.constructionBudgetCost()) {
-            return new ActionFeedback(false, "status.tyc2.hub.village_low_funds");
+            return new ActionFeedback(
+                    false,
+                    "status.tyc2.expansion.low_funds",
+                    updated.constructionBudgetCost(),
+                    village.getVillageBalance()
+            );
         }
         ServerLevel dimLevel = resolveLevel(player.getServer(), village.getDimensionId());
         if (dimLevel == null) {
@@ -1283,32 +1607,71 @@ public final class TycoonForgeWorldManager {
         return list;
     }
 
-    private static void applyMayorEntityTag(
+    /**
+     * Synchronizes Mayor persistent tags &amp; localized golden display name onto {@code mayorUuid},
+     * and immediately strips {@code tyc2_mayor}, {@code tyc2_village_id}, custom name, and glowing
+     * from any villager in the scan that is no longer the elected Mayor (including disqualified Nitwits).
+     */
+    private static void syncMayorEntityTags(
             ServerLevel level,
             List<Villager> villagers,
             @Nullable UUID mayorUuid,
             VillageRecord village
     ) {
-        if (mayorUuid == null) {
-            return;
-        }
+        String villageIdStr = village.getVillageId().toString();
         for (Villager v : villagers) {
             CompoundTag pdata = v.getPersistentData();
-            if (v.getUUID().equals(mayorUuid)) {
+            if (mayorUuid != null && v.getUUID().equals(mayorUuid)) {
                 pdata.putBoolean(TAG_MAYOR, true);
-                pdata.putString(TAG_VILLAGE_ID, village.getVillageId().toString());
-                String display = village.getMayorState().getMayorName().isBlank()
-                        ? village.getVillageName()
-                        : village.getMayorState().getMayorName();
-                v.setCustomName(Component.translatable("mayor.tyc2.name_format", display)
+                pdata.putString(TAG_VILLAGE_ID, villageIdStr);
+                Component displayComp = resolveMayorDisplayComponent(v, village);
+                v.setCustomName(Component.translatable("mayor.tyc2.name_format", displayComp)
                         .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
                 v.setCustomNameVisible(true);
                 v.setPersistenceRequired();
             } else if (pdata.getBoolean(TAG_MAYOR)
-                    && village.getVillageId().toString().equals(pdata.getString(TAG_VILLAGE_ID))) {
+                    && (villageIdStr.equals(pdata.getString(TAG_VILLAGE_ID))
+                    || v.getVillagerData().getProfession() == VillagerProfession.NITWIT)) {
                 pdata.remove(TAG_MAYOR);
+                pdata.remove(TAG_VILLAGE_ID);
+                v.setCustomName(null);
+                v.setCustomNameVisible(false);
+                v.setGlowingTag(false);
+                if (v.getTradingPlayer() != null) {
+                    v.setTradingPlayer(null);
+                }
+                ACTIVE_NEGOTIATIONS.remove(v.getUUID());
             }
         }
+    }
+
+    /**
+     * Resolves a client-localizable {@link Component} for the Mayor's name argument inside
+     * {@code mayor.tyc2.name_format} (translatable villager profession when no player-given custom
+     * name exists, or village name for jobless villagers, so {@code zh_cn} clients never see
+     * server-flattened English profession names like {@code "Librarian"}).
+     */
+    private static Component resolveMayorDisplayComponent(Villager v, VillageRecord village) {
+        VillagerProfession prof = v.getVillagerData().getProfession();
+        ResourceLocation profKey = ForgeRegistries.VILLAGER_PROFESSIONS.getKey(prof);
+        Component profComp = (prof != VillagerProfession.NONE && profKey != null)
+                ? Component.translatable(
+                        "entity.minecraft.villager."
+                                + ("minecraft".equals(profKey.getNamespace())
+                                ? profKey.getPath()
+                                : profKey.getNamespace() + "." + profKey.getPath())
+                )
+                : null;
+        String stored = village.getMayorState().getMayorName();
+        String trimmed = stored == null ? "" : stored.trim();
+        boolean isGenericOrUnset = trimmed.isEmpty()
+                || "Villager".equalsIgnoreCase(trimmed)
+                || (profComp != null && trimmed.equalsIgnoreCase(profComp.getString()))
+                || trimmed.equalsIgnoreCase(village.getVillageName());
+        if (!isGenericOrUnset) {
+            return Component.literal(trimmed);
+        }
+        return profComp != null ? profComp : Component.literal(village.getVillageName());
     }
 
     private static void broadcastToVillageStakeholders(
@@ -1476,21 +1839,71 @@ public final class TycoonForgeWorldManager {
         return null;
     }
 
+    private static Predicate<SlotStack> buildOrderSlotMatcher(String orderItemId) {
+        String optionalTag = resolveOrderOptionalTag(orderItemId);
+        return slot -> slot != null && slot.count() > 0 && matchesOrderItem(slot.itemId(), orderItemId, optionalTag);
+    }
+
+    private static Predicate<ItemStack> buildOrderStackMatcher(String orderItemId) {
+        String optionalTag = resolveOrderOptionalTag(orderItemId);
+        return stack -> !stack.isEmpty() && matchesOrderItem(TyC2Ids.itemId(stack), orderItemId, optionalTag);
+    }
+
+    @Nullable
+    private static String resolveOrderOptionalTag(String orderItemId) {
+        Optional<TradeGood> goodOpt = TyC2RuntimeData.goodsCatalog().findByItemId(orderItemId);
+        if (goodOpt.isEmpty()) {
+            return null;
+        }
+        String raw = goodOpt.get().optionalTag();
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        return raw.startsWith("#") ? raw : "#" + raw;
+    }
+
+    private static boolean matchesOrderItem(
+            String candidateItemId,
+            String orderItemId,
+            @Nullable String optionalTag
+    ) {
+        if (candidateItemId == null || candidateItemId.isBlank()) {
+            return false;
+        }
+        if (candidateItemId.equalsIgnoreCase(orderItemId)) {
+            return true;
+        }
+        return optionalTag != null && TyC2Ids.matchesItemOrTag(candidateItemId, optionalTag);
+    }
+
     private static int pullItemsFromPlayerIntoInbound(
             Inventory inv,
             VillageRecord village,
             String targetItemId,
             int maxNeeded
     ) {
+        return pullMatchingItemsFromPlayerIntoInbound(inv, village, buildOrderStackMatcher(targetItemId), maxNeeded);
+    }
+
+    private static int pullMatchingItemsFromPlayerIntoInbound(
+            Inventory inv,
+            VillageRecord village,
+            Predicate<ItemStack> matcher,
+            int maxNeeded
+    ) {
         int moved = 0;
         for (int i = 0; i < inv.getContainerSize() && moved < maxNeeded; i++) {
             ItemStack stack = inv.getItem(i);
-            if (stack.isEmpty() || !TyC2Ids.itemId(stack).equals(targetItemId)) {
+            if (stack.isEmpty() || !matcher.test(stack)) {
+                continue;
+            }
+            String actualId = TyC2Ids.itemId(stack);
+            if (actualId.isEmpty()) {
                 continue;
             }
             int take = Math.min(stack.getCount(), maxNeeded - moved);
             int remainder = village.getStorage().insertExternal(
-                    targetItemId, take, TyC2Ids.nbtJson(stack), stack.getMaxStackSize(), false
+                    actualId, take, TyC2Ids.nbtJson(stack), stack.getMaxStackSize(), false
             );
             int inserted = take - remainder;
             if (inserted > 0) {

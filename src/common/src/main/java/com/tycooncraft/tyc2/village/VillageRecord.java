@@ -3,9 +3,11 @@ package com.tycooncraft.tyc2.village;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 /**
  * Complete per-village persistent state record managed inside {@code TycoonSavedData}.
@@ -25,6 +27,28 @@ public final class VillageRecord {
     public static final double DAILY_EXCESS_UPKEEP_RATE = 0.02;
 
     /**
+     * Structured outcome code for village trade order execution.
+     */
+    public enum TradeFailureCode {
+        /** Transaction succeeded with no error. */
+        NONE,
+        /** Requested quantity was less than 1. */
+        INVALID_QTY,
+        /** Order ID was not found among active village orders. */
+        ORDER_NOT_FOUND,
+        /** Order side did not match the requested buy or sell operation. */
+        WRONG_SIDE,
+        /** Order was already completely fulfilled. */
+        ALREADY_COMPLETED,
+        /** No matching items were present in the Cooperation Hub Inbound zone ({@code 0..499}). */
+        INSUFFICIENT_INBOUND_ITEMS,
+        /** Village treasury balance was below a single item's {@code unitPrice}. */
+        INSUFFICIENT_VILLAGE_FUNDS,
+        /** Cooperation Hub Outbound zone ({@code 500..999}) lacked space for purchased items. */
+        OUTBOUND_FULL
+    }
+
+    /**
      * Outcome of executing a trade order against this village's {@link CooperationHubStorage}
      * and {@link #getVillageBalance()}.
      *
@@ -33,13 +57,71 @@ public final class VillageRecord {
      * @param totalCurrency total IC value exchanged
      * @param updatedOrder updated order snapshot (null if order not found)
      * @param failureReason diagnostic message when {@code success == false}
+     * @param failureCode structured outcome code ({@link TradeFailureCode#NONE} when {@code success == true})
      */
     public record TradeExecutionResult(
             boolean success,
             int executedQty,
             long totalCurrency,
             VillageTradeOrder updatedOrder,
-            String failureReason) {
+            String failureReason,
+            TradeFailureCode failureCode) {
+
+        /**
+         * Normalizes optional reason and failure code.
+         */
+        public TradeExecutionResult {
+            failureReason = failureReason == null ? "" : failureReason;
+            failureCode = failureCode == null ? inferFailureCode(success, failureReason) : failureCode;
+        }
+
+        /**
+         * Backwards-compatible 5-argument constructor deriving {@link TradeFailureCode} from status and reason.
+         *
+         * @param success whether the transaction executed
+         * @param executedQty quantity actually traded
+         * @param totalCurrency total IC value exchanged
+         * @param updatedOrder updated order snapshot (null if order not found)
+         * @param failureReason diagnostic message when {@code success == false}
+         */
+        public TradeExecutionResult(
+                boolean success,
+                int executedQty,
+                long totalCurrency,
+                VillageTradeOrder updatedOrder,
+                String failureReason) {
+            this(success, executedQty, totalCurrency, updatedOrder, failureReason,
+                    inferFailureCode(success, failureReason));
+        }
+
+        private static TradeFailureCode inferFailureCode(boolean success, String reason) {
+            if (success) {
+                return TradeFailureCode.NONE;
+            }
+            if (reason == null || reason.isBlank()) {
+                return TradeFailureCode.INVALID_QTY;
+            }
+            String lower = reason.toLowerCase(Locale.ROOT);
+            if (lower.contains("not found")) {
+                return TradeFailureCode.ORDER_NOT_FOUND;
+            }
+            if (lower.contains("not a village")) {
+                return TradeFailureCode.WRONG_SIDE;
+            }
+            if (lower.contains("completed")) {
+                return TradeFailureCode.ALREADY_COMPLETED;
+            }
+            if (lower.contains("inbound")) {
+                return TradeFailureCode.INSUFFICIENT_INBOUND_ITEMS;
+            }
+            if (lower.contains("balance") || lower.contains("fund")) {
+                return TradeFailureCode.INSUFFICIENT_VILLAGE_FUNDS;
+            }
+            if (lower.contains("outbound")) {
+                return TradeFailureCode.OUTBOUND_FULL;
+            }
+            return TradeFailureCode.INVALID_QTY;
+        }
     }
 
     private final UUID villageId;
@@ -305,41 +387,78 @@ public final class VillageRecord {
      *
      * @param orderId target order ID
      * @param requestedQty desired quantity to deliver ({@code >= 1})
-     * @return trade execution outcome containing actual quantity and IC payout
+     * @return trade execution outcome containing actual quantity, IC payout, and structured failure code
      */
     public TradeExecutionResult executeBuyOrderFromInbound(String orderId, int requestedQty) {
+        return executeBuyOrderInternal(orderId, requestedQty, null);
+    }
+
+    /**
+     * Fulfills up to {@code requestedQty} of a {@link OrderSide#VILLAGE_BUYS} order by consuming
+     * items accepted by {@code itemMatcher} (e.g., tag-matched item variants) from Hub Inbound slots
+     * ({@code 0..499}) and paying out from {@code villageBalance}.
+     *
+     * @param orderId target order ID
+     * @param requestedQty desired quantity to deliver ({@code >= 1})
+     * @param itemMatcher predicate selecting acceptable Inbound stacks
+     * @return trade execution outcome containing actual quantity, IC payout, and structured failure code
+     */
+    public TradeExecutionResult executeBuyOrderFromInboundMatching(
+            String orderId, int requestedQty, Predicate<SlotStack> itemMatcher) {
+        Objects.requireNonNull(itemMatcher, "itemMatcher");
+        return executeBuyOrderInternal(orderId, requestedQty, itemMatcher);
+    }
+
+    private TradeExecutionResult executeBuyOrderInternal(
+            String orderId, int requestedQty, Predicate<SlotStack> overrideMatcher) {
         if (requestedQty < 1) {
-            return new TradeExecutionResult(false, 0, 0L, null, "Quantity must be >= 1");
+            return new TradeExecutionResult(
+                    false, 0, 0L, null, "Quantity must be >= 1", TradeFailureCode.INVALID_QTY);
         }
         int idx = findOrderIndex(orderId);
         if (idx < 0) {
-            return new TradeExecutionResult(false, 0, 0L, null, "Order not found");
+            return new TradeExecutionResult(
+                    false, 0, 0L, null, "Order not found", TradeFailureCode.ORDER_NOT_FOUND);
         }
         VillageTradeOrder order = activeOrders.get(idx);
         if (order.side() != OrderSide.VILLAGE_BUYS) {
-            return new TradeExecutionResult(false, 0, 0L, order, "Order is not a village buy order");
+            return new TradeExecutionResult(
+                    false, 0, 0L, order, "Order is not a village buy order", TradeFailureCode.WRONG_SIDE);
         }
         if (order.isCompleted()) {
-            return new TradeExecutionResult(false, 0, 0L, order, "Order already completed");
+            return new TradeExecutionResult(
+                    false, 0, 0L, order, "Order already completed", TradeFailureCode.ALREADY_COMPLETED);
         }
-        int availableInbound = storage.countInInbound(order.itemId());
+        Predicate<SlotStack> matcher = overrideMatcher != null
+                ? overrideMatcher
+                : stack -> stack.matchesItem(order.itemId());
+        int availableInbound = storage.countInInbound(matcher);
+        if (availableInbound <= 0) {
+            return new TradeExecutionResult(
+                    false, 0, 0L, order,
+                    "Insufficient items in Inbound zone",
+                    TradeFailureCode.INSUFFICIENT_INBOUND_ITEMS);
+        }
         int affordableQty = (int) Math.min(Integer.MAX_VALUE, villageBalance / order.unitPrice());
-        int qty = Math.min(requestedQty, Math.min(order.remainingQty(), Math.min(availableInbound, affordableQty)));
-        if (qty <= 0) {
-            String reason = availableInbound <= 0
-                    ? "Insufficient items in Inbound zone"
-                    : "Village treasury balance insufficient";
-            return new TradeExecutionResult(false, 0, 0L, order, reason);
+        if (affordableQty <= 0) {
+            return new TradeExecutionResult(
+                    false, 0, 0L, order,
+                    "Village treasury balance insufficient",
+                    TradeFailureCode.INSUFFICIENT_VILLAGE_FUNDS);
         }
-        if (!storage.consumeFromInbound(order.itemId(), qty)) {
-            return new TradeExecutionResult(false, 0, 0L, order, "Failed to consume Inbound items");
+        int qty = Math.min(requestedQty, Math.min(order.remainingQty(), Math.min(availableInbound, affordableQty)));
+        if (!storage.consumeFromInboundMatching(matcher, qty)) {
+            return new TradeExecutionResult(
+                    false, 0, 0L, order,
+                    "Failed to consume Inbound items",
+                    TradeFailureCode.INSUFFICIENT_INBOUND_ITEMS);
         }
         long totalPayout = order.totalPriceFor(qty);
         this.villageBalance -= totalPayout;
         this.cumulativeTradeVolume += totalPayout;
         VillageTradeOrder updated = order.withAddedFulfillment(qty);
         activeOrders.set(idx, updated);
-        return new TradeExecutionResult(true, qty, totalPayout, updated, "");
+        return new TradeExecutionResult(true, qty, totalPayout, updated, "", TradeFailureCode.NONE);
     }
 
     /**
@@ -351,38 +470,44 @@ public final class VillageRecord {
      * @param requestedQty quantity to buy ({@code >= 1})
      * @param nbtJson optional NBT payload (e.g. enchanted book NBT)
      * @param maxStackSize item stack limit ({@code >= 1})
-     * @return trade execution outcome containing actual quantity and total IC cost
+     * @return trade execution outcome containing actual quantity, total IC cost, and structured failure code
      */
     public TradeExecutionResult executeSellOrderToOutbound(
             String orderId, int requestedQty, String nbtJson, int maxStackSize) {
         if (requestedQty < 1) {
-            return new TradeExecutionResult(false, 0, 0L, null, "Quantity must be >= 1");
+            return new TradeExecutionResult(
+                    false, 0, 0L, null, "Quantity must be >= 1", TradeFailureCode.INVALID_QTY);
         }
         int idx = findOrderIndex(orderId);
         if (idx < 0) {
-            return new TradeExecutionResult(false, 0, 0L, null, "Order not found");
+            return new TradeExecutionResult(
+                    false, 0, 0L, null, "Order not found", TradeFailureCode.ORDER_NOT_FOUND);
         }
         VillageTradeOrder order = activeOrders.get(idx);
         if (order.side() != OrderSide.VILLAGE_SELLS) {
-            return new TradeExecutionResult(false, 0, 0L, order, "Order is not a village sell order");
+            return new TradeExecutionResult(
+                    false, 0, 0L, order, "Order is not a village sell order", TradeFailureCode.WRONG_SIDE);
         }
         if (order.isCompleted()) {
-            return new TradeExecutionResult(false, 0, 0L, order, "Order already completed");
+            return new TradeExecutionResult(
+                    false, 0, 0L, order, "Order already completed", TradeFailureCode.ALREADY_COMPLETED);
         }
         int qty = Math.min(requestedQty, order.remainingQty());
         if (!storage.canFitInOutbound(order.itemId(), qty, nbtJson, maxStackSize)) {
-            return new TradeExecutionResult(false, 0, 0L, order, "Outbound zone is full");
+            return new TradeExecutionResult(
+                    false, 0, 0L, order, "Outbound zone is full", TradeFailureCode.OUTBOUND_FULL);
         }
         int remainder = storage.depositToOutbound(order.itemId(), qty, nbtJson, maxStackSize, false);
         if (remainder != 0) {
-            return new TradeExecutionResult(false, 0, 0L, order, "Failed to deposit into Outbound zone");
+            return new TradeExecutionResult(
+                    false, 0, 0L, order, "Failed to deposit into Outbound zone", TradeFailureCode.OUTBOUND_FULL);
         }
         long totalCost = order.totalPriceFor(qty);
         this.villageBalance += totalCost;
         this.cumulativeTradeVolume += totalCost;
         VillageTradeOrder updated = order.withAddedFulfillment(qty);
         activeOrders.set(idx, updated);
-        return new TradeExecutionResult(true, qty, totalCost, updated, "");
+        return new TradeExecutionResult(true, qty, totalCost, updated, "", TradeFailureCode.NONE);
     }
 
     /**

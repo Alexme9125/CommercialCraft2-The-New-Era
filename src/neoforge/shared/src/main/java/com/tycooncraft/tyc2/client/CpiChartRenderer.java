@@ -53,7 +53,10 @@ public final class CpiChartRenderer {
         }
 
         if (points == null || points.isEmpty()) {
-            canvas.drawClippedString("CPI 1.00", plotX + 2, plotY + 2, plotW - 4, 0xFF7090AA);
+            canvas.drawClippedString(
+                    Component.translatable("gui.tyc2.hub.status.cpi", "1.00").getString(),
+                    plotX + 2, plotY + 2, plotW - 4, 0xFF7090AA
+            );
             return;
         }
 

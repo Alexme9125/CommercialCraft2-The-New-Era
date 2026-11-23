@@ -5,6 +5,7 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -37,10 +38,10 @@ public final class C2SMayorNegotiatePacket {
             ctx.setPacketHandled(true);
             return;
         }
-        String fb = "";
+        Component fb = Component.empty();
         if (pkt.sign) {
             TycoonForgeWorldManager.ActionFeedback res = TycoonForgeWorldManager.signPartnership(player, pkt.villageId);
-            fb = res.toComponent().getString();
+            fb = res.toComponent();
             if (res.success()) {
                 player.sendSystemMessage(res.toComponent().copy().withStyle(ChatFormatting.GREEN));
             }

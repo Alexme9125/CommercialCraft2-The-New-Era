@@ -41,6 +41,7 @@ import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
@@ -248,6 +249,16 @@ final class TyC2LiveClientDriver {
     }
 
     private void runAssetAudit(Minecraft mc, TyC2LiveNetwork.S2CLiveDirective dir) {
+        String expectedLang = (dir.argText() == null || dir.argText().isBlank()) ? "en_us" : dir.argText();
+        String actualLang = mc.getLanguageManager().getSelected().getCode();
+        qa.check("client.lang_loaded_matches_expected", expectedLang.equalsIgnoreCase(actualLang),
+                "expected=" + expectedLang + ", actual=" + actualLang);
+        String hubTitle = Component.translatable("block.tyc2.cooperation_hub").getString();
+        boolean localizedOk = !hubTitle.contains("block.tyc2.")
+                && (!"zh_cn".equalsIgnoreCase(expectedLang) || hubTitle.contains("合作枢纽"));
+        qa.check("client.lang_translation_active", localizedOk,
+                "lang=" + actualLang + ", block.tyc2.cooperation_hub=" + hubTitle);
+
         TextureAtlas atlas = mc.getModelManager().getAtlas(TextureAtlas.LOCATION_BLOCKS);
         ResourceLocation missing = MissingTextureAtlasSprite.getLocation();
 
@@ -275,7 +286,7 @@ final class TyC2LiveClientDriver {
         }
         qa.metric("client.verifiedSprites", sprites);
         qa.metric("client.verifiedGuiPngs", guiRes);
-        ackAndClear(dir, true, "verified " + sprites + " atlas sprites + " + guiRes + " GUI PNGs");
+        ackAndClear(dir, true, "verified lang=" + actualLang + ", " + sprites + " atlas sprites + " + guiRes + " GUI PNGs");
     }
 
     private void tickCaptureWorldShot(Minecraft mc, TyC2LiveNetwork.S2CLiveDirective dir) {
@@ -523,11 +534,8 @@ final class TyC2LiveClientDriver {
                 if (sync != null && sync.companyMode && "Forge Guild".equals(sync.activeCompanyName)) {
                     qa.check("client.atm_company_created_roundtrip", true,
                             "company=" + sync.activeCompanyName + ", invite=" + sync.activeCompanyInvite);
-                    if (dirTicks < 8) {
-                        return;
-                    }
-                    mc.getToasts().clear();
-                    requestShot(dir.argText());
+                    // Switch back to Personal briefly so we can transfer 200 IC to Forge Guild and populate localized tx logs!
+                    TyC2ForgeNetwork.sendToServer(C2SAtmActionPacket.simple(pos, C2SAtmActionPacket.Action.SWITCH_TO_PERSONAL));
                     subStep = 5;
                     dirTicks = 0;
                 } else if (dirTicks > 80) {
@@ -535,18 +543,73 @@ final class TyC2LiveClientDriver {
                 }
             }
             case 5 -> {
+                S2CAtmSyncPacket sync = ((AtmMachineMenu) mc.player.containerMenu).getLatestSync();
+                if (sync != null && !sync.companyMode) {
+                    TyC2ForgeNetwork.sendToServer(new C2SAtmActionPacket(
+                            pos, C2SAtmActionPacket.Action.TRANSFER, 200L, 0, "Forge Guild", ""
+                    ));
+                    subStep = 6;
+                    dirTicks = 0;
+                } else if (dirTicks > 80) {
+                    throw new AssertionError("ATM switch to personal timed out");
+                }
+            }
+            case 6 -> {
+                S2CAtmSyncPacket sync = ((AtmMachineMenu) mc.player.containerMenu).getLatestSync();
+                if (sync != null && sync.personalBalance == atmBalBeforeWithdraw - 300L) {
+                    qa.check("client.atm_transfer_to_company_roundtrip", true, "personal=" + sync.personalBalance);
+                    TyC2ForgeNetwork.sendToServer(C2SAtmActionPacket.simple(pos, C2SAtmActionPacket.Action.SWITCH_TO_COMPANY));
+                    subStep = 7;
+                    dirTicks = 0;
+                } else if (dirTicks > 80) {
+                    throw new AssertionError("ATM transfer to company sync timed out: "
+                            + (sync == null ? "null" : sync.personalBalance));
+                }
+            }
+            case 7 -> {
+                S2CAtmSyncPacket sync = ((AtmMachineMenu) mc.player.containerMenu).getLatestSync();
+                if (sync != null && sync.companyMode && sync.activeCompanyBalance >= 200L) {
+                    // Withdraw 50 IC from Forge Guild so BOTH +200 Transfer In AND -50 Withdraw appear in localized tx logs!
+                    TyC2ForgeNetwork.sendToServer(new C2SAtmActionPacket(
+                            pos, C2SAtmActionPacket.Action.WITHDRAW_AMOUNT, 50L, 0, "", ""
+                    ));
+                    subStep = 8;
+                    dirTicks = 0;
+                } else if (dirTicks > 80) {
+                    throw new AssertionError("ATM switch back to company sync timed out");
+                }
+            }
+            case 8 -> {
+                S2CAtmSyncPacket sync = ((AtmMachineMenu) mc.player.containerMenu).getLatestSync();
+                if (sync != null && sync.companyMode && sync.activeCompanyBalance == 150L && sync.logs.size() >= 2) {
+                    qa.check("client.atm_company_tx_logs_populated", true,
+                            "bal=" + sync.activeCompanyBalance + ", logs=" + sync.logs + ", feedback=" + sync.feedback);
+                    if (dirTicks < 8) {
+                        return;
+                    }
+                    mc.getToasts().clear();
+                    requestShot(dir.argText());
+                    subStep = 9;
+                    dirTicks = 0;
+                } else if (dirTicks > 80) {
+                    throw new AssertionError("ATM company withdraw/log sync timed out: "
+                            + (sync == null ? "null" : ("bal=" + sync.activeCompanyBalance + ", logs=" + sync.logs.size())));
+                }
+            }
+            case 9 -> {
                 if (!awaitShot(dir.argText())) {
                     return;
                 }
                 qa.check("client.screenshot." + dir.argText(), true, "saved " + capturedScreenshots.get(dir.argText()));
                 mc.player.closeContainer();
-                ackAndClear(dir, true, "AtmMachineScreen deposit/withdraw/company verified over TCP");
+                ackAndClear(dir, true, "AtmMachineScreen deposit/withdraw/company/transfer/tx-logs verified over TCP");
             }
         }
     }
 
     private void tickTestHubGui(Minecraft mc, TyC2LiveNetwork.S2CLiveDirective dir) {
         BlockPos pos = dir.targetPos();
+        String prefix = dir.argText();
         switch (subStep) {
             case 0 -> {
                 mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
@@ -567,7 +630,7 @@ final class TyC2LiveClientDriver {
                 qa.check("client.hub_gui_opened_with_orders_and_cpi",
                         !sync.orders.isEmpty() && sync.cpiHistory.length >= 2,
                         "orders=" + sync.orders.size() + ", cpiPts=" + sync.cpiHistory.length);
-                // Execute first Sell Order via Tab 0 Buy button!
+                // Execute first Sell Order via Tab 0 Buy button so localized trade feedback also renders!
                 boolean clickedBuy = screen.mouseClicked(screen.getGuiLeft() + 190.0, screen.getGuiTop() + 72.0, 0);
                 qa.check("client.hub_tab0_order_clicked", clickedBuy, "clicked row 0 action button");
                 subStep = 2;
@@ -576,10 +639,13 @@ final class TyC2LiveClientDriver {
             case 2 -> {
                 S2CHubSyncPacket sync = ((CooperationHubMenu) mc.player.containerMenu).getLatestSync();
                 if (sync != null && sync.outboundUsed > 0) {
-                    qa.check("client.hub_order_populated_outbound", true, "outboundUsed=" + sync.outboundUsed);
-                    // Click Tab 1 (Warehouse) at (leftPos + 8 + 58 + 20, topPos + 12)
-                    CooperationHubScreen screen = (CooperationHubScreen) mc.screen;
-                    screen.mouseClicked(screen.getGuiLeft() + 86.0, screen.getGuiTop() + 12.0, 0);
+                    if (dirTicks < 8) {
+                        return;
+                    }
+                    qa.check("client.hub_order_populated_outbound", true,
+                            "outboundUsed=" + sync.outboundUsed + ", feedback=" + sync.feedback);
+                    mc.getToasts().clear();
+                    requestShot(prefix + "a_hub_orders.png");
                     subStep = 3;
                     dirTicks = 0;
                 } else if (dirTicks > 80) {
@@ -587,45 +653,90 @@ final class TyC2LiveClientDriver {
                 }
             }
             case 3 -> {
-                if (dirTicks < 10) {
+                String shot = prefix + "a_hub_orders.png";
+                if (!awaitShot(shot)) {
                     return;
                 }
-                // Click Tab 2 (Macro Economy + 48-point CPI Line Chart!) at (leftPos + 8 + 2*58 + 20, topPos + 12)
+                qa.check("client.screenshot." + shot, true, "saved " + capturedScreenshots.get(shot));
+                // Click Tab 1 (Warehouse) at (leftPos + 8 + 58 + 20, topPos + 12)
                 CooperationHubScreen screen = (CooperationHubScreen) mc.screen;
-                boolean clickedTab2 = screen.mouseClicked(screen.getGuiLeft() + 144.0, screen.getGuiTop() + 12.0, 0);
-                qa.check("client.hub_tab2_cpi_chart_clicked", clickedTab2, "switched to Macro Economy tab");
+                boolean clickedTab1 = screen.mouseClicked(screen.getGuiLeft() + 86.0, screen.getGuiTop() + 12.0, 0);
+                qa.check("client.hub_tab1_warehouse_clicked", clickedTab1, "switched to Warehouse tab");
                 subStep = 4;
                 dirTicks = 0;
             }
             case 4 -> {
-                if (dirTicks < 10) {
+                if (dirTicks < 12) {
                     return;
                 }
                 mc.getToasts().clear();
-                requestShot(dir.argText());
+                requestShot(prefix + "b_hub_warehouse.png");
                 subStep = 5;
                 dirTicks = 0;
             }
             case 5 -> {
-                if (!awaitShot(dir.argText())) {
+                String shot = prefix + "b_hub_warehouse.png";
+                if (!awaitShot(shot)) {
                     return;
                 }
-                qa.check("client.screenshot." + dir.argText(), true, "saved " + capturedScreenshots.get(dir.argText()));
-                // Switch to Tab 3 (Growth/Settings) and rename village over TCP!
+                qa.check("client.screenshot." + shot, true, "saved " + capturedScreenshots.get(shot));
+                // Click Tab 2 (Macro Economy + 48-point CPI Line Chart!) at (leftPos + 8 + 2*58 + 20, topPos + 12)
                 CooperationHubScreen screen = (CooperationHubScreen) mc.screen;
-                screen.mouseClicked(screen.getGuiLeft() + 202.0, screen.getGuiTop() + 12.0, 0);
-                TyC2ForgeNetwork.sendToServer(new C2SHubActionPacket(
-                        pos, C2SHubActionPacket.Action.RENAME_VILLAGE, 0, 0, false, "Forge Plaza"
-                ));
+                boolean clickedTab2 = screen.mouseClicked(screen.getGuiLeft() + 144.0, screen.getGuiTop() + 12.0, 0);
+                qa.check("client.hub_tab2_cpi_chart_clicked", clickedTab2, "switched to Macro Economy tab");
                 subStep = 6;
                 dirTicks = 0;
             }
             case 6 -> {
+                if (dirTicks < 10) {
+                    return;
+                }
+                mc.getToasts().clear();
+                requestShot(prefix + "c_hub_economy.png");
+                subStep = 7;
+                dirTicks = 0;
+            }
+            case 7 -> {
+                String shot = prefix + "c_hub_economy.png";
+                if (!awaitShot(shot)) {
+                    return;
+                }
+                qa.check("client.screenshot." + shot, true, "saved " + capturedScreenshots.get(shot));
+                // Click Tab 3 (Growth/Expansion/Settings) at (leftPos + 8 + 3*58 + 20, topPos + 12)
+                CooperationHubScreen screen = (CooperationHubScreen) mc.screen;
+                boolean clickedTab3 = screen.mouseClicked(screen.getGuiLeft() + 202.0, screen.getGuiTop() + 12.0, 0);
+                qa.check("client.hub_tab3_expansion_clicked", clickedTab3, "switched to Growth/Expansion tab");
+                subStep = 8;
+                dirTicks = 0;
+            }
+            case 8 -> {
+                if (dirTicks < 10) {
+                    return;
+                }
+                mc.getToasts().clear();
+                requestShot(prefix + "d_hub_expansion.png");
+                subStep = 9;
+                dirTicks = 0;
+            }
+            case 9 -> {
+                String shot = prefix + "d_hub_expansion.png";
+                if (!awaitShot(shot)) {
+                    return;
+                }
+                qa.check("client.screenshot." + shot, true, "saved " + capturedScreenshots.get(shot));
+                // Rename village over TCP!
+                TyC2ForgeNetwork.sendToServer(new C2SHubActionPacket(
+                        pos, C2SHubActionPacket.Action.RENAME_VILLAGE, 0, 0, false, "Forge Plaza"
+                ));
+                subStep = 10;
+                dirTicks = 0;
+            }
+            case 10 -> {
                 S2CHubSyncPacket sync = ((CooperationHubMenu) mc.player.containerMenu).getLatestSync();
                 if (sync != null && "Forge Plaza".equals(sync.villageName)) {
                     qa.check("client.hub_tab3_rename_roundtrip", true, "villageName=" + sync.villageName);
                     mc.player.closeContainer();
-                    ackAndClear(dir, true, "CooperationHubScreen all 4 tabs & CPI chart verified over TCP");
+                    ackAndClear(dir, true, "CooperationHubScreen all 4 tabs & CPI chart captured & verified over TCP");
                 } else if (dirTicks > 80) {
                     throw new AssertionError("Hub rename sync timed out");
                 }
@@ -635,6 +746,7 @@ final class TyC2LiveClientDriver {
 
     private void tickTestTerminalGui(Minecraft mc, TyC2LiveNetwork.S2CLiveDirective dir) {
         BlockPos hubPos = dir.targetPos();
+        String prefix = dir.argText();
         switch (subStep) {
             case 0 -> {
                 mc.player.getInventory().selected = 0;
@@ -668,7 +780,7 @@ final class TyC2LiveClientDriver {
                 dirTicks = 0;
             }
             case 2 -> {
-                if (!(mc.screen instanceof CommTerminalScreen screen)
+                if (!(mc.screen instanceof CommTerminalScreen)
                         || !(mc.player.containerMenu instanceof CommTerminalMenu menu)
                         || menu.getLatestSync() == null) {
                     if (dirTicks > 100) {
@@ -676,32 +788,91 @@ final class TyC2LiveClientDriver {
                     }
                     return;
                 }
+                if (dirTicks < 10) {
+                    return;
+                }
                 S2CTerminalSyncPacket sync = menu.getLatestSync();
                 qa.check("client.terminal_gui_bound_and_synced",
                         !sync.boundVillages.isEmpty() && sync.selectedVillage != null && sync.batteryEu > 0,
                         "bound=" + sync.boundVillages.size() + ", batteryEu=" + sync.batteryEu
                                 + ", village=" + (sync.selectedVillage == null ? "null" : sync.selectedVillage.villageName));
-                // Click CPI sub-tab (index 2: leftPos + 78 + 2*40 + 20, topPos + 30) to show remote CPI chart!
-                screen.mouseClicked(screen.getGuiLeft() + 178.0, screen.getGuiTop() + 30.0, 0);
+                // Sub-tab 0 (Orders) is active by default — capture it!
+                mc.getToasts().clear();
+                requestShot(prefix + "a_terminal_orders.png");
                 subStep = 3;
                 dirTicks = 0;
             }
             case 3 -> {
-                if (dirTicks < 10) {
+                String shot = prefix + "a_terminal_orders.png";
+                if (!awaitShot(shot)) {
                     return;
                 }
-                mc.getToasts().clear();
-                requestShot(dir.argText());
+                qa.check("client.screenshot." + shot, true, "saved " + capturedScreenshots.get(shot));
+                // Click Sub-tab 1 (Stock: leftPos + 78 + 40 + 20, topPos + 30)
+                CommTerminalScreen screen = (CommTerminalScreen) mc.screen;
+                screen.mouseClicked(screen.getGuiLeft() + 138.0, screen.getGuiTop() + 30.0, 0);
                 subStep = 4;
                 dirTicks = 0;
             }
             case 4 -> {
-                if (!awaitShot(dir.argText())) {
+                if (dirTicks < 10) {
                     return;
                 }
-                qa.check("client.screenshot." + dir.argText(), true, "saved " + capturedScreenshots.get(dir.argText()));
+                mc.getToasts().clear();
+                requestShot(prefix + "b_terminal_stock.png");
+                subStep = 5;
+                dirTicks = 0;
+            }
+            case 5 -> {
+                String shot = prefix + "b_terminal_stock.png";
+                if (!awaitShot(shot)) {
+                    return;
+                }
+                qa.check("client.screenshot." + shot, true, "saved " + capturedScreenshots.get(shot));
+                // Click Sub-tab 2 (CPI: leftPos + 78 + 2*40 + 20, topPos + 30)
+                CommTerminalScreen screen = (CommTerminalScreen) mc.screen;
+                screen.mouseClicked(screen.getGuiLeft() + 178.0, screen.getGuiTop() + 30.0, 0);
+                subStep = 6;
+                dirTicks = 0;
+            }
+            case 6 -> {
+                if (dirTicks < 10) {
+                    return;
+                }
+                mc.getToasts().clear();
+                requestShot(prefix + "c_terminal_cpi.png");
+                subStep = 7;
+                dirTicks = 0;
+            }
+            case 7 -> {
+                String shot = prefix + "c_terminal_cpi.png";
+                if (!awaitShot(shot)) {
+                    return;
+                }
+                qa.check("client.screenshot." + shot, true, "saved " + capturedScreenshots.get(shot));
+                // Click Sub-tab 3 (Growth: leftPos + 78 + 3*40 + 20, topPos + 30)
+                CommTerminalScreen screen = (CommTerminalScreen) mc.screen;
+                screen.mouseClicked(screen.getGuiLeft() + 218.0, screen.getGuiTop() + 30.0, 0);
+                subStep = 8;
+                dirTicks = 0;
+            }
+            case 8 -> {
+                if (dirTicks < 10) {
+                    return;
+                }
+                mc.getToasts().clear();
+                requestShot(prefix + "d_terminal_growth.png");
+                subStep = 9;
+                dirTicks = 0;
+            }
+            case 9 -> {
+                String shot = prefix + "d_terminal_growth.png";
+                if (!awaitShot(shot)) {
+                    return;
+                }
+                qa.check("client.screenshot." + shot, true, "saved " + capturedScreenshots.get(shot));
                 mc.player.closeContainer();
-                ackAndClear(dir, true, "CommTerminalScreen bind & remote sync verified over TCP");
+                ackAndClear(dir, true, "CommTerminalScreen bind & all 4 sub-tabs captured & verified over TCP");
             }
         }
     }

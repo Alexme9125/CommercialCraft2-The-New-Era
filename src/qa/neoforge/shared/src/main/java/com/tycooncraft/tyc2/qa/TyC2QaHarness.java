@@ -15,6 +15,7 @@ import com.tycooncraft.tyc2.core.CurrencyDenomination;
 import com.tycooncraft.tyc2.core.MacroEconomyEngine;
 import com.tycooncraft.tyc2.core.TradeGood;
 import com.tycooncraft.tyc2.item.CommTerminalItem;
+import com.tycooncraft.tyc2.menu.MayorNegotiationMenu;
 import com.tycooncraft.tyc2.network.TyC2ActionPayload;
 import com.tycooncraft.tyc2.platform.TyC2Native;
 import com.tycooncraft.tyc2.platform.TyC2Nbt;
@@ -45,8 +46,10 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -167,7 +170,7 @@ public final class TyC2QaHarness {
                 clientLiveServer.onServerStarted(server);
                 return;
             }
-            TyC2QaChecks.setChunkRangeForced(level, -2, 5, -2, 5, true);
+            TyC2QaChecks.setChunkRangeForced(level, -2, 10, -2, 5, true);
             int groundY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, 20, 20) - 1;
             this.surfaceY = groundY + 1;
             this.primMintPos = new BlockPos(5, surfaceY, 8);
@@ -585,6 +588,94 @@ public final class TyC2QaHarness {
                         secondMayorUuid != null && !secondMayorUuid.equals(firstMayorUuid),
                         "old=" + firstMayorUuid + ", new=" + secondMayorUuid);
 
+                // C2. Nitwit Disqualification Regression (separate Bell >96 blocks away at x=140)
+                BlockPos nitwitBellPos = new BlockPos(140, surfaceY, 21);
+                level.setBlockAndUpdate(nitwitBellPos, Blocks.BELL.defaultBlockState());
+                VillageRecord nitwitVillage = new VillageRecord(
+                        UUID.randomUUID(),
+                        TyC2Native.dimensionId(level),
+                        "NitwitTestHamlet",
+                        new BlockPos3i(nitwitBellPos.getX(), nitwitBellPos.getY(), nitwitBellPos.getZ()),
+                        BiomeStyle.PLAINS
+                );
+                data.putVillage(nitwitVillage);
+                Entity nitwit1 = TyC2QaPlatform.spawnAdultNitwitVillager(
+                        level, nitwitBellPos.getX() + 2.5, surfaceY, nitwitBellPos.getZ() + 0.5, 500);
+                Entity nitwit2 = TyC2QaPlatform.spawnAdultNitwitVillager(
+                        level, nitwitBellPos.getX() + 3.5, surfaceY, nitwitBellPos.getZ() + 0.5, 300);
+                evalMayor.invoke(null, level, data, nitwitVillage, nitwitBellPos, level.getGameTime());
+                checks.check("nitwit.no_mayor_with_two_nitwits",
+                        nitwitVillage.getMayorState().getMayorEntityUuid() == null
+                                && !TyC2Nbt.getBoolean(nitwit1.getPersistentData(), TyC2Constants.TAG_MAYOR, false)
+                                && !TyC2Nbt.getBoolean(nitwit2.getPersistentData(), TyC2Constants.TAG_MAYOR, false),
+                        "mayor=" + nitwitVillage.getMayorState().getMayorEntityUuid());
+
+                // Simulate legacy save with Nitwit tagged as Mayor + add 1 non-nitwit adult -> MUST disqualify & strip Nitwit!
+                nitwit1.getPersistentData().putBoolean(TyC2Constants.TAG_MAYOR, true);
+                nitwit1.getPersistentData().putString(TyC2Constants.TAG_MAYOR_VILLAGE_ID, nitwitVillage.getVillageId().toString());
+                nitwit1.setCustomName(Component.literal("[Mayor] LegacyNitwit"));
+                nitwit1.setGlowingTag(true);
+                nitwitVillage.getMayorState().setMayorEntityUuid(nitwit1.getUUID());
+                Entity nonNitwit = TyC2QaPlatform.spawnAdultVillager(
+                        level, nitwitBellPos.getX() - 2.5, surfaceY, nitwitBellPos.getZ() + 0.5);
+                evalMayor.invoke(null, level, data, nitwitVillage, nitwitBellPos, level.getGameTime());
+                checks.check("nitwit.legacy_nitwit_disqualified_and_stripped",
+                        nonNitwit.getUUID().equals(nitwitVillage.getMayorState().getMayorEntityUuid())
+                                && !TyC2Nbt.getBoolean(nitwit1.getPersistentData(), TyC2Constants.TAG_MAYOR, false)
+                                && !nitwit1.hasCustomName()
+                                && !nitwit1.hasGlowingTag()
+                                && TyC2Nbt.getBoolean(nonNitwit.getPersistentData(), TyC2Constants.TAG_MAYOR, false),
+                        "newMayor=" + nitwitVillage.getMayorState().getMayorEntityUuid()
+                                + ", expected=" + nonNitwit.getUUID());
+
+                // C3. Mayor Negotiation Hold (stop + face + tradingPlayer) & Plaza Tether (MEETING_POINT + return nav)
+                Entity liveMayor = List.of(v1, v2, v3).stream()
+                        .filter(e -> e.isAlive() && e.getUUID().equals(secondMayorUuid)).findFirst().orElseThrow();
+                TyC2QaPlatform.setVillagerAiEnabled(liveMayor, true);
+                TyC2QaPlatform.moveEntityTo(liveMayor, bellPos.getX() + 1.5, surfaceY, bellPos.getZ() + 1.5, 0.0F);
+                liveMayor.setDeltaMovement(0.35, 0.0, 0.25);
+                playerA.setPos(bellPos.getX() + 5.5, surfaceY, bellPos.getZ() + 1.5);
+                MayorNegotiationMenu negMenu = new MayorNegotiationMenu(
+                        1, playerA.getInventory(), villageId, bellPos, liveMayor.getUUID()
+                );
+                playerA.containerMenu = negMenu;
+                TyC2WorldManager.startMayorNegotiation(playerA, level, liveMayor);
+                double expectedYaw = Math.toDegrees(Math.atan2(
+                        playerA.getZ() - liveMayor.getZ(), playerA.getX() - liveMayor.getX())) - 90.0;
+                float yawDiff = Math.abs(Mth.wrapDegrees(liveMayor.getYRot() - (float) expectedYaw));
+                Vec3 mayorVel = liveMayor.getDeltaMovement();
+                checks.check("mayor.negotiation_holds_trading_player",
+                        TyC2QaPlatform.villagerTradingPlayer(liveMayor) == playerA,
+                        "tradingPlayer=" + TyC2QaPlatform.villagerTradingPlayer(liveMayor));
+                checks.check("mayor.negotiation_halts_motion_and_nav",
+                        TyC2QaPlatform.villagerNavigationDone(liveMayor)
+                                && Math.abs(mayorVel.x) < 1.0E-4 && Math.abs(mayorVel.z) < 1.0E-4,
+                        "navDone=" + TyC2QaPlatform.villagerNavigationDone(liveMayor) + ", vel=" + mayorVel);
+                checks.check("mayor.negotiation_faces_player", yawDiff < 5.0F,
+                        "yaw=" + liveMayor.getYRot() + ", expected=" + expectedYaw + ", diff=" + yawDiff);
+                negMenu.removed(playerA);
+                playerA.containerMenu = playerA.inventoryMenu;
+                checks.check("mayor.negotiation_close_releases_trading_player",
+                        TyC2QaPlatform.villagerTradingPlayer(liveMayor) == null);
+
+                // Plaza tether: move non-negotiating Mayor >18 blocks away during daytime -> MEETING_POINT + return nav!
+                server.getCommands().performPrefixedCommand(
+                        server.createCommandSourceStack().withSuppressedOutput(), "time set 5500");
+                TyC2QaPlatform.moveEntityTo(liveMayor, bellPos.getX() + 20.5, surfaceY, bellPos.getZ() + 0.5, 0.0F);
+                liveMayor.setOnGround(true);
+                TyC2Native.anchorMayorToPlaza(level, liveMayor, bellPos);
+                BlockPos meetingPos = TyC2QaPlatform.villagerMeetingPoint(liveMayor);
+                checks.check("mayor.plaza_meeting_point_set",
+                        bellPos.equals(meetingPos),
+                        "expected=" + bellPos + ", meetingPoint=" + meetingPos);
+                checks.check("mayor.plaza_tether_navigates_back",
+                        TyC2QaPlatform.villagerHasNavPath(liveMayor),
+                        "hasNavPath=" + TyC2QaPlatform.villagerHasNavPath(liveMayor)
+                                + ", onGround=" + liveMayor.onGround()
+                                + ", isDay=" + TyC2Native.isDaytime(level));
+                TyC2QaPlatform.moveEntityTo(liveMayor, bellPos.getX() + 2.5, surfaceY, bellPos.getZ() + 0.5, 0.0F);
+                TyC2QaPlatform.setVillagerAiEnabled(liveMayor, false);
+
                 // Spawn 2 more villagers so village reaches 4 villagers (for Lv 2 upgrade test later)
                 Entity nonMayor = List.of(v1, v2, v3).stream()
                         .filter(e -> e.isAlive() && !e.getUUID().equals(secondMayorUuid)).findFirst().orElseThrow();
@@ -676,19 +767,87 @@ public final class TyC2QaHarness {
                 ItemStack extractedOut = TyC2QaPlatform.extractFromHubOutboundSlot(level, bellPos, outSlotFound, 1);
                 checks.check("hub.cap.outbound_extract_ok", !extractedOut.isEmpty(), "extracted=" + extractedOut);
 
-                // Test Auto-Fulfill on a Village Buy Order via piped Inbound items
+                // Test Buy-Order Delivery & Accurate Village-Funds / Missing-Goods Error Messages!
                 VillageTradeOrder buyOrder = village.getActiveOrders().stream()
                         .filter(o -> o.side() == OrderSide.VILLAGE_BUYS && !o.isCompleted())
                         .findFirst().orElseThrow(() -> new AssertionError("No Lv 1 VILLAGE_BUYS order generated"));
                 this.autoFulfillOrderId = buyOrder.orderId();
                 village.adjustVillageBalance(500L); // Ensure village has ample liquidity
+
+                // (a) Comm Terminal SELL_ORDER with 0 matching Inbound items while village has plenty of funds ->
+                //     MUST fail with status.tyc2.terminal.insufficient_goods (NOT village_low_funds) & NOT deduct 50 EU!
+                int existingIn = village.getStorage().countInInbound(buyOrder.itemId());
+                if (existingIn > 0) {
+                    village.getStorage().consumeFromInbound(buyOrder.itemId(), existingIn);
+                }
+                ItemStack errTerm = new ItemStack(TyC2Registries.COMM_TERMINAL_ITEM.get());
+                CommTerminalItem.setEnergyEu(errTerm, 5_000);
+                CommTerminalItem.toggleBindVillage(errTerm, villageId, village.getVillageName());
+                playerA.setItemInHand(InteractionHand.MAIN_HAND, errTerm);
+                TyC2QaPlatform.clearActionBarKey(playerA);
+                TyC2WorldManager.handleActionPayload(playerA, level,
+                        new TyC2ActionPayload("TERMINAL", BlockPos.ZERO, "SELL_ORDER",
+                                "{\"villageId\":\"" + villageId + "\",\"orderId\":\"" + buyOrder.orderId() + "\",\"qty\":1}"));
+                checks.check("order.terminal_missing_goods_exact_key",
+                        "status.tyc2.terminal.insufficient_goods".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
+                        "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
+                checks.check("order.terminal_missing_goods_no_eu_drain",
+                        CommTerminalItem.getEnergyEu(errTerm) == 5_000,
+                        "eu=" + CommTerminalItem.getEnergyEu(errTerm));
+                playerA.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+
+                // (b) Hub SELL_ORDER when villageBalance < order.unitPrice() ->
+                //     MUST fail with status.tyc2.hub.village_low_funds_detail & NOT drain player inventory into Inbound!
+                long savedVillageBal = village.getVillageBalance();
+                village.adjustVillageBalance(-savedVillageBal);
+                playerA.getInventory().clearContent();
+                playerA.getInventory().add(TyC2Native.stack(buyOrder.itemId(), 4));
+                TyC2QaPlatform.clearActionBarKey(playerA);
+                TyC2WorldManager.handleActionPayload(playerA, level,
+                        new TyC2ActionPayload("HUB", bellPos, "SELL_ORDER",
+                                "{\"orderId\":\"" + buyOrder.orderId() + "\",\"qty\":2,\"cashMode\":false}"));
+                int invCountAfterLowFunds = 0;
+                for (int i = 0; i < playerA.getInventory().getContainerSize(); i++) {
+                    ItemStack st = playerA.getInventory().getItem(i);
+                    if (buyOrder.itemId().equals(TyC2Native.itemId(st))) {
+                        invCountAfterLowFunds += st.getCount();
+                    }
+                }
+                checks.check("order.hub_low_funds_exact_key",
+                        "status.tyc2.hub.village_low_funds_detail".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
+                        "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
+                checks.check("order.hub_low_funds_preserves_player_inv",
+                        invCountAfterLowFunds == 4 && village.getStorage().countInInbound(buyOrder.itemId()) == 0,
+                        "invCount=" + invCountAfterLowFunds
+                                + ", inboundCount=" + village.getStorage().countInInbound(buyOrder.itemId()));
+                village.adjustVillageBalance(savedVillageBal);
+
+                // (c) Hub SELL_ORDER with sufficient village funds succeeds from player inventory!
+                long bankBeforeManualSell = data.bank().getActiveBalance(PLAYER_A_UUID);
+                TyC2QaPlatform.clearActionBarKey(playerA);
+                TyC2WorldManager.handleActionPayload(playerA, level,
+                        new TyC2ActionPayload("HUB", bellPos, "SELL_ORDER",
+                                "{\"orderId\":\"" + buyOrder.orderId() + "\",\"qty\":2,\"cashMode\":false}"));
+                VillageTradeOrder afterManualSell = village.findOrder(buyOrder.orderId()).orElseThrow();
+                checks.check("order.hub_sell_order_delivers_and_pays",
+                        afterManualSell.fulfilledQty() >= 2
+                                && data.bank().getActiveBalance(PLAYER_A_UUID) > bankBeforeManualSell
+                                && "status.tyc2.hub.order_fulfilled".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
+                        "fulfilled=" + afterManualSell.fulfilledQty()
+                                + ", bank=" + bankBeforeManualSell + "->" + data.bank().getActiveBalance(PLAYER_A_UUID)
+                                + ", key=" + TyC2QaPlatform.lastActionBarKey(playerA));
+                playerA.getInventory().clearContent();
+
+                // Test Auto-Fulfill on remaining qty of the Village Buy Order via piped Inbound items
+                int preAutoFulfilled = afterManualSell.fulfilledQty();
                 TyC2WorldManager.handleActionPayload(playerA, level,
                         new TyC2ActionPayload("HUB", bellPos, "TOGGLE_ORDER_AUTO",
                                 "{\"orderId\":\"" + autoFulfillOrderId + "\"}"));
                 this.autoFulfillInitialBank = (int) data.bank().getActiveBalance(PLAYER_A_UUID);
-                ItemStack deliverStack = TyC2Native.stack(buyOrder.itemId(), Math.min(4, buyOrder.remainingQty()));
+                ItemStack deliverStack = TyC2Native.stack(buyOrder.itemId(), Math.min(4, Math.max(1, afterManualSell.remainingQty())));
                 ItemStack pipeRem = TyC2QaPlatform.insertIntoHubInbound(level, bellPos, deliverStack);
-                checks.check("hub.auto_fulfill_piped_inbound", pipeRem.isEmpty(), "item=" + buyOrder.itemId());
+                checks.check("hub.auto_fulfill_piped_inbound", pipeRem.isEmpty(),
+                        "item=" + buyOrder.itemId() + ", preFulfilled=" + preAutoFulfilled);
 
                 stage = 4;
                 stageStartTick = ticks;
@@ -698,7 +857,7 @@ public final class TyC2QaHarness {
                 TycoonSavedData data = TyC2WorldManager.getData(level);
                 VillageRecord village = data.getVillage(villageId).orElseThrow();
                 VillageTradeOrder order = village.findOrder(autoFulfillOrderId).orElse(null);
-                if (order != null && order.fulfilledQty() > 0) {
+                if (order != null && data.bank().getActiveBalance(PLAYER_A_UUID) > autoFulfillInitialBank) {
                     long bankAfter = data.bank().getActiveBalance(PLAYER_A_UUID);
                     checks.check("hub.auto_fulfill_executed_and_paid",
                             bankAfter > autoFulfillInitialBank,
@@ -744,15 +903,26 @@ public final class TyC2QaHarness {
                         data.recordPlayerPlaced(TyC2Native.dimensionId(level), rp);
                     }
 
-                    // Create ExpansionDesire (SMALL_COTTAGE), pipe materials into Inbound, deliver & launch gradual build!
+                    // Create ExpansionDesire (SMALL_COTTAGE), pipe materials into Inbound, test low_funds error first, then launch gradual build!
                     ExpansionDesire desire = ExpansionDesire.createDefault(
                             "qa_exp_1", ProjectType.SMALL_COTTAGE, village.getBiomeStyle(), false
                     );
                     village.setActiveExpansion(desire);
-                    village.adjustVillageBalance(1_000L);
                     for (Map.Entry<String, Integer> req : desire.requiredMaterials().entrySet()) {
                         village.getStorage().insertExternal(req.getKey(), req.getValue(), "", 64, false);
                     }
+                    // (d) DELIVER_EXPANSION with insufficient village budget -> MUST fail with status.tyc2.expansion.low_funds!
+                    long savedExpBal = village.getVillageBalance();
+                    village.adjustVillageBalance(-savedExpBal);
+                    TyC2QaPlatform.clearActionBarKey(playerA);
+                    TyC2WorldManager.handleActionPayload(playerA, level,
+                            new TyC2ActionPayload("HUB", bellPos, "DELIVER_EXPANSION", "{}"));
+                    checks.check("expansion.low_funds_exact_key",
+                            "status.tyc2.expansion.low_funds".equals(TyC2QaPlatform.lastActionBarKey(playerA))
+                                    && village.getActiveConstructionJob().isEmpty(),
+                            "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
+                    // Restore budget + 1,000 IC and launch gradual build!
+                    village.adjustVillageBalance(savedExpBal + 1_000L);
                     TyC2WorldManager.handleActionPayload(playerA, level,
                             new TyC2ActionPayload("HUB", bellPos, "DELIVER_EXPANSION", "{}"));
 

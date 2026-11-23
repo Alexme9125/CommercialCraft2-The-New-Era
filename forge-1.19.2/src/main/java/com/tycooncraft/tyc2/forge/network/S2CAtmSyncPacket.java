@@ -5,20 +5,39 @@ import com.tycooncraft.tyc2.forge.client.TyC2ClientHandlers;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeSavedData;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 
 /**
- * S2C sync snapshot for {@link com.tycooncraft.tyc2.forge.gui.AtmMachineMenu}.
+ * S2C sync snapshot for {@link com.tycooncraft.tyc2.forge.gui.AtmMachineMenu} carrying
+ * structured client-localizable transaction log records and translatable feedback components.
  */
 public final class S2CAtmSyncPacket {
 
     public record CompanyBrief(String id, String name, String inviteCode, long balance, int memberCount) {
+    }
+
+    /** Structured bank log entry translated on the client using {@code gui.tyc2.atm.tx.*}. */
+    public record TxLogDto(String txTypeKey, long delta, String counterparty) {
+        public String formatLocalized() {
+            String sign = delta >= 0L ? "+" : "";
+            String label = Component.translatable(txTypeKey).getString();
+            String trimmed = counterparty == null ? "" : counterparty.trim();
+            if (trimmed.isEmpty()
+                    || trimmed.toUpperCase(Locale.ROOT).startsWith("ATM")
+                    || "DEPOSIT".equalsIgnoreCase(trimmed)
+                    || "WITHDRAW".equalsIgnoreCase(trimmed)) {
+                return sign + delta + " " + label;
+            }
+            return sign + delta + " " + label + " " + trimmed;
+        }
     }
 
     public final long personalBalance;
@@ -29,7 +48,9 @@ public final class S2CAtmSyncPacket {
     public final int activeCompanyMembers;
     public final long activeCompanyBalance;
     public final List<CompanyBrief> companies;
+    public final List<TxLogDto> txLogs;
     public final List<String> logs;
+    public final Component feedbackComponent;
     public final String feedback;
 
     public S2CAtmSyncPacket(
@@ -41,8 +62,8 @@ public final class S2CAtmSyncPacket {
             int activeCompanyMembers,
             long activeCompanyBalance,
             List<CompanyBrief> companies,
-            List<String> logs,
-            String feedback
+            List<TxLogDto> txLogs,
+            Component feedbackComponent
     ) {
         this.personalBalance = personalBalance;
         this.companyMode = companyMode;
@@ -52,12 +73,18 @@ public final class S2CAtmSyncPacket {
         this.activeCompanyMembers = activeCompanyMembers;
         this.activeCompanyBalance = activeCompanyBalance;
         this.companies = companies;
-        this.logs = logs;
-        this.feedback = feedback == null ? "" : feedback;
+        this.txLogs = txLogs;
+        List<String> formatted = new ArrayList<>(txLogs.size());
+        for (TxLogDto entry : txLogs) {
+            formatted.add(entry.formatLocalized());
+        }
+        this.logs = formatted;
+        this.feedbackComponent = feedbackComponent == null ? Component.empty() : feedbackComponent;
+        this.feedback = this.feedbackComponent.getString();
     }
 
-    /** Builds a fresh sync snapshot for {@code player}. */
-    public static S2CAtmSyncPacket buildFor(ServerPlayer player, String feedback) {
+    /** Builds a fresh sync snapshot for {@code player} with translatable {@code feedback}. */
+    public static S2CAtmSyncPacket buildFor(ServerPlayer player, Component feedback) {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         BankAccountManager bank = data.bank();
         BankAccountManager.PersonalAccount personal = bank.getOrCreatePersonal(
@@ -92,12 +119,11 @@ public final class S2CAtmSyncPacket {
         }
 
         List<BankAccountManager.BankTransactionLog> rawLogs = bank.getTransactionLogs(activeRef);
-        List<String> formattedLogs = new ArrayList<>(rawLogs.size());
+        List<TxLogDto> structuredLogs = new ArrayList<>(rawLogs.size());
         for (int i = rawLogs.size() - 1; i >= 0; i--) {
             BankAccountManager.BankTransactionLog log = rawLogs.get(i);
-            String sign = log.delta() >= 0 ? "+" : "";
-            String cp = log.counterparty().isEmpty() ? log.type().name() : log.counterparty();
-            formattedLogs.add(sign + log.delta() + " " + cp);
+            String cp = log.counterparty() == null ? "" : log.counterparty();
+            structuredLogs.add(new TxLogDto(txTypeKey(log.type()), log.delta(), cp));
         }
 
         return new S2CAtmSyncPacket(
@@ -109,9 +135,28 @@ public final class S2CAtmSyncPacket {
                 coMembers,
                 coBal,
                 companyList,
-                formattedLogs,
-                feedback
+                structuredLogs,
+                feedback == null ? Component.empty() : feedback
         );
+    }
+
+    /** Convenience overload accepting plain string feedback. */
+    public static S2CAtmSyncPacket buildFor(ServerPlayer player, String feedback) {
+        return buildFor(player, feedback == null || feedback.isEmpty() ? Component.empty() : Component.literal(feedback));
+    }
+
+    private static String txTypeKey(BankAccountManager.TransactionType type) {
+        if (type == null) {
+            return "gui.tyc2.atm.tx.deposit";
+        }
+        return switch (type) {
+            case DEPOSIT, SYSTEM_ADJUST -> "gui.tyc2.atm.tx.deposit";
+            case WITHDRAW -> "gui.tyc2.atm.tx.withdraw";
+            case TRANSFER_IN, COMPANY_DISSOLVE -> "gui.tyc2.atm.tx.transfer_in";
+            case TRANSFER_OUT -> "gui.tyc2.atm.tx.transfer_out";
+            case TRADE_BUY, NEGOTIATION -> "gui.tyc2.atm.tx.trade_buy";
+            case TRADE_SELL -> "gui.tyc2.atm.tx.trade_sell";
+        };
     }
 
     public long activeBalance() {
@@ -136,11 +181,13 @@ public final class S2CAtmSyncPacket {
             buf.writeVarInt(c.memberCount());
         }
 
-        buf.writeVarInt(pkt.logs.size());
-        for (String line : pkt.logs) {
-            buf.writeUtf(line, 128);
+        buf.writeVarInt(pkt.txLogs.size());
+        for (TxLogDto entry : pkt.txLogs) {
+            buf.writeUtf(entry.txTypeKey(), 64);
+            buf.writeVarLong(entry.delta());
+            buf.writeUtf(entry.counterparty(), 64);
         }
-        buf.writeUtf(pkt.feedback, 192);
+        buf.writeComponent(pkt.feedbackComponent);
     }
 
     public static S2CAtmSyncPacket decode(FriendlyByteBuf buf) {
@@ -165,12 +212,12 @@ public final class S2CAtmSyncPacket {
         }
 
         int lCount = Math.min(64, buf.readVarInt());
-        List<String> logs = new ArrayList<>(lCount);
+        List<TxLogDto> txLogs = new ArrayList<>(lCount);
         for (int i = 0; i < lCount; i++) {
-            logs.add(buf.readUtf(128));
+            txLogs.add(new TxLogDto(buf.readUtf(64), buf.readVarLong(), buf.readUtf(64)));
         }
-        String fb = buf.readUtf(192);
-        return new S2CAtmSyncPacket(pBal, coMode, coId, coName, coInv, coMem, coBal, companies, logs, fb);
+        Component fbComp = buf.readComponent();
+        return new S2CAtmSyncPacket(pBal, coMode, coId, coName, coInv, coMem, coBal, companies, txLogs, fbComp);
     }
 
     public static void handle(S2CAtmSyncPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {

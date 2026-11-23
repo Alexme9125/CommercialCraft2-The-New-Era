@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
@@ -32,6 +33,7 @@ public final class S2CMayorSyncPacket {
     public final int haveFood;
     public final int reqFood;
     public final boolean partnered;
+    public final Component feedbackComponent;
     public final String feedback;
 
     public S2CMayorSyncPacket(
@@ -49,7 +51,7 @@ public final class S2CMayorSyncPacket {
             int haveFood,
             int reqFood,
             boolean partnered,
-            String feedback
+            Component feedbackComponent
     ) {
         this.villageId = villageId;
         this.villageName = villageName == null ? "" : villageName;
@@ -65,7 +67,8 @@ public final class S2CMayorSyncPacket {
         this.haveFood = haveFood;
         this.reqFood = reqFood;
         this.partnered = partnered;
-        this.feedback = feedback == null ? "" : feedback;
+        this.feedbackComponent = feedbackComponent == null ? Component.empty() : feedbackComponent;
+        this.feedback = this.feedbackComponent.getString();
     }
 
     public boolean currencyMet() {
@@ -88,11 +91,11 @@ public final class S2CMayorSyncPacket {
         return currencyMet() && logsMet() && ironMet() && foodMet();
     }
 
-    public static S2CMayorSyncPacket buildFor(ServerPlayer player, UUID villageId, String feedback) {
+    public static S2CMayorSyncPacket buildFor(ServerPlayer player, UUID villageId, Component feedback) {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         TycoonForgeWorldManager.NegotiationStatus st = TycoonForgeWorldManager.evaluateNegotiation(player, data);
         Optional<VillageRecord> vOpt = data.getVillage(villageId);
-        String name = vOpt.map(VillageRecord::getVillageName).orElse("Village");
+        String name = vOpt.map(VillageRecord::getVillageName).orElse("");
         String biome = vOpt.map(v -> v.getBiomeStyle().id()).orElse("plains");
         int pop = vOpt.map(VillageRecord::getPopulation).orElse(2);
         boolean partnered = vOpt.map(VillageRecord::isPartnered).orElse(false);
@@ -102,7 +105,7 @@ public final class S2CMayorSyncPacket {
                 st.haveLogs(), st.requiredLogs(),
                 st.haveIron(), st.requiredIron(),
                 st.haveFood(), st.requiredFood(),
-                partnered, feedback
+                partnered, feedback == null ? Component.empty() : feedback
         );
     }
 
@@ -121,7 +124,7 @@ public final class S2CMayorSyncPacket {
         buf.writeVarInt(pkt.haveFood);
         buf.writeVarInt(pkt.reqFood);
         buf.writeBoolean(pkt.partnered);
-        buf.writeUtf(pkt.feedback, 192);
+        buf.writeComponent(pkt.feedbackComponent);
     }
 
     public static S2CMayorSyncPacket decode(FriendlyByteBuf buf) {
@@ -140,7 +143,7 @@ public final class S2CMayorSyncPacket {
                 buf.readVarInt(),
                 buf.readVarInt(),
                 buf.readBoolean(),
-                buf.readUtf(192)
+                buf.readComponent()
         );
     }
 

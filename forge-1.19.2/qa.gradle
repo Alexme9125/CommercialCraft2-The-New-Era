@@ -1,4 +1,5 @@
 import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 import java.util.jar.JarFile
 
 // Dedicated Forge 1.19.2 live-server & live client-server QA sourceSet and tasks for TyC2.
@@ -141,6 +142,33 @@ def auditPackagedTyc2Jar = tasks.register('auditPackagedTyc2Jar') {
             def texturePngs = entries.findAll { it.startsWith('assets/tyc2/textures/') && it.endsWith('.png') }
             if (texturePngs.size() != 35) {
                 throw new GradleException("Expected 35 texture PNGs in Forge 1.19.2 JAR, found ${texturePngs.size()}: ${texturePngs}")
+            }
+            // Verify zh_cn.json & en_us.json key parity, %s placeholder parity, and ZERO mechanic-advertising strings
+            def slurper = new JsonSlurper()
+            Map enLang = (Map) slurper.parseText(new String(jf.getInputStream(jf.getEntry('assets/tyc2/lang/en_us.json')).bytes, 'UTF-8'))
+            Map zhLang = (Map) slurper.parseText(new String(jf.getInputStream(jf.getEntry('assets/tyc2/lang/zh_cn.json')).bytes, 'UTF-8'))
+            if (enLang.keySet() != zhLang.keySet()) {
+                throw new GradleException("Lang key mismatch between en_us.json (${enLang.size()}) and zh_cn.json (${zhLang.size()})")
+            }
+            def bannedPhrases = ['1000 格', '1000格', '千格', '0-499', '500-999', '防爆', '防破坏', 'blast-proof', '1000-slot', 'CL:3x3']
+            def langViolations = []
+            for (String k : enLang.keySet()) {
+                String ev = String.valueOf(enLang[k])
+                String zv = String.valueOf(zhLang[k])
+                if (ev.count('%s') != zv.count('%s')) {
+                    langViolations << "placeholder mismatch on ${k}: en='${ev}' vs zh='${zv}'"
+                }
+                for (String banned : bannedPhrases) {
+                    if (ev.toLowerCase().contains(banned.toLowerCase())) {
+                        langViolations << "en_us[${k}] contains banned '${banned}': ${ev}"
+                    }
+                    if (zv.toLowerCase().contains(banned.toLowerCase())) {
+                        langViolations << "zh_cn[${k}] contains banned '${banned}': ${zv}"
+                    }
+                }
+            }
+            if (!langViolations.isEmpty()) {
+                throw new GradleException("Lang audit failed: ${langViolations.take(10)}")
             }
             // Verify ZERO com/industrialage references outside compat/ and mixin/
             def badIc2Refs = []
@@ -427,12 +455,14 @@ tasks.register('runTyc2LiveClientServer', Exec) {
     outputs.upToDateWhen { false }
     doFirst {
         def profile = providers.gradleProperty('tyc2LiveProfile').getOrElse('enhanced')
+        def lang = providers.gradleProperty('tyc2LiveLang').getOrElse('en_us')
         def shotsDir = providers.gradleProperty('tyc2LiveScreenshotsDir').orNull
         def cmd = [
                 'python3',
                 file('src/qa/run_client_server_live.py').absolutePath,
                 '--manifest', qaBuildDir.get().file('live-launch.json').asFile.absolutePath,
-                '--profile', profile
+                '--profile', profile,
+                '--lang', lang
         ]
         if (shotsDir != null && !shotsDir.trim().isEmpty()) {
             cmd.addAll(['--screenshots-dir', shotsDir])
