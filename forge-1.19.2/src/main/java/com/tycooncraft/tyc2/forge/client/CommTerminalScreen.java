@@ -18,6 +18,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 
@@ -386,16 +387,31 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
             case 3 -> renderRemoteGrowth(poseStack, v);
         }
 
-        // Bottom feedback & Bank balance line inside LCD (100% localized)
-        String footer = !sync.feedback.isEmpty()
-                ? sync.feedback
+        // Bottom feedback & Bank balance line inside LCD (100% localized; wraps cleanly for multi-item status)
+        boolean hasFeedback = !sync.feedback.isEmpty();
+        Component footerComp = hasFeedback
+                ? sync.feedbackComponent
                 : Component.translatable(
                         "gui.tyc2.terminal.footer",
                         TyC2UiWidgets.compactIc(v.activeBankBalance),
                         TriModePowerMath.TERMINAL_COST_TRADE_EU,
                         TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU
-                ).getString();
-        TyC2UiWidgets.drawFittedString(poseStack, font, footer, 80, 188, 158, 0.62F, 0x88EECC);
+                );
+        String footer = footerComp.getString();
+        if (hasFeedback && font.width(footer) > 272) {
+            List<FormattedCharSequence> fbLines = font.split(footerComp, 336);
+            poseStack.pushPose();
+            poseStack.translate(80.0F, 183.0F, 0.0F);
+            poseStack.scale(0.46F, 0.46F, 1.0F);
+            for (int i = 0; i < Math.min(2, fbLines.size()); i++) {
+                font.draw(poseStack, fbLines.get(i), 0, i * 11, 0xFFDD77);
+            }
+            poseStack.popPose();
+        } else {
+            TyC2UiWidgets.drawFittedString(
+                    poseStack, font, footer, 80, 188, 158, 0.58F, hasFeedback ? 0xFFDD77 : 0x88EECC
+            );
+        }
     }
 
     private void renderRemoteOrders(PoseStack poseStack) {
@@ -480,11 +496,45 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
             String proj = Component.translatable(
                     "gui.tyc2.expansion.project",
                     Component.translatable("project.tyc2." + v.expProjectKey)
-            ).getString();
-            TyC2UiWidgets.drawFittedString(poseStack, font, proj, 80, 102, 156, 0.68F, 0xFFDD77);
-            TyC2UiWidgets.drawFittedString(poseStack, font,
-                    Component.translatable("gui.tyc2.expansion.budget", v.expBudget).getString(),
-                    80, 114, 156, 0.68F, 0xCCCCCC);
+            ).getString() + " (" + v.expBudget + " IC)";
+            TyC2UiWidgets.drawFittedString(poseStack, font, proj, 80, 101, 156, 0.56F, 0xFFDD77);
+
+            int matCount = v.expMaterials.size();
+            int splitIdx = matCount <= 2 ? matCount : (matCount + 1) / 2;
+            StringBuilder line1 = new StringBuilder();
+            StringBuilder line2 = new StringBuilder();
+            boolean line1AllMet = true;
+            boolean line2AllMet = true;
+            for (int i = 0; i < matCount; i++) {
+                S2CHubSyncPacket.MatDto m = v.expMaterials.get(i);
+                boolean met = m.delivered() >= m.required();
+                StringBuilder dst = i < splitIdx ? line1 : line2;
+                if (i < splitIdx) {
+                    line1AllMet &= met;
+                } else {
+                    line2AllMet &= met;
+                }
+                if (dst.length() > 0) {
+                    dst.append(" \u00B7 ");
+                }
+                dst.append(shortItemName(m.itemId()))
+                        .append(' ')
+                        .append(m.delivered())
+                        .append('/')
+                        .append(m.required());
+            }
+            if (line1.length() > 0) {
+                TyC2UiWidgets.drawFittedString(
+                        poseStack, font, line1.toString(), 80, 110, 156, 0.45F,
+                        line1AllMet ? 0x66FF99 : 0xFFCC66
+                );
+            }
+            if (line2.length() > 0) {
+                TyC2UiWidgets.drawFittedString(
+                        poseStack, font, line2.toString(), 80, 118, 156, 0.45F,
+                        line2AllMet ? 0x66FF99 : 0xFFCC66
+                );
+            }
         } else {
             TyC2UiWidgets.drawFittedString(poseStack, font,
                     Component.translatable("gui.tyc2.expansion.none").getString(), 80, 106, 156, 0.70F, 0x99AABB);
@@ -542,6 +592,9 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                     Component.translatable("gui.tyc2.terminal.battery", sync.batteryEu, sync.maxBatteryEu),
                     mouseX, mouseY
             );
+        } else if (sync != null && !sync.feedback.isEmpty()
+                && relX >= 78 && relX <= 238 && relY >= 182 && relY <= 198) {
+            renderTooltip(poseStack, font.split(sync.feedbackComponent, 220), mouseX, mouseY);
         } else {
             renderTooltip(poseStack, mouseX, mouseY);
         }

@@ -18,6 +18,7 @@ import com.tycooncraft.tyc2.forge.data.TyC2RuntimeData;
 import com.tycooncraft.tyc2.forge.gui.MayorNegotiationMenu;
 import com.tycooncraft.tyc2.forge.item.CommTerminalItem;
 import com.tycooncraft.tyc2.forge.util.TyC2Ids;
+import com.tycooncraft.tyc2.forge.world.ServerTerrainProbe;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeSavedData;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeWorldManager;
 import com.tycooncraft.tyc2.village.BiomeStyle;
@@ -108,6 +109,7 @@ final class TyC2QaServerRunner {
         W5_PARTNERSHIP_HUB_AND_ISOLATION,
         W5_WAIT_AUTOFULFILL,
         W6_UPGRADE_AND_EXPANSION_SETUP,
+        W6_WAIT_AUTO_LAUNCH_CONSTRUCTION,
         W6_WAIT_CONSTRUCTION_PROGRESS,
         W7_ENHANCED_IC2_LC2_SETUP,
         W7_ENHANCED_IC2_LC2_WAIT,
@@ -666,7 +668,36 @@ final class TyC2QaServerRunner {
 
             case W6_UPGRADE_AND_EXPANSION_SETUP -> {
                 runUpgradeAndExpansionSetup(server, level);
-                advance(Stage.W6_WAIT_CONSTRUCTION_PROGRESS);
+                advance(Stage.W6_WAIT_AUTO_LAUNCH_CONSTRUCTION);
+            }
+
+            case W6_WAIT_AUTO_LAUNCH_CONSTRUCTION -> {
+                TycoonForgeSavedData data = TycoonForgeSavedData.get(server);
+                VillageRecord rec = data.getVillage(villageId).orElseThrow();
+                Optional<ConstructionJob> activeOpt = rec.getActiveConstructionJob();
+                if (activeOpt.isPresent()) {
+                    ConstructionJob job = activeOpt.get();
+                    qa.check("expansion.auto_launched_with_autofullfill_false",
+                            job.getProjectType() == ProjectType.SMALL_COTTAGE,
+                            "project=" + job.getProjectType() + ", ticks=" + stageTicks + ", jobs=" + rec.getConstructionQueue().size());
+                    initialJobPlaced = job.getPlacedCount();
+                    // Verify bottom-up Y sorting invariant of placements!
+                    List<WorldBlockPlacement> placements = job.getPlacements();
+                    qa.check("expansion.blueprint_non_empty", placements.size() >= 15, "blocks=" + placements.size());
+                    boolean bottomUpSorted = true;
+                    for (int i = 1; i < placements.size(); i++) {
+                        if (placements.get(i).pos().y() < placements.get(i - 1).pos().y()) {
+                            bottomUpSorted = false;
+                            break;
+                        }
+                    }
+                    qa.check("expansion.bottom_up_y_ordered", bottomUpSorted, "totalBlocks=" + placements.size());
+                    qa.metric("expansion.job_blocks", placements.size());
+                    advance(Stage.W6_WAIT_CONSTRUCTION_PROGRESS);
+                } else if (stageTicks > 100) {
+                    throw new AssertionError("All-delivered SMALL_COTTAGE (autoFulfill=false) did not auto-launch within 100 ticks after funds restored (bal="
+                            + rec.getVillageBalance() + ", exp=" + rec.getActiveExpansion() + ")");
+                }
             }
 
             case W6_WAIT_CONSTRUCTION_PROGRESS -> {
@@ -1156,14 +1187,55 @@ final class TyC2QaServerRunner {
         placeProtectedChest(level, data, protectedChestPosA);
         placeProtectedChest(level, data, protectedChestPosB);
 
-        // Create an ExpansionDesire (SMALL_COTTAGE), deliver ALL required materials via Inbound, and launch construction!
+        // 0. ServerTerrainProbe.getSurfaceY skips natural trees (BlockTags.LOGS / LEAVES) and returns true ground Y!
+        BlockPos treeBase = new BlockPos(12, surfaceY, -12);
+        String dimId = level.dimension().location().toString();
+        for (int dy = 0; dy <= 3; dy++) {
+            level.setBlock(treeBase.above(dy), Blocks.OAK_LOG.defaultBlockState(), Block.UPDATE_ALL);
+            data.placedBlocks().markRemoved(dimId, treeBase.above(dy));
+        }
+        for (int dy = 4; dy <= 5; dy++) {
+            level.setBlock(treeBase.above(dy), Blocks.OAK_LEAVES.defaultBlockState(), Block.UPDATE_ALL);
+            data.placedBlocks().markRemoved(dimId, treeBase.above(dy));
+        }
+        ServerTerrainProbe terrainProbe = new ServerTerrainProbe(level, data.placedBlocks());
+        int naturalTreeSurfaceY = terrainProbe.getSurfaceY(treeBase.getX(), treeBase.getZ());
+        qa.checkEquals("terrain_probe.skips_natural_tree_to_ground_y", surfaceY - 1, naturalTreeSurfaceY);
+        // Player-placed log at treeBase MUST NOT be skipped!
+        data.placedBlocks().markPlaced(dimId, treeBase);
+        int playerLogSurfaceY = terrainProbe.getSurfaceY(treeBase.getX(), treeBase.getZ());
+        qa.checkEquals("terrain_probe.preserves_player_placed_log_y", surfaceY, playerLogSurfaceY);
+        // Clean up temporary tree probe column
+        data.placedBlocks().markRemoved(dimId, treeBase);
+        for (int dy = 0; dy <= 5; dy++) {
+            level.setBlock(treeBase.above(dy), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        }
+
+        // 1. Create SMALL_COTTAGE ExpansionDesire (5 materials, autoFulfill=false) & test partial delivery + Terminal EU guard!
         ExpansionDesire desire = ExpansionDesire.createDefault(
                 "qa_exp_cottage", ProjectType.SMALL_COTTAGE, village.getBiomeStyle(), false
         );
         village.setActiveExpansion(desire);
+        qa.check("expansion.small_cottage_has_5_materials_incl_wool",
+                desire.requiredMaterials().size() == 5
+                        && desire.requiredMaterials().containsKey("minecraft:white_wool")
+                        && !desire.autoFulfill(),
+                "materials=" + desire.requiredMaterials());
+
+        // Ensure Hub Inbound has 0 pre-existing white_wool so the 5th material is strictly missing
+        int preWool = village.getStorage().countInInbound("minecraft:white_wool");
+        if (preWool > 0) {
+            village.getStorage().consumeFromInbound("minecraft:white_wool", preWool);
+        }
+
+        // Insert ONLY the first 4 materials (skipping minecraft:white_wool!)
+        int requiredWool = desire.requiredMaterials().get("minecraft:white_wool");
         for (Map.Entry<String, Integer> req : desire.requiredMaterials().entrySet()) {
             Item matItem = TyC2Ids.getItem(req.getKey());
             qa.check("expansion.req_material_exists." + req.getKey(), matItem != null, req.getKey());
+            if ("minecraft:white_wool".equals(req.getKey())) {
+                continue;
+            }
             int rem = req.getValue();
             while (rem > 0) {
                 int chunk = Math.min(rem, matItem.getMaxStackSize());
@@ -1171,39 +1243,67 @@ final class TyC2QaServerRunner {
                 rem -= chunk;
             }
         }
-        // (d) DELIVER_EXPANSION with insufficient village budget MUST return status.tyc2.expansion.low_funds!
-        long balBeforeExpTest = village.getVillageBalance();
-        if (desire.constructionBudgetCost() > 0L) {
-            village.adjustVillageBalance(-balBeforeExpTest);
-            TycoonForgeWorldManager.ActionFeedback expLowFunds = TycoonForgeWorldManager.deliverExpansionMaterials(
-                    playerA, villageId, false
-            );
-            qa.check("expansion.low_funds_exact_error",
-                    !expLowFunds.success() && "status.tyc2.expansion.low_funds".equals(expLowFunds.translationKey()),
-                    "success=" + expLowFunds.success() + ", key=" + expLowFunds.translationKey());
-            village.adjustVillageBalance(balBeforeExpTest);
-        }
 
-        TycoonForgeWorldManager.ActionFeedback expRes = TycoonForgeWorldManager.deliverExpansionMaterials(
+        // 1a. Deliver first 4 materials -> status.tyc2.expansion.delivered_partial, construction NOT started!
+        TycoonForgeWorldManager.ActionFeedback partialRes = TycoonForgeWorldManager.deliverExpansionMaterials(
                 playerA, villageId, false
         );
-        qa.check("expansion.launched_construction", expRes.success() && village.getActiveConstructionJob().isPresent(),
-                "key=" + expRes.translationKey() + ", jobs=" + village.getConstructionQueue().size());
+        qa.check("expansion.partial_delivery_exact_key",
+                partialRes.success()
+                        && "status.tyc2.expansion.delivered_partial".equals(partialRes.translationKey())
+                        && village.getActiveConstructionJob().isEmpty(),
+                "success=" + partialRes.success() + ", key=" + partialRes.translationKey()
+                        + ", remaining=" + village.getActiveExpansion().remainingMaterials());
+        qa.checkEquals("expansion.partial_delivery_only_wool_remaining",
+                requiredWool, village.getActiveExpansion().remainingMaterials().getOrDefault("minecraft:white_wool", -1));
 
-        ConstructionJob job = village.getActiveConstructionJob().orElseThrow();
-        initialJobPlaced = job.getPlacedCount();
-        // Verify bottom-up Y sorting invariant of placements!
-        List<WorldBlockPlacement> placements = job.getPlacements();
-        qa.check("expansion.blueprint_non_empty", placements.size() >= 15, "blocks=" + placements.size());
-        boolean bottomUpSorted = true;
-        for (int i = 1; i < placements.size(); i++) {
-            if (placements.get(i).pos().y() < placements.get(i - 1).pos().y()) {
-                bottomUpSorted = false;
-                break;
-            }
-        }
-        qa.check("expansion.bottom_up_y_ordered", bottomUpSorted, "totalBlocks=" + placements.size());
-        qa.metric("expansion.job_blocks", placements.size());
+        // 1b. Clicking DELIVER_EXPANSION again with 0 new items -> status.tyc2.expansion.missing_materials!
+        TycoonForgeWorldManager.ActionFeedback missingAgainRes = TycoonForgeWorldManager.deliverExpansionMaterials(
+                playerA, villageId, false
+        );
+        qa.check("expansion.repeat_zero_delivery_missing_materials",
+                !missingAgainRes.success()
+                        && "status.tyc2.expansion.missing_materials".equals(missingAgainRes.translationKey())
+                        && village.getActiveConstructionJob().isEmpty(),
+                "success=" + missingAgainRes.success() + ", key=" + missingAgainRes.translationKey());
+
+        // 1c. Comm Terminal DELIVER_EXPANSION with 0 white_wool in Inbound -> missing_materials & ZERO EU deducted!
+        ItemStack expTerm = new ItemStack(TyC2ForgeRegistries.COMM_TERMINAL.get());
+        CommTerminalItem.setStoredEu(expTerm, 5000);
+        TycoonForgeWorldManager.ActionFeedback termMissingRes = TycoonForgeWorldManager.deliverExpansionMaterials(
+                playerA, villageId, false, expTerm
+        );
+        qa.check("expansion.terminal_missing_materials_exact_key",
+                !termMissingRes.success()
+                        && "status.tyc2.expansion.missing_materials".equals(termMissingRes.translationKey())
+                        && village.getActiveConstructionJob().isEmpty(),
+                "success=" + termMissingRes.success() + ", key=" + termMissingRes.translationKey());
+        qa.checkEquals("expansion.terminal_missing_materials_zero_eu_deducted",
+                5000, CommTerminalItem.getStoredEu(expTerm));
+
+        // 2. Deliver 5th material (white_wool) while villageBalance < budget -> status.tyc2.expansion.low_funds,
+        //    then restore balance WITHOUT clicking DELIVER_EXPANSION again so periodic tick auto-launches construction!
+        Item woolItem = TyC2Ids.getItem("minecraft:white_wool");
+        village.getStorage().insertExternal("minecraft:white_wool", requiredWool, "", woolItem.getMaxStackSize(), false);
+        long balBeforeExpTest = village.getVillageBalance();
+        qa.check("expansion.budget_positive", desire.constructionBudgetCost() > 0L,
+                "budget=" + desire.constructionBudgetCost());
+        village.adjustVillageBalance(-balBeforeExpTest);
+        TycoonForgeWorldManager.ActionFeedback expLowFunds = TycoonForgeWorldManager.deliverExpansionMaterials(
+                playerA, villageId, false
+        );
+        qa.check("expansion.low_funds_exact_error",
+                !expLowFunds.success()
+                        && "status.tyc2.expansion.low_funds".equals(expLowFunds.translationKey())
+                        && village.getActiveExpansion() != null
+                        && village.getActiveExpansion().allMaterialsDelivered()
+                        && !village.getActiveExpansion().autoFulfill()
+                        && village.getActiveConstructionJob().isEmpty(),
+                "success=" + expLowFunds.success() + ", key=" + expLowFunds.translationKey()
+                        + ", allDelivered=" + (village.getActiveExpansion() != null && village.getActiveExpansion().allMaterialsDelivered()));
+        // Restore balance and let W6_WAIT_AUTO_LAUNCH_CONSTRUCTION verify automatic launch on next periodic tick!
+        village.adjustVillageBalance(balBeforeExpTest);
+        data.setDirty();
     }
 
     private void runEnhancedIc2Lc2Setup(MinecraftServer server, ServerLevel level) throws Exception {

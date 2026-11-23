@@ -1,7 +1,7 @@
-# TycoonCraft²: The New Era (`tyc2`) — Full Build, Live Dedicated Server & Client–Server Field Test Report (`v1.0.0-pre.2`)
+# TycoonCraft²: The New Era (`tyc2`) — Full Build, Live Dedicated Server & Client–Server Field Test Report (`v1.0.0-pre.3`)
 
 **Date**: 2026-11-23  
-**Version Tested**: `1.0.0-pre.2` (final release-candidate artifacts including `tyc2:primitive_mint_machine` vs pure-electric `tyc2:mint_machine`, complete bilingual `zh_cn`/`en_us` localization & anti-advertising polish, Nitwit Mayor disqualification, Mayor negotiation hold & daytime plaza tether, and exact buy-order / expansion error diagnostics)  
+**Version Tested**: `1.0.0-pre.3` (final production artifacts including `tyc2:primitive_mint_machine` vs pure-electric `tyc2:mint_machine`, complete bilingual `zh_cn`/`en_us` localization & anti-advertising polish, Nitwit Mayor disqualification, Mayor negotiation hold & daytime plaza tether, exact buy-order / expansion error diagnostics, 5+ expansion material display in Hub & Comm Terminal, automatic expansion launch when all materials are delivered even with `autoFulfill=false`, and hardened terrain clutter / forested site probes)  
 **Optional Integration Pairings Tested**:
 - **IndustrialCraft²: The New Era (`ic2`)**: `1.0.5` (`.ic2-deps/ic2-{neoforge,forge}-<ver>-1.0.5.jar`)
 - **LogisticsCraft²: The New Era (`lc2`)**: `1.1.0` (`lc2-{neoforge,forge}-<ver>-1.1.0.jar`)
@@ -13,19 +13,19 @@
 Every production JAR across all **4 Minecraft targets** (`Forge 1.19.2`, `NeoForge 1.21.1`, `NeoForge 26.1.2`, `NeoForge 26.2`) was rebuilt fresh after all playtest fixes and visual/i18n polish passes and verified through:
 1. Core platform-neutral import gate (`:checkCommonImports`) and **33/33 JUnit 5 unit tests** (`:test:test`), including Nitwit disqualification, buy-order missing-goods vs low-funds discrimination, and item-tag matching.
 2. Automated static, bytecode & localization production JAR audit (`src/qa/audit_jars.py` + Forge `auditPackagedTyc2Jar`) — **4/4 PASSED**:
-   - **327/327** `zh_cn`/`en_us` key and `%s` format-placeholder parity; **0** banned mechanic-advertising strings (`1000 格`, `1000格`, `千格`, `0-499`, `500-999`, `防爆`, `防破坏`, `blast-proof`, `1000-slot`, `1,000-slot`, `CL:3x3`).
+   - **329/329** `zh_cn`/`en_us` key and `%s` format-placeholder parity; **0** banned mechanic-advertising strings (`1000 格`, `1000格`, `千格`, `0-499`, `500-999`, `防爆`, `防破坏`, `blast-proof`, `1000-slot`, `1,000-slot`, `CL:3x3`).
    - Zero QA/preview leaks, zero non-compat/mixin `com.industrialage` references, valid `mods.toml`/`neoforge.mods.toml`, all **35 textures**, **21 models**, **4 blockstates**, **14** MC 26.x `assets/tyc2/items/*.json`, unconditional `primitive_mint_machine.json`, conditional `mint_machine_ic2.json` & `mint_machine_standalone.json`, zero stale `mint_machine.json`, and SRG reobfuscation verified on Forge 1.19.2.
-3. Live headless Dedicated Server end-to-end QA across **BOTH Standalone (ONLY `tyc2`, NO IC2/LC2) AND Enhanced (`tyc2` + `ic2 1.0.5` + `lc2 1.1.0`)** with full **Write + Cold-Restart Read** world persistence — **892/892 live server checks PASSED across all 4 targets, 0 errors**.
-4. Live **Graphical Client (`1280×720`) ↔ Dedicated Server over real TCP** joint tests in **BOTH `zh_cn` and `en_us`** across Standalone and Enhanced modes on all 4 targets — **10/10 live sessions PASSED** (`35/35` sprites/textures verified, all **6 custom GUIs** + all **4 Hub tabs** + all **4 Comm Terminal tabs** + live 48-point CPI chart + live TCP Mayor negotiation hold/release verified, visually audited screenshots with 100% Chinese translation in `zh_cn`, zero advertising copy, zero text clipping/overlap, clean `client=0, server=0` exits, 0 log errors).
+3. Live headless Dedicated Server end-to-end QA across **BOTH Standalone (ONLY `tyc2`, NO IC2/LC2) AND Enhanced (`tyc2` + `ic2 1.0.5` + `lc2 1.1.0`)** with full **Write + Cold-Restart Read** world persistence — **934/934 live server checks PASSED across all 4 targets, 0 errors**.
+4. Live **Graphical Client (`1280×720`) ↔ Dedicated Server over real TCP** joint tests in **BOTH `zh_cn` and `en_us`** across Standalone and Enhanced modes on all 4 targets — **9/9 live sessions PASSED** (`35/35` sprites/textures verified, all **6 custom GUIs** + all **4 Hub tabs** + all **4 Comm Terminal tabs** + all **5 `SMALL_COTTAGE` materials** visible in both Hub Expansion & Terminal Growth tabs + live 48-point CPI chart + live TCP Mayor negotiation hold/release verified, visually audited screenshots with 100% Chinese translation in `zh_cn`, zero advertising copy, zero text clipping/overlap, clean `client=0, server=0` exits, 0 log errors).
 
-### Final Shipped Production JARs (`v1.0.0-pre.2`)
+### Final Shipped Production JARs (`v1.0.0-pre.3`)
 
 | Target | Java | Artifact Path | Size (Bytes) | Classes | Assets (`tex / mod / bs`) | SHA-256 | Static & Lang Audit |
 |---|---|---|---:|---:|---|---|---|
-| **Forge 1.19.2** | 17 | `forge-1.19.2/build/libs/tyc2-forge-1.19.2-1.0.0-pre.2.jar` | `638,965` | 192 (SRG) | `35 / 21 / 4` | `e99732cdd58b9d7603c3eafecc915d142ce459f1261ffb03879e81ac0e6005c5` | **PASS** (`327/327` i18n) |
-| **NeoForge 1.21.1** | 21 | `src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-1.0.0-pre.2.jar` | `596,326` | 172 | `35 / 21 / 4` | `2e2c3677a28e50acce3d769a9dccd497d75ac1ba5580d2bb232202945aa0ff2d` | **PASS** (`327/327` i18n) |
-| **NeoForge 26.1.2** | 25 | `src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-1.0.0-pre.2.jar` | `605,012` | 174 (`+14 items`) | `35 / 21 / 4` | `329b19c4c980b202cde69e6baeffc52c161ba430c7c396121c0922589a7083d6` | **PASS** (`327/327` i18n) |
-| **NeoForge 26.2** | 25 | `src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-1.0.0-pre.2.jar` | `605,012` | 174 (`+14 items`) | `35 / 21 / 4` | `335b4f0cc94512ae7cabb30cac0d36344fe8d11b1b1cc9672dde40c05bbf9e07` | **PASS** (`327/327` i18n) |
+| **Forge 1.19.2** | 17 | `forge-1.19.2/build/libs/tyc2-forge-1.19.2-1.0.0-pre.3.jar` | `641,484` | 192 (SRG) | `35 / 21 / 4` | `38031415b9867fc6eabcef394b18f6ff34e95f6b1cf5bcffd56b049df54d8bcb` | **PASS** (`329/329` i18n) |
+| **NeoForge 1.21.1** | 21 | `src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-1.0.0-pre.3.jar` | `600,082` | 173 | `35 / 21 / 4` | `7e1ee33718b401d344d7b9096a1c800c88ab503df0a62c313df68ecf348ea5c9` | **PASS** (`329/329` i18n) |
+| **NeoForge 26.1.2** | 25 | `src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-1.0.0-pre.3.jar` | `608,754` | 175 (`+14 items`) | `35 / 21 / 4` | `a2b72d97b4542aa4a9661ca11389f46199aa07a22a4382abf6ff3dee47108715` | **PASS** (`329/329` i18n) |
+| **NeoForge 26.2** | 25 | `src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-1.0.0-pre.3.jar` | `608,754` | 175 (`+14 items`) | `35 / 21 / 4` | `db6ddb402225aaa85ca28aa5828ba9bec9618416a9ac4a0091d5c4347239bb48` | **PASS** (`329/329` i18n) |
 
 ---
 
@@ -34,36 +34,40 @@ Every production JAR across all **4 Minecraft targets** (`Forge 1.19.2`, `NeoFor
 | Target | Java | Unit / Static Gate | Dedicated Server: **Standalone** (`write` + cold `read`) | Dedicated Server: **Enhanced IC2+LC2** (`write` + cold `read`) | Live Graphical Client (`1280×720`) ↔ Server (TCP): **`zh_cn` & `en_us`** | Log Errors |
 |---|---|---|---|---|---|---|
 | **Core (`src/common`)** | 17/21 | **33/33 JUnit 5 PASS** + `:checkCommonImports` PASS | — | — | — | **0** |
-| **Forge 1.19.2** | 17 | **PASS** (`audit_jars.py` + `auditPackagedTyc2Jar`) | **150 + 18 = 168/168 PASS** (`pid=99307 / 99525`) | **201 + 19 = 220/220 PASS** (`pid=99570 / 99823`) | **3 Runs / 270/270 PASS** (Standalone `zh_cn` `:60560` `88/88`; Enhanced `zh_cn` `:60015` `91/91`; Enhanced `en_us` `:60293` `91/91`; 42 PNGs, live TCP Mayor hold/release, `rc=0/0`) | **0** |
-| **NeoForge 1.21.1** | 21 | **PASS** (`audit_jars.py`) | **115 + 16 = 131/131 PASS** (`660t / 5t`, `pid=97558 / 97616`) | **30 + 7 = 37/37 PASS** (`242t / 10t`, re-verified `pid=2667`) | **3 Runs PASS** (Standalone `zh_cn` `:58082`; Enhanced `en_us` `:58823`; Enhanced `zh_cn` `:61551` post-LC2 i18n; `35/35` sprites, 6 GUIs + all 4 Hub/Terminal tabs, live TCP Mayor hold/release, 42 PNGs, `rc=0/0`) | **0** |
-| **NeoForge 26.1.2** | 25 | **PASS** (`audit_jars.py`) | **115 + 16 = 131/131 PASS** (`660t / 5t`, `pid=97573 / 97624`) | **30 + 7 = 37/37 PASS** (`293t / 10t`, `pid=97474 / 97504`) | **2 Runs PASS** (Standalone `zh_cn` `:58737`; Enhanced `en_us` `:58968`; `35/35` sprites, 6 GUIs + all 4 Hub/Terminal tabs, live TCP Mayor hold/release, 28 PNGs, `rc=0/0`) | **0** |
-| **NeoForge 26.2** | 25 | **PASS** (`audit_jars.py`) | **115 + 16 = 131/131 PASS** (`660t / 5t`, `pid=97500 / 97568`) | **30 + 7 = 37/37 PASS** (`373t / 10t`, `pid=97381 / 97463`) | **2 Runs PASS** (Standalone `zh_cn` `:58717`; Enhanced `en_us` `:58921`; `35/35` sprites, 6 GUIs + all 4 Hub/Terminal tabs, live TCP Mayor hold/release, 28 PNGs, `rc=0/0`) | **0** |
+| **Forge 1.19.2** | 17 | **PASS** (`audit_jars.py` + `auditPackagedTyc2Jar`) | **159 + 18 = 177/177 PASS** (`pid=19569 / 19959`) | **210 + 19 = 229/229 PASS** (`pid=20013 / 20436`) | **3 Runs / 270/270 PASS** (Standalone `zh_cn` `:57935` `88/88`; Enhanced `zh_cn` `:57088` `91/91`; Enhanced `en_us` `:57450` `91/91`; 42 PNGs, all 5 expansion materials + live TCP Mayor hold/release, `rc=0/0`) | **0** |
+| **NeoForge 1.21.1** | 21 | **PASS** (`audit_jars.py`) | **123 + 16 = 139/139 PASS** (`699t / 5t`, `pid=19699 / 19784`) | **30 + 7 = 37/37 PASS** (`242t / 10t`, `pid=19492 / 19570`) | **2 Runs PASS** (Standalone `zh_cn` `:56638`; Enhanced `en_us` `:56900`; `35/35` sprites, 6 GUIs + all 4 Hub/Terminal tabs + all 5 expansion materials incl. White Wool `0/3`, live TCP Mayor hold/release, 28 PNGs, `rc=0/0`) | **0** |
+| **NeoForge 26.1.2** | 25 | **PASS** (`audit_jars.py`) | **123 + 16 = 139/139 PASS** (`699t / 5t`, `pid=19872 / 19940`) | **30 + 7 = 37/37 PASS** (`321t / 10t`, `pid=19722 / 19812`) | **2 Runs PASS** (Standalone `zh_cn` `:56781`; Enhanced `en_us` `:57013`; `35/35` sprites, 6 GUIs + all 4 Hub/Terminal tabs + all 5 expansion materials incl. White Wool `0/3`, live TCP Mayor hold/release, 28 PNGs, `rc=0/0`) | **0** |
+| **NeoForge 26.2** | 25 | **PASS** (`audit_jars.py`) | **123 + 16 = 139/139 PASS** (`699t / 5t`, `pid=19843 / 19899`) | **30 + 7 = 37/37 PASS** (`325t / 10t`, `pid=19677 / 19783`) | **2 Runs PASS** (Standalone `zh_cn` `:56796`; Enhanced `en_us` `:57008`; `35/35` sprites, 6 GUIs + all 4 Hub/Terminal tabs + all 5 expansion materials incl. White Wool `0/3`, live TCP Mayor hold/release, 28 PNGs, `rc=0/0`) | **0** |
 
 **Aggregate Live Automated Checks Verified**:
-- **Forge 1.19.2**: `388` Dedicated Server + `270` Live Client–Server = **`658 / 658` live checks PASSED** (`0` failures, `0` log errors)
-- **NeoForge 1.21.1 / 26.1.2 / 26.2**: `168 × 3 = 504 / 504` Dedicated Server checks PASSED + **`7 / 7` live graphical Client–Server sessions PASSED** (`0` failures, `0` log errors)
+- **Forge 1.19.2**: `406` Dedicated Server + `270` Live Client–Server = **`676 / 676` live checks PASSED** (`0` failures, `0` log errors)
+- **NeoForge 1.21.1 / 26.1.2 / 26.2**: `176 × 3 = 528 / 528` Dedicated Server checks PASSED + **`6 / 6` live graphical Client–Server sessions PASSED** (`0` failures, `0` log errors)
 - **Core Engine**: **`33 / 33` JUnit 5 unit tests PASSED** (`0` failures)
 
 ---
 
 ## 3. Verified Functional Coverage
 
-### 3.1 Playtest Regression Suite (All 5 User Playtest Fixes Verified Live on All 4 Targets)
+### 3.1 Playtest Regression Suites (All Playtest Fixes Verified Live on All 4 Targets)
 
-1. **Complete `zh_cn` / `en_us` Localization & Zero Mechanic-Advertising Copy**:
-   - `src/qa/audit_jars.py` enforces **327/327** key & `%s` format parity across `zh_cn.json` and `en_us.json` and rejects any occurrence of internal/advertising phrases (`1000 格`, `1000格`, `千格`, `0-499`, `500-999`, `防爆`, `防破坏`, `blast-proof`, `1000-slot`, `1,000-slot`, `CL:3x3`).
-   - Live `zh_cn` and `en_us` `1280×720` screenshots visually verified **100% localized UI** across all 6 screens, all 4 Hub tabs, all 4 Comm Terminal tabs, localized item names (`铁锭`/`煤炭`/`黏液球`/`胡萝卜`/`鞍`), localized Mayor names (`[村长] 农民` / `[村长] MetroHaven`), clean ATM transaction logs (`-50 取出` / `-50 Withdraw`), localized nearby LC2 stations (`附近物流站：货运基站 (24,0,16)` / `Cargo Station`), and natural in-world copy (`收货区`/`加载:开`/`物价走势`).
-2. **Strict Nitwit Mayor Disqualification**:
+1. **Expansion Materials Display, Partial-Delivery Feedback, Terminal 100 EU Guard & Auto-Launch (`1.0.0-pre.2`)**:
+   - **All 5+ Expansion Materials Rendered**: `CooperationHubScreen` Expansion tab (`05b`/`05d`) dynamically fits all 5+ required materials and hover tooltips with zero cutoff (`16/16`, `48/48`, `32/32`, `8/8` green + 5th item `White Wool`/`白色羊毛` `0/3` amber). `CommTerminalScreen` Growth tab (`06d`) renders all 5 materials across 2 crisp fitted lines cleanly above action buttons in both `zh_cn` and `en_us`.
+   - **Actionable Partial & Missing-Materials Feedback + Terminal EU Guard**: Delivering 4 of 5 `SMALL_COTTAGE` materials via Hub reports `status.tyc2.expansion.delivered_partial` with client-localized missing items (`minecraft:white_wool ×3`); clicking again with 0 new items reports `status.tyc2.expansion.missing_materials`; triggering Comm Terminal `DELIVER_EXPANSION` when Inbound has 0 matching remaining materials returns `status.tyc2.expansion.missing_materials` with **0 EU deducted** (`5000 -> 5000`).
+   - **All-Delivered Auto-Launch Without `autoFulfill`**: Delivering the 5th material while village funds are below budget returns `status.tyc2.expansion.low_funds` (and Terminal `DELIVER_EXPANSION` deducts **0 EU**), records all 5 materials delivered (`autoFulfill == false`), and once village balance is restored `>= budget`, the periodic village tick **automatically launches `SMALL_COTTAGE` construction** (`39–40` ticks) without requiring another manual click!
+   - **Hardened Terrain & Forested-Site Probes**: NeoForge `LevelTerrainProbe` clears replaceable MC 1.21.5+/26.x natural ground clutter (`moss_carpet`, `sweet_berry_bush`, `leaf_litter`, `pink_petals`, `wildflowers`, `dry_grass`, `powder_snow`) while strictly protecting player-placed blocks & BlockEntities. Forge 1.19.2 `ServerTerrainProbe.getSurfaceY` skips natural (non-player-placed) `BlockTags.LOGS`/`BlockTags.LEAVES` to report true ground Y while preserving player-placed logs.
+2. **Complete `zh_cn` / `en_us` Localization & Zero Mechanic-Advertising Copy**:
+   - `src/qa/audit_jars.py` enforces **329/329** key & `%s` format parity across `zh_cn.json` and `en_us.json` and rejects any occurrence of internal/advertising phrases (`1000 格`, `1000格`, `千格`, `0-499`, `500-999`, `防爆`, `防破坏`, `blast-proof`, `1000-slot`, `1,000-slot`, `CL:3x3`).
+   - Live `zh_cn` and `en_us` `1280×720` screenshots visually verified **100% localized UI** across all 6 screens, all 4 Hub tabs, all 4 Comm Terminal tabs, localized item names, localized Mayor names (`[村长] 农民` / `[村长] MetroHaven`), clean ATM transaction logs (`-50 取出` / `-50 Withdraw`), localized nearby LC2 stations (`附近物流站：货运基站` / `Cargo Station`), and natural in-world copy (`收货区`/`加载:开`/`物价走势`).
+3. **Strict Nitwit Mayor Disqualification**:
    - Spawning **2 adult Nitwit villagers** next to a Bell elects **NO Mayor** (`mayor == null`, neither villager tagged `tyc2_mayor`).
    - Pre-existing/legacy Nitwit tagged `tyc2_mayor` + custom name + glowing alongside an eligible adult villager is immediately **disqualified and stripped** (`tyc2_mayor`, `tyc2_village_id`, custom name, glowing removed), and the eligible non-nitwit adult is elected Mayor.
-3. **Mayor Negotiation Hold & Daytime Plaza Tether**:
+4. **Mayor Negotiation Hold & Daytime Plaza Tether**:
    - Opening `MayorNegotiationMenu` sets `villager.getTradingPlayer() == player`, halts path navigation and horizontal velocity (`navDone=true, vel=(0,0,0)`), and turns the Mayor to face the negotiating player (`yawDiff=0.0`); closing the menu releases `tradingPlayer == null`. Verified BOTH in headless dedicated server tests AND over live TCP multiplayer (`mayorNegotiatingWithClient == true -> false`).
    - Displacing a non-negotiating Mayor >18 blocks from the Hub/Bell during daytime binds `MemoryModuleType.MEETING_POINT` to the Hub/Bell and triggers active return navigation toward the plaza.
-4. **Buy-Order Delivery & Exact Diagnostic Error Keys**:
-   - **Comm Terminal `SELL_ORDER` with 0 matching Inbound items** (even when village funds are ample) returns `status.tyc2.terminal.insufficient_goods` (never misleading `village_low_funds`) and deducts **0 EU** (`5000 -> 5000`).
+5. **Buy-Order Delivery & Exact Diagnostic Error Keys**:
+   - **Comm Terminal `SELL_ORDER` with 0 matching Inbound items** returns `status.tyc2.terminal.insufficient_goods` (never misleading `village_low_funds`) and deducts **0 EU** (`5000 -> 5000`).
    - **Hub `SELL_ORDER` with `villageBalance < unitPrice`** returns `status.tyc2.hub.village_low_funds_detail` and leaves the player's inventory **100% untouched** (`inboundCount == 0`).
    - **Hub `SELL_ORDER` with sufficient village funds** (including `#forge:ingots/copper` / `#c:ingots/copper` tag matching) fulfills directly from player inventory/Inbound, settles exact IC into the player's bank account, and returns `status.tyc2.hub.order_fulfilled`.
-   - **`DELIVER_EXPANSION` with insufficient village budget** returns `status.tyc2.expansion.low_funds`.
 
 ### 3.2 Standalone Mode (`tyc2` ONLY — Zero IC2, Zero LC2)
 
@@ -97,9 +101,9 @@ Verified identically across all 4 targets loading the exact packaged `ic2-*-1.0.
 
 ---
 
-## 4. Real-World Bugs Caught & Verified Fixed During Live QA
+## 4. Real-World Bugs Caught & Verified Fixed During Live QA & Playtesting
 
-Every defect below was uncovered by static audit, live dedicated-server tests, or `1280×720` `zh_cn`/`en_us` graphical Client–Server visual review, fixed by the owning engineer, rebuilt into all affected JARs, and re-verified to 100% GREEN:
+Every defect below was uncovered by static audit, live dedicated-server tests, `1280×720` graphical Client–Server visual review, or real-world user playtesting, fixed by the owning engineer, rebuilt into all affected JARs, and re-verified to 100% GREEN:
 
 1. **Preview PNG Leaked Into NeoForge Production JARs** *(Static Audit)*: Fixed exclude pattern `'preview/**'` → `'**/preview/**'` in `src/neoforge/platform.gradle`.
 2. **Village Bell Scanner Skipped 75% of Odd-Coordinate Bells** *(Live Server QA)*: Replaced `dx += 2, dz += 2` stride with loaded-chunk `BellBlockEntity` scan + 1-block fallback; locked with odd-coord `(21, y, 21)` regression check.
@@ -110,8 +114,11 @@ Every defect below was uncovered by static audit, live dedicated-server tests, o
 7. **BLOCKER — `ic2:single_use_battery` Discharged `0.0 EU` in Mint/ATM** *(Live Enhanced Server QA)*: Fixed by passing full buffer headroom `maxCap - storedEu` to IC2's 4-arg `PortableGear`/`ForgeGear.discharge(...)` while keeping `maxInputEuPerTick` for FE discharge.
 8. **Live `zh_cn` & `en_us` Visual / i18n Polish Across All 4 Targets** *(1280×720 Bilingual Visual Audit)*:
    - **NeoForge `CommTerminalScreen` header overlap**: Reduced `balLine` `maxWidth` from `156 → 114` so `村库资金：1800 IC | 余额:850` / `Funds: 1800 IC | Bal:850` cleanly clears `[解绑]`/`[Unbind]`.
-   - **NeoForge & Forge `Lc2SoftBridge` station labels**: Changed server wire format to locale-independent `blockId|x,y,z` and localized client-side (`货运基站 (24,0,16)` / `Cargo Station`).
+   - **NeoForge & Forge `Lc2SoftBridge` station labels**: Changed server wire format to locale-independent `blockId|x,y,z` and localized client-side (`货运基站` / `Cargo Station`).
    - **Forge 1.19.2 ATM tx logs, Mayor nametag & Hub Expansion/Status LCD**: Suppressed internal `"ATM*"` counterparty (`-50 取出` / `-50 Withdraw`), lowered `CompactButton` `minScale` so `Account` renders unclipped, localized Mayor profession nametags (`[村长] 农民`), and formatted Hub Expansion materials & Status LCD cleanly across 2 lines without clipping.
+9. **5th Expansion Material Hidden, Missing Actionable Feedback, Terminal 100 EU Drain & `autoFulfill=false` Auto-Launch** *(Real-World `26.1.2-NeoForge` Playtest → Fixed & Verified Across All 4 Targets in `1.0.0-pre.2`)*:
+   - Removed the `x > 195` cutoff in NeoForge `CooperationHubScreen` (icons + tooltips) and added 2-line localized material lists to `CommTerminalScreen` Growth tab on all 4 targets.
+   - Added `status.tyc2.expansion.delivered_partial` and `status.tyc2.expansion.missing_materials` with client-translatable item lists, guarded Comm Terminal `100 EU` against no-op missing-material / low-funds clicks, enabled automatic construction launch once all materials are delivered even with `autoFulfill=false`, and hardened NeoForge `LevelTerrainProbe` & Forge `ServerTerrainProbe` for MC 26.x ground clutter and forested sites.
 
 ---
 
@@ -126,7 +133,7 @@ Every defect below was uncovered by static audit, live dedicated-server tests, o
 JAVA_HOME=/Library/Java/JavaVirtualMachines/liberica-jdk-17.jdk/Contents/Home \
   ./forge-1.19.2/gradlew -p forge-1.19.2 build reobfJar auditPackagedTyc2Jar
 
-# 3. Static, bytecode & zh_cn/en_us lang audit of all 4 production JARs
+# 3. Static, bytecode & zh_cn/en_us lang audit of all 4 production JARs (329/329 keys)
 python3 src/qa/audit_jars.py
 
 # 4. Live Dedicated Server QA (Standalone + Enhanced, write + cold-restart read)
@@ -142,7 +149,6 @@ for VER in 1.21.1 26.1.2 26.2; do
   python3 src/qa/run_client_server_live.py --mc-version "$VER" --profile standalone --lang zh_cn
   python3 src/qa/run_client_server_live.py --mc-version "$VER" --profile enhanced --lang en_us
 done
-python3 src/qa/run_client_server_live.py --mc-version 1.21.1 --profile enhanced --lang zh_cn
 JAVA_HOME=/Library/Java/JavaVirtualMachines/liberica-jdk-17.jdk/Contents/Home \
   ./forge-1.19.2/gradlew -p forge-1.19.2 runTyc2LiveClientServer -Ptyc2QaProfile=standalone -Ptyc2QaLang=zh_cn
 JAVA_HOME=/Library/Java/JavaVirtualMachines/liberica-jdk-17.jdk/Contents/Home \

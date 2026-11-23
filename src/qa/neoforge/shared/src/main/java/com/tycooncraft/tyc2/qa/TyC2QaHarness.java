@@ -29,6 +29,7 @@ import com.tycooncraft.tyc2.village.ProjectType;
 import com.tycooncraft.tyc2.village.SlotStack;
 import com.tycooncraft.tyc2.village.VillageRecord;
 import com.tycooncraft.tyc2.village.VillageTradeOrder;
+import com.tycooncraft.tyc2.world.LevelTerrainProbe;
 import com.tycooncraft.tyc2.world.TyC2DataLoader;
 import com.tycooncraft.tyc2.world.TyC2WorldManager;
 import com.tycooncraft.tyc2.world.TycoonSavedData;
@@ -903,39 +904,150 @@ public final class TyC2QaHarness {
                         data.recordPlayerPlaced(TyC2Native.dimensionId(level), rp);
                     }
 
-                    // Create ExpansionDesire (SMALL_COTTAGE), pipe materials into Inbound, test low_funds error first, then launch gradual build!
+                    // Create ExpansionDesire (SMALL_COTTAGE: 5 materials including minecraft:white_wool x3) with autoFulfill=false!
                     ExpansionDesire desire = ExpansionDesire.createDefault(
                             "qa_exp_1", ProjectType.SMALL_COTTAGE, village.getBiomeStyle(), false
                     );
                     village.setActiveExpansion(desire);
-                    for (Map.Entry<String, Integer> req : desire.requiredMaterials().entrySet()) {
-                        village.getStorage().insertExternal(req.getKey(), req.getValue(), "", 64, false);
+                    // Clear any leftover matching items in Inbound & player inventory so partial-delivery assertions are deterministic
+                    playerA.getInventory().clearContent();
+                    for (String reqId : desire.requiredMaterials().keySet()) {
+                        int existing = village.getStorage().countInInbound(reqId);
+                        if (existing > 0) {
+                            village.getStorage().consumeFromInbound(reqId, existing);
+                        }
                     }
-                    // (d) DELIVER_EXPANSION with insufficient village budget -> MUST fail with status.tyc2.expansion.low_funds!
-                    long savedExpBal = village.getVillageBalance();
-                    village.adjustVillageBalance(-savedExpBal);
+                    checks.check("expansion.small_cottage_five_materials",
+                            desire.requiredMaterials().size() == 5
+                                    && desire.requiredMaterials().getOrDefault("minecraft:white_wool", 0) == 3,
+                            "req=" + desire.requiredMaterials());
+
+                    // (a) Deliver only the first 4 materials (leaving minecraft:white_wool 0/3 missing) via Hub DELIVER_EXPANSION ->
+                    //     MUST report status.tyc2.expansion.delivered_partial and NOT launch construction!
+                    for (Map.Entry<String, Integer> req : desire.requiredMaterials().entrySet()) {
+                        if (!"minecraft:white_wool".equals(req.getKey())) {
+                            village.getStorage().insertExternal(req.getKey(), req.getValue(), "", 64, false);
+                        }
+                    }
                     TyC2QaPlatform.clearActionBarKey(playerA);
                     TyC2WorldManager.handleActionPayload(playerA, level,
                             new TyC2ActionPayload("HUB", bellPos, "DELIVER_EXPANSION", "{}"));
-                    checks.check("expansion.low_funds_exact_key",
-                            "status.tyc2.expansion.low_funds".equals(TyC2QaPlatform.lastActionBarKey(playerA))
+                    ExpansionDesire afterPartial = village.getActiveExpansion();
+                    checks.check("expansion.partial_delivery_exact_key",
+                            "status.tyc2.expansion.delivered_partial".equals(TyC2QaPlatform.lastActionBarKey(playerA))
+                                    && afterPartial != null
+                                    && !afterPartial.allMaterialsDelivered()
+                                    && afterPartial.remainingFor("minecraft:white_wool") == 3
                                     && village.getActiveConstructionJob().isEmpty(),
-                            "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
-                    // Restore budget + 1,000 IC and launch gradual build!
-                    village.adjustVillageBalance(savedExpBal + 1_000L);
+                            "key=" + TyC2QaPlatform.lastActionBarKey(playerA)
+                                    + ", remaining=" + (afterPartial == null ? "null" : afterPartial.remainingMaterials()));
+
+                    // Clicking Hub DELIVER_EXPANSION again with 0 new items -> MUST report status.tyc2.expansion.missing_materials!
+                    TyC2QaPlatform.clearActionBarKey(playerA);
                     TyC2WorldManager.handleActionPayload(playerA, level,
                             new TyC2ActionPayload("HUB", bellPos, "DELIVER_EXPANSION", "{}"));
+                    checks.check("expansion.hub_missing_materials_exact_key",
+                            "status.tyc2.expansion.missing_materials".equals(TyC2QaPlatform.lastActionBarKey(playerA))
+                                    && village.getActiveConstructionJob().isEmpty(),
+                            "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
 
-                    Optional<ConstructionJob> activeJob = village.getActiveConstructionJob();
+                    // (b) Comm Terminal DELIVER_EXPANSION while Inbound has 0 white_wool ->
+                    //     MUST fail with status.tyc2.expansion.missing_materials AND deduct 0 EU!
+                    ItemStack expTerm = new ItemStack(TyC2Registries.COMM_TERMINAL_ITEM.get());
+                    CommTerminalItem.setEnergyEu(expTerm, 5_000);
+                    CommTerminalItem.toggleBindVillage(expTerm, villageId, village.getVillageName());
+                    playerA.setItemInHand(InteractionHand.MAIN_HAND, expTerm);
+                    TyC2QaPlatform.clearActionBarKey(playerA);
+                    TyC2WorldManager.handleActionPayload(playerA, level,
+                            new TyC2ActionPayload("TERMINAL", BlockPos.ZERO, "DELIVER_EXPANSION",
+                                    "{\"villageId\":\"" + villageId + "\"}"));
+                    checks.check("expansion.terminal_missing_materials_exact_key",
+                            "status.tyc2.expansion.missing_materials".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
+                            "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
+                    checks.check("expansion.terminal_missing_materials_no_eu_drain",
+                            CommTerminalItem.getEnergyEu(expTerm) == 5_000,
+                            "eu=" + CommTerminalItem.getEnergyEu(expTerm));
+                    playerA.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+
+                    // (c) Deliver the 5th material (minecraft:white_wool x3) while village balance < budget ->
+                    //     MUST fail with status.tyc2.expansion.low_funds, record all 5 materials delivered, keep autoFulfill=false!
+                    long savedExpBal = village.getVillageBalance();
+                    village.adjustVillageBalance(-savedExpBal);
+                    village.getStorage().insertExternal("minecraft:white_wool", 3, "", 64, false);
+                    TyC2QaPlatform.clearActionBarKey(playerA);
+                    TyC2WorldManager.handleActionPayload(playerA, level,
+                            new TyC2ActionPayload("HUB", bellPos, "DELIVER_EXPANSION", "{}"));
+                    ExpansionDesire afterAllDelivered = village.getActiveExpansion();
+                    checks.check("expansion.low_funds_exact_key",
+                            "status.tyc2.expansion.low_funds".equals(TyC2QaPlatform.lastActionBarKey(playerA))
+                                    && afterAllDelivered != null
+                                    && afterAllDelivered.allMaterialsDelivered()
+                                    && !afterAllDelivered.autoFulfill()
+                                    && village.getActiveConstructionJob().isEmpty(),
+                            "key=" + TyC2QaPlatform.lastActionBarKey(playerA)
+                                    + ", allDelivered=" + (afterAllDelivered != null && afterAllDelivered.allMaterialsDelivered())
+                                    + ", autoFulfill=" + (afterAllDelivered != null && afterAllDelivered.autoFulfill()));
+
+                    // Comm Terminal DELIVER_EXPANSION while allMaterialsDelivered() && villageBalance < budget ->
+                    //     MUST fail with status.tyc2.expansion.low_funds AND deduct 0 EU!
+                    playerA.setItemInHand(InteractionHand.MAIN_HAND, expTerm);
+                    TyC2QaPlatform.clearActionBarKey(playerA);
+                    TyC2WorldManager.handleActionPayload(playerA, level,
+                            new TyC2ActionPayload("TERMINAL", BlockPos.ZERO, "DELIVER_EXPANSION",
+                                    "{\"villageId\":\"" + villageId + "\"}"));
+                    checks.check("expansion.terminal_low_funds_no_eu_drain",
+                            "status.tyc2.expansion.low_funds".equals(TyC2QaPlatform.lastActionBarKey(playerA))
+                                    && CommTerminalItem.getEnergyEu(expTerm) == 5_000,
+                            "key=" + TyC2QaPlatform.lastActionBarKey(playerA)
+                                    + ", eu=" + CommTerminalItem.getEnergyEu(expTerm));
+                    playerA.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+
+                    // Verify LevelTerrainProbe treats new natural clutter (moss carpet, sweet berry bush) as replaceable
+                    // while still strictly protecting player-placed Chests!
+                    BlockPos clutterA = bellPos.offset(14, 0, -14);
+                    BlockPos clutterB = bellPos.offset(15, 0, -14);
+                    level.setBlockAndUpdate(clutterA, Blocks.MOSS_CARPET.defaultBlockState());
+                    level.setBlockAndUpdate(clutterB, Blocks.SWEET_BERRY_BUSH.defaultBlockState());
+                    LevelTerrainProbe probe = new LevelTerrainProbe(level, data);
+                    boolean mossOk = probe.isNaturalReplaceable(clutterA.getX(), clutterA.getY(), clutterA.getZ());
+                    boolean berryOk = probe.isNaturalReplaceable(clutterB.getX(), clutterB.getY(), clutterB.getZ());
+                    boolean chestProtected = !probe.isNaturalReplaceable(
+                            protectedChestPos.getX(), protectedChestPos.getY(), protectedChestPos.getZ());
+                    level.setBlockAndUpdate(clutterA, Blocks.AIR.defaultBlockState());
+                    level.setBlockAndUpdate(clutterB, Blocks.AIR.defaultBlockState());
+                    checks.check("expansion.terrain_probe_clutter_and_protection",
+                            mossOk && berryOk && chestProtected,
+                            "moss=" + mossOk + ", berry=" + berryOk + ", chestProtected=" + chestProtected);
+
+                    // (d) Restore village balance >= budget WITHOUT clicking DELIVER_EXPANSION again ->
+                    //     periodic village tick MUST auto-launch SMALL_COTTAGE even with autoFulfill=false!
+                    village.adjustVillageBalance(savedExpBal + 1_000L);
+                    stage = 45;
+                    stageStartTick = ticks;
+                } else if (ticks - stageStartTick > 120) {
+                    throw new AssertionError("Auto-fulfill did not trigger within 120 ticks for order " + autoFulfillOrderId);
+                }
+            }
+            case 45 -> {
+                // Stage 4.5: Wait for periodic village tick to auto-launch all-delivered SMALL_COTTAGE (autoFulfill=false)!
+                TycoonSavedData data = TyC2WorldManager.getData(level);
+                VillageRecord village = data.getVillage(villageId).orElseThrow();
+                Optional<ConstructionJob> activeJob = village.getActiveConstructionJob();
+                if (activeJob.isPresent()) {
+                    checks.check("expansion.auto_launch_without_auto_fulfill",
+                            activeJob.get().getTotalBlocks() > 10
+                                    && (village.getActiveExpansion() == null || !village.getActiveExpansion().autoFulfill()),
+                            "totalBlocks=" + activeJob.get().getTotalBlocks()
+                                    + ", waitedTicks=" + (ticks - stageStartTick));
                     checks.check("expansion.construction_job_launched",
-                            activeJob.isPresent() && activeJob.get().getTotalBlocks() > 10,
-                            "totalBlocks=" + activeJob.map(ConstructionJob::getTotalBlocks).orElse(0));
+                            activeJob.get().getTotalBlocks() > 10,
+                            "totalBlocks=" + activeJob.get().getTotalBlocks());
                     expansionTotalBlocks = activeJob.get().getTotalBlocks();
                     expansionInitialPlaced = activeJob.get().getPlacedCount();
                     stage = 5;
                     stageStartTick = ticks;
                 } else if (ticks - stageStartTick > 120) {
-                    throw new AssertionError("Auto-fulfill did not trigger within 120 ticks for order " + autoFulfillOrderId);
+                    throw new AssertionError("All-delivered SMALL_COTTAGE did not auto-launch within 120 ticks (autoFulfill=false)");
                 }
             }
             case 5 -> {

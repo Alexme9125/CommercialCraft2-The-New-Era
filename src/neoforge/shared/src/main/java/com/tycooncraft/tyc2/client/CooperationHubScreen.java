@@ -520,19 +520,20 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                 drawFitString(canvas, header, 12, 79, 224, 0xFFFFE066);
                 Map<String, Object> req = JsonLite.asObject(desire.get("required"));
                 Map<String, Object> del = JsonLite.asObject(desire.get("delivered"));
-                if (req != null) {
-                    int x = 12;
-                    for (Map.Entry<String, Object> e : req.entrySet()) {
-                        if (x > 195) {
-                            break;
-                        }
-                        int need = JsonLite.getInt(req, e.getKey(), 0);
-                        int have = del == null ? 0 : JsonLite.getInt(del, e.getKey(), 0);
-                        ItemStack st = TyC2Native.stack(e.getKey(), 1);
-                        canvas.drawItem(st, x, 92);
-                        canvas.drawClippedString(have + "/" + need, x + 18, 96, 36, have >= need ? 0xFF66FF99 : 0xFFFFCC66);
-                        x += 56;
-                    }
+                for (MaterialCell cell : layoutExpansionMaterials(req)) {
+                    int need = JsonLite.getInt(req, cell.itemId(), 0);
+                    int have = del == null ? 0 : JsonLite.getInt(del, cell.itemId(), 0);
+                    ItemStack st = TyC2Native.stack(cell.itemId(), 1);
+                    canvas.drawItem(st, cell.x(), cell.y());
+                    drawFitString(
+                            canvas,
+                            have + "/" + need,
+                            cell.x() + 18,
+                            cell.y() + 4,
+                            cell.textW(),
+                            0.50F,
+                            have >= need ? 0xFF66FF99 : 0xFFFFCC66
+                    );
                 }
             } else {
                 drawFitString(
@@ -692,29 +693,23 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         }
 
         // Expansion material hover tooltips
-        if (activeTab == 3 && growthSubTab == 0) {
+        if (activeTab == 3 && growthSubTab == 0 && JsonLite.asObject(snap.get("activeBuild")) == null) {
             Map<String, Object> desire = JsonLite.asObject(snap.get("expansionDesire"));
             if (desire != null) {
                 Map<String, Object> req = JsonLite.asObject(desire.get("required"));
                 Map<String, Object> del = JsonLite.asObject(desire.get("delivered"));
-                if (req != null) {
-                    int x = 12;
-                    for (Map.Entry<String, Object> e : req.entrySet()) {
-                        if (x > 195) {
-                            break;
-                        }
-                        if (pmx >= x && pmx < x + 18 && pmy >= 92 && pmy < 110) {
-                            int need = JsonLite.getInt(req, e.getKey(), 0);
-                            int have = del == null ? 0 : JsonLite.getInt(del, e.getKey(), 0);
-                            ItemStack st = TyC2Native.stack(e.getKey(), 1);
-                            Component nameComp = st.isEmpty() ? Component.literal(e.getKey()) : st.getHoverName();
-                            canvas.drawTooltip(List.of(
-                                    nameComp,
-                                    Component.translatable("gui.tyc2.hub.order_progress", have, need)
-                            ), mouseX, mouseY);
-                            return;
-                        }
-                        x += 56;
+                for (MaterialCell cell : layoutExpansionMaterials(req)) {
+                    if (pmx >= cell.x() && pmx < cell.x() + cell.hitW()
+                            && pmy >= cell.y() && pmy < cell.y() + 16) {
+                        int need = JsonLite.getInt(req, cell.itemId(), 0);
+                        int have = del == null ? 0 : JsonLite.getInt(del, cell.itemId(), 0);
+                        ItemStack st = TyC2Native.stack(cell.itemId(), 1);
+                        Component nameComp = st.isEmpty() ? Component.literal(cell.itemId()) : st.getHoverName();
+                        canvas.drawTooltip(List.of(
+                                nameComp,
+                                Component.translatable("gui.tyc2.hub.order_progress", have, need)
+                        ), mouseX, mouseY);
+                        return;
                     }
                 }
             }
@@ -791,12 +786,62 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         };
     }
 
+    private record MaterialCell(String itemId, int x, int y, int textW, int hitW) {
+    }
+
+    private static List<MaterialCell> layoutExpansionMaterials(Map<String, Object> req) {
+        if (req == null || req.isEmpty()) {
+            return List.of();
+        }
+        int count = req.size();
+        List<MaterialCell> cells = new ArrayList<>(count);
+        if (count <= 6) {
+            int step;
+            int textW;
+            if (count <= 4) {
+                step = 56;
+                textW = 36;
+            } else if (count == 5) {
+                step = 44;
+                textW = 25;
+            } else {
+                step = Math.max(36, 224 / count);
+                textW = Math.max(18, step - 19);
+            }
+            int idx = 0;
+            for (String itemId : req.keySet()) {
+                int x = 12 + idx * step;
+                cells.add(new MaterialCell(itemId, x, 92, textW, Math.min(step - 1, 18 + textW)));
+                idx++;
+            }
+        } else {
+            int perRow = (count + 1) / 2;
+            int step = Math.max(36, 224 / Math.min(6, perRow));
+            int textW = Math.max(18, step - 19);
+            int idx = 0;
+            for (String itemId : req.keySet()) {
+                int col = idx % perRow;
+                int y = (idx < perRow) ? 88 : 100;
+                int x = 12 + col * step;
+                cells.add(new MaterialCell(itemId, x, y, textW, Math.min(step - 1, 18 + textW)));
+                idx++;
+            }
+        }
+        return cells;
+    }
+
     private static void drawFitString(ScreenCanvas canvas, String text, int x, int y, int maxWidth, int color) {
+        drawFitString(canvas, text, x, y, maxWidth, 0.62F, color);
+    }
+
+    private static void drawFitString(
+            ScreenCanvas canvas, String text, int x, int y, int maxWidth, float minScale, int color
+    ) {
         int w = canvas.textWidth(text);
         if (w <= maxWidth) {
             canvas.drawClippedString(text, x, y, maxWidth, color);
         } else {
-            float sc = Math.max(0.62F, maxWidth / (float) w);
+            float sc = Math.max(minScale, maxWidth / (float) w);
             canvas.drawScaledString(text, x, y, maxWidth, sc, color);
         }
     }

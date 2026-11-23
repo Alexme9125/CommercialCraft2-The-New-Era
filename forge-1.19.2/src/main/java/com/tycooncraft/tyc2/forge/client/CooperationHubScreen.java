@@ -613,9 +613,17 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
             int splitIdx = matCount <= 2 ? matCount : (matCount + 1) / 2;
             StringBuilder line1 = new StringBuilder();
             StringBuilder line2 = new StringBuilder();
+            boolean line1AllMet = true;
+            boolean line2AllMet = true;
             for (int i = 0; i < matCount; i++) {
                 S2CHubSyncPacket.MatDto m = sync.expMaterials.get(i);
+                boolean met = m.delivered() >= m.required();
                 StringBuilder dst = i < splitIdx ? line1 : line2;
+                if (i < splitIdx) {
+                    line1AllMet &= met;
+                } else {
+                    line2AllMet &= met;
+                }
                 if (dst.length() > 0) {
                     dst.append(' ');
                 }
@@ -626,10 +634,16 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
                         .append(m.required());
             }
             if (line1.length() > 0) {
-                TyC2UiWidgets.drawFittedString(poseStack, font, line1.toString(), 10, 96, 114, 0.45F, 0xCCCCCC);
+                TyC2UiWidgets.drawFittedString(
+                        poseStack, font, line1.toString(), 10, 96, 114, 0.45F,
+                        line1AllMet ? 0x66FF99 : 0xFFCC66
+                );
             }
             if (line2.length() > 0) {
-                TyC2UiWidgets.drawFittedString(poseStack, font, line2.toString(), 10, 103, 114, 0.45F, 0xCCCCCC);
+                TyC2UiWidgets.drawFittedString(
+                        poseStack, font, line2.toString(), 10, 103, 114, 0.45F,
+                        line2AllMet ? 0x66FF99 : 0xFFCC66
+                );
             }
             TyC2UiWidgets.drawFittedString(poseStack, font,
                     Component.translatable("gui.tyc2.expansion.budget", sync.expBudget).getString(),
@@ -701,8 +715,13 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
             }
         }
 
+        int relX = mouseX - leftPos;
+        int relY = mouseY - topPos;
         if (!hoveredCustom.isEmpty()) {
             renderTooltip(poseStack, hoveredCustom, mouseX, mouseY);
+        } else if (sync != null && !sync.feedback.isEmpty()
+                && relX >= 179 && relX <= 240 && relY >= 196 && relY <= 215) {
+            renderTooltip(poseStack, font.split(sync.feedbackComponent, 220), mouseX, mouseY);
         } else {
             renderTooltip(poseStack, mouseX, mouseY);
         }

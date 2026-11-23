@@ -12,14 +12,14 @@
 
 按当前 Minecraft 版本和加载器挑好对应的 JAR 文件，放进游戏实例的 `mods/` 目录即可。多人联机需要客户端和服务端同时安装。
 
-[v1.0.0-pre.2 预发布说明](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/tag/v1.0.0-pre.2) · [SHA-256 校验文件](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.2/SHA256SUMS.txt) · [四端实机联测报告](docs/FIELD_TEST_REPORT.md) · [设计规格文档](docs/DESIGN.md)
+[v1.0.0-pre.3 预发布说明](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/tag/v1.0.0-pre.3) · [SHA-256 校验文件](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/SHA256SUMS.txt) · [四端实机联测报告](docs/FIELD_TEST_REPORT.md) · [设计规格文档](docs/DESIGN.md)
 
 | Minecraft | 加载器 | Java | 下载 |
 | --- | --- | ---: | --- |
-| 1.19.2 | Forge 43.5.0 | 17 | [Forge 1.19.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.2/tyc2-forge-1.19.2-1.0.0-pre.2.jar) |
-| 1.21.1 | NeoForge 21.1.265 | 21 | [NeoForge 1.21.1 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.2/tyc2-neoforge-1.21.1-1.0.0-pre.2.jar) |
-| 26.1.2 | NeoForge 26.1.2.128 | 25 | [NeoForge 26.1.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.2/tyc2-neoforge-26.1.2-1.0.0-pre.2.jar) |
-| 26.2 | NeoForge 26.2.0.95 | 25 | [NeoForge 26.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.2/tyc2-neoforge-26.2-1.0.0-pre.2.jar) |
+| 1.19.2 | Forge 43.5.0 | 17 | [Forge 1.19.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/tyc2-forge-1.19.2-1.0.0-pre.3.jar) |
+| 1.21.1 | NeoForge 21.1.265 | 21 | [NeoForge 1.21.1 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/tyc2-neoforge-1.21.1-1.0.0-pre.3.jar) |
+| 26.1.2 | NeoForge 26.1.2.128 | 25 | [NeoForge 26.1.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/tyc2-neoforge-26.1.2-1.0.0-pre.3.jar) |
+| 26.2 | NeoForge 26.2.0.95 | 25 | [NeoForge 26.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/tyc2-neoforge-26.2-1.0.0-pre.3.jar) |
 
 所有联动模组都按需安装，未安装时自动跳过，不会影响启动。
 
@@ -150,10 +150,10 @@ JAVA_HOME=/path/to/jdk-17 ./forge-1.19.2/gradlew -p forge-1.19.2 build reobfJar
 
 编译完成后，四个发行 JAR 分别落在各自模块的 `build/libs` 目录。
 
-- Forge 1.19.2：`forge-1.19.2/build/libs/tyc2-forge-1.19.2-1.0.0-pre.2.jar`
-- NeoForge 1.21.1：`src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-1.0.0-pre.2.jar`
-- NeoForge 26.1.2：`src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-1.0.0-pre.2.jar`
-- NeoForge 26.2：`src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-1.0.0-pre.2.jar`
+- Forge 1.19.2：`forge-1.19.2/build/libs/tyc2-forge-1.19.2-1.0.0-pre.3.jar`
+- NeoForge 1.21.1：`src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-1.0.0-pre.3.jar`
+- NeoForge 26.1.2：`src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-1.0.0-pre.3.jar`
+- NeoForge 26.2：`src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-1.0.0-pre.3.jar`
 
 ### 运行打包审计与实机测试（开发者可选）
 
