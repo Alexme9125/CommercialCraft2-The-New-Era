@@ -1,0 +1,16 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "com.tycooncraft.tyc2.mixin",
+  "plugin": "com.tycooncraft.tyc2.mixin.TyC2MixinPlugin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "Ic2CableBlockMixin",
+    "Ic2PortableGearMixin",
+    "Ic2ProcessingRecipesMixin",
+    "Ic2WorkshopRecipesMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

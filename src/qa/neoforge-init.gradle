@@ -1,0 +1,7 @@
+gradle.beforeProject { proj ->
+    if (proj.path.startsWith(':neoforge:')) {
+        proj.afterEvaluate {
+            proj.apply from: proj.rootProject.file('src/qa/neoforge-qa.gradle')
+        }
+    }
+}

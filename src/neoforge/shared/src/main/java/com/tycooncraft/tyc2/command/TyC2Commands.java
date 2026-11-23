@@ -1,0 +1,267 @@
+package com.tycooncraft.tyc2.command;
+
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.LongArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.tycooncraft.tyc2.compat.Ic2SoftBridge;
+import com.tycooncraft.tyc2.compat.SeasonSoftBridge;
+import com.tycooncraft.tyc2.core.BankAccountManager;
+import com.tycooncraft.tyc2.core.CurrencyDenomination;
+import com.tycooncraft.tyc2.core.MacroEconomyEngine;
+import com.tycooncraft.tyc2.core.Season;
+import com.tycooncraft.tyc2.platform.TyC2Native;
+import com.tycooncraft.tyc2.village.ExpansionPlanner;
+import com.tycooncraft.tyc2.village.ProjectType;
+import com.tycooncraft.tyc2.village.VillageRecord;
+import com.tycooncraft.tyc2.world.TyC2DataLoader;
+import com.tycooncraft.tyc2.world.TyC2WorldManager;
+import com.tycooncraft.tyc2.world.TycoonSavedData;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+
+/**
+ * Administrative &amp; diagnostic {@code /tyc2} command suite for inspecting CPI, season, villages,
+ * reloading configs, funding accounts, refreshing orders, and testing collision-safe expansion.
+ */
+public final class TyC2Commands {
+
+    private TyC2Commands() {
+    }
+
+    /** Subscribes command registration on the NeoForge game bus. */
+    public static void install(IEventBus gameBus) {
+        gameBus.addListener(RegisterCommandsEvent.class, event -> register(event.getDispatcher()));
+    }
+
+    private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(Commands.literal("tyc2")
+                .then(Commands.literal("status").executes(ctx -> cmdStatus(ctx.getSource())))
+                .then(Commands.literal("season").executes(ctx -> cmdSeason(ctx.getSource())))
+                .then(Commands.literal("cpi").executes(ctx -> cmdCpi(ctx.getSource())))
+                .then(Commands.literal("bank")
+                        .requires(TyC2Native::hasOpPermission)
+                        .then(Commands.literal("give")
+                                .then(Commands.argument("amount", LongArgumentType.longArg(1L, 1_000_000_000L))
+                                        .executes(ctx -> cmdBankGive(
+                                                ctx.getSource(),
+                                                LongArgumentType.getLong(ctx, "amount")
+                                        )))))
+                .then(Commands.literal("mint")
+                        .requires(TyC2Native::hasOpPermission)
+                        .then(Commands.argument("amount", LongArgumentType.longArg(1L, 1_000_000L))
+                                .executes(ctx -> cmdMint(
+                                        ctx.getSource(),
+                                        LongArgumentType.getLong(ctx, "amount")
+                                ))))
+                .then(Commands.literal("expand")
+                        .requires(TyC2Native::hasOpPermission)
+                        .executes(ctx -> cmdExpand(ctx.getSource(), null))
+                        .then(Commands.argument("projectType", StringArgumentType.word())
+                                .executes(ctx -> cmdExpand(
+                                        ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "projectType")
+                                ))))
+                .then(Commands.literal("levelup")
+                        .requires(TyC2Native::hasOpPermission)
+                        .executes(ctx -> cmdLevelUp(ctx.getSource())))
+                .then(Commands.literal("refresh")
+                        .requires(TyC2Native::hasOpPermission)
+                        .executes(ctx -> cmdRefresh(ctx.getSource())))
+                .then(Commands.literal("reload")
+                        .requires(TyC2Native::hasOpPermission)
+                        .executes(ctx -> cmdReload(ctx.getSource())))
+        );
+    }
+
+    private static int cmdStatus(CommandSourceStack src) {
+        ServerLevel level = src.getLevel();
+        TycoonSavedData data = TyC2WorldManager.getData(level);
+        MacroEconomyEngine econ = data.economy();
+        Season season = SeasonSoftBridge.currentSeason(level);
+        long partnered = data.allVillages().stream().filter(VillageRecord::isPartnered).count();
+
+        src.sendSuccess(() -> Component.literal(String.format(
+                "[TyC2] CPI: %.2f (%s) | M: %d IC | Q: %.0f | Season: %s | Villages: %d (%d partnered)",
+                econ.computeCpi(),
+                econ.getInflationState().name(),
+                econ.totalMoneySupply(),
+                econ.rollingGoodsCirculation(),
+                season.name(),
+                data.allVillages().size(),
+                partnered
+        )).withStyle(ChatFormatting.GOLD), false);
+
+        BlockPos pos = BlockPos.containing(src.getPosition());
+        TyC2WorldManager.findNearestVillage(level, pos, 96).ifPresent(v ->
+                src.sendSuccess(() -> Component.literal(String.format(
+                        "  Nearest: %s (Lv.%d, Pop=%d, Funds=%d IC, Orders=%d, Partnered=%s)",
+                        v.getVillageName(),
+                        v.getLevel(),
+                        v.getPopulation(),
+                        v.getVillageBalance(),
+                        v.getActiveOrders().size(),
+                        v.isPartnered()
+                )).withStyle(ChatFormatting.AQUA), false)
+        );
+        return 1;
+    }
+
+    private static int cmdSeason(CommandSourceStack src) {
+        Season season = SeasonSoftBridge.currentSeason(src.getLevel());
+        src.sendSuccess(() -> Component.literal("[TyC2] Active Season: " + season.name())
+                .withStyle(ChatFormatting.GREEN), false);
+        return 1;
+    }
+
+    private static int cmdCpi(CommandSourceStack src) {
+        TycoonSavedData data = TyC2WorldManager.getData(src.getLevel());
+        MacroEconomyEngine econ = data.economy();
+        src.sendSuccess(() -> Component.literal(String.format(
+                "[TyC2] CPI=%.3f | State=%s | MoneySupply=%d IC | Circulation=%.1f | Samples=%d",
+                econ.computeCpi(),
+                econ.getInflationState().name(),
+                econ.totalMoneySupply(),
+                econ.rollingGoodsCirculation(),
+                econ.history().size()
+        )).withStyle(ChatFormatting.YELLOW), false);
+        return 1;
+    }
+
+    private static int cmdBankGive(CommandSourceStack src, long amount) {
+        ServerPlayer player = src.getPlayer();
+        if (player == null) {
+            src.sendFailure(Component.literal("Player context required."));
+            return 0;
+        }
+        ServerLevel level = src.getLevel();
+        TycoonSavedData data = TyC2WorldManager.getData(level);
+        BankAccountManager bank = data.bank();
+        bank.getOrCreatePersonal(player.getUUID(), player.getName().getString());
+        BankAccountManager.AccountRef ref = bank.resolveSettlementAccount(player.getUUID());
+        bank.creditAccount(ref, amount, BankAccountManager.TransactionType.DEPOSIT, level.getGameTime(), "OP Grant", "/tyc2 bank give");
+        data.economy().recordMinting(amount);
+        data.setDirty();
+        src.sendSuccess(() -> Component.literal("[TyC2] Credited " + amount + " IC to active bank account.")
+                .withStyle(ChatFormatting.GREEN), true);
+        return 1;
+    }
+
+    private static int cmdMint(CommandSourceStack src, long amount) {
+        ServerPlayer player = src.getPlayer();
+        if (player == null) {
+            src.sendFailure(Component.literal("Player context required."));
+            return 0;
+        }
+        ServerLevel level = src.getLevel();
+        TycoonSavedData data = TyC2WorldManager.getData(level);
+        boolean ic2Loaded = Ic2SoftBridge.isIc2Loaded();
+        for (Map.Entry<CurrencyDenomination, Integer> e : CurrencyDenomination.decompose(amount).entrySet()) {
+            int rem = e.getValue();
+            String itemId = e.getKey().canonicalItemId(ic2Loaded);
+            while (rem > 0) {
+                int batch = Math.min(64, rem);
+                ItemStack stack = TyC2Native.stack(itemId, batch);
+                rem -= batch;
+                if (!stack.isEmpty() && !player.getInventory().add(stack)) {
+                    player.drop(stack, false);
+                }
+            }
+        }
+        data.economy().recordMinting(amount);
+        data.setDirty();
+        src.sendSuccess(() -> Component.literal("[TyC2] Minted " + amount + " IC into inventory.")
+                .withStyle(ChatFormatting.GOLD), true);
+        return 1;
+    }
+
+    private static int cmdExpand(CommandSourceStack src, String projectTypeArg) {
+        ServerLevel level = src.getLevel();
+        BlockPos pos = BlockPos.containing(src.getPosition());
+        Optional<VillageRecord> nearest = TyC2WorldManager.findNearestVillage(level, pos, 96);
+        if (nearest.isEmpty()) {
+            src.sendFailure(Component.literal("No TyC2 village within 96 blocks."));
+            return 0;
+        }
+        ProjectType explicit = null;
+        if (projectTypeArg != null && !projectTypeArg.isBlank()) {
+            try {
+                explicit = ProjectType.valueOf(projectTypeArg.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ex) {
+                src.sendFailure(Component.literal("Unknown project type: " + projectTypeArg));
+                return 0;
+            }
+        }
+        ExpansionPlanner.PlanResult res = TyC2WorldManager.forcePlanAndBuild(level, nearest.get(), explicit);
+        if (!res.success()) {
+            src.sendFailure(Component.literal("Expansion planning failed: " + res.failureReason()));
+            return 0;
+        }
+        src.sendSuccess(() -> Component.literal(
+                "[TyC2] Launched collision-safe expansion for " + nearest.get().getVillageName()
+                        + " (" + res.job().getPlacements().size() + " blocks)."
+        ).withStyle(ChatFormatting.GREEN), true);
+        return 1;
+    }
+
+    private static int cmdLevelUp(CommandSourceStack src) {
+        ServerLevel level = src.getLevel();
+        BlockPos pos = BlockPos.containing(src.getPosition());
+        Optional<VillageRecord> nearest = TyC2WorldManager.findNearestVillage(level, pos, 96);
+        if (nearest.isEmpty()) {
+            src.sendFailure(Component.literal("No TyC2 village within 96 blocks."));
+            return 0;
+        }
+        VillageRecord v = nearest.get();
+        if (v.getLevel() >= 10) {
+            src.sendFailure(Component.literal(v.getVillageName() + " is already Lv.10."));
+            return 0;
+        }
+        TycoonSavedData data = TyC2WorldManager.getData(level);
+        v.setLevel(v.getLevel() + 1);
+        TyC2WorldManager.refreshVillageOrders(level, data, v, level.getGameTime());
+        data.setDirty();
+        src.sendSuccess(() -> Component.literal(
+                "[TyC2] Elevated " + v.getVillageName() + " to Lv." + v.getLevel()
+        ).withStyle(ChatFormatting.GOLD), true);
+        return 1;
+    }
+
+    private static int cmdRefresh(CommandSourceStack src) {
+        ServerLevel level = src.getLevel();
+        BlockPos pos = BlockPos.containing(src.getPosition());
+        Optional<VillageRecord> nearest = TyC2WorldManager.findNearestVillage(level, pos, 96);
+        if (nearest.isEmpty()) {
+            src.sendFailure(Component.literal("No TyC2 village within 96 blocks."));
+            return 0;
+        }
+        TycoonSavedData data = TyC2WorldManager.getData(level);
+        TyC2WorldManager.refreshVillageOrders(level, data, nearest.get(), level.getGameTime());
+        src.sendSuccess(() -> Component.literal(
+                "[TyC2] Refreshed trade orders for " + nearest.get().getVillageName()
+                        + " (" + nearest.get().getActiveOrders().size() + " active orders)."
+        ).withStyle(ChatFormatting.AQUA), true);
+        return 1;
+    }
+
+    private static int cmdReload(CommandSourceStack src) {
+        TyC2DataLoader.reloadExternalConfigsOnly();
+        src.sendSuccess(() -> Component.literal(
+                "[TyC2] Reloaded config/tyc2/*.json ("
+                        + TyC2DataLoader.mintRecipes().allRecipes().size() + " mint recipes, "
+                        + TyC2DataLoader.goodsCatalog().allGoods().size() + " catalog goods)."
+        ).withStyle(ChatFormatting.GREEN), true);
+        return 1;
+    }
+}

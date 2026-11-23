@@ -1,0 +1,252 @@
+package com.tycooncraft.tyc2.forge.command;
+
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.LongArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.tycooncraft.tyc2.core.BankAccountManager;
+import com.tycooncraft.tyc2.core.MacroEconomyEngine;
+import com.tycooncraft.tyc2.core.Season;
+import com.tycooncraft.tyc2.forge.compat.Ic2Bridge;
+import com.tycooncraft.tyc2.forge.compat.Lc2SoftBridge;
+import com.tycooncraft.tyc2.forge.compat.SeasonSoftBridge;
+import com.tycooncraft.tyc2.forge.data.TyC2RuntimeData;
+import com.tycooncraft.tyc2.forge.util.TyC2Ids;
+import com.tycooncraft.tyc2.forge.world.TycoonForgeSavedData;
+import com.tycooncraft.tyc2.forge.world.TycoonForgeWorldManager;
+import com.tycooncraft.tyc2.village.ProjectType;
+import com.tycooncraft.tyc2.village.VillageRecord;
+import java.util.Locale;
+import java.util.Optional;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+
+/**
+ * Administrative & diagnostic {@code /tyc2} command suite for players, modpack authors, and QA.
+ */
+public final class TyC2ForgeCommand {
+
+    private TyC2ForgeCommand() {
+    }
+
+    /** Registers the {@code /tyc2} command tree. */
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(Commands.literal("tyc2")
+                .then(Commands.literal("status").executes(ctx -> showStatus(ctx.getSource())))
+                .then(Commands.literal("season").executes(ctx -> showSeason(ctx.getSource())))
+                .then(Commands.literal("cpi").executes(ctx -> showCpi(ctx.getSource())))
+                .then(Commands.literal("villages").executes(ctx -> listVillages(ctx.getSource())))
+                .then(Commands.literal("reload")
+                        .requires(src -> src.hasPermission(2))
+                        .executes(ctx -> reloadExternal(ctx.getSource())))
+                .then(Commands.literal("mint")
+                        .requires(src -> src.hasPermission(2))
+                        .then(Commands.argument("amount", LongArgumentType.longArg(1, 1_000_000L))
+                                .executes(ctx -> mintCoins(ctx.getSource(), LongArgumentType.getLong(ctx, "amount")))))
+                .then(Commands.literal("bank")
+                        .then(Commands.literal("balance").executes(ctx -> showBalance(ctx.getSource())))
+                        .then(Commands.literal("add")
+                                .requires(src -> src.hasPermission(2))
+                                .then(Commands.argument("amount", LongArgumentType.longArg(1, 10_000_000L))
+                                        .executes(ctx -> addBank(ctx.getSource(), LongArgumentType.getLong(ctx, "amount"))))))
+                .then(Commands.literal("levelup")
+                        .requires(src -> src.hasPermission(2))
+                        .executes(ctx -> forceLevelUp(ctx.getSource())))
+                .then(Commands.literal("expand")
+                        .requires(src -> src.hasPermission(2))
+                        .executes(ctx -> forceExpand(ctx.getSource(), null))
+                        .then(Commands.argument("project", StringArgumentType.word())
+                                .executes(ctx -> forceExpand(ctx.getSource(), StringArgumentType.getString(ctx, "project")))))
+        );
+    }
+
+    private static int showStatus(CommandSourceStack src) {
+        TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
+        data.syncMacroAccountTotals();
+        MacroEconomyEngine econ = data.economy();
+        Season season = SeasonSoftBridge.currentSeason(src.getLevel());
+        int partnered = 0;
+        for (VillageRecord v : data.allVillages()) {
+            if (v.isPartnered()) {
+                partnered++;
+            }
+        }
+        src.sendSuccess(Component.literal(String.format(
+                Locale.ROOT,
+                "[TyC2] IC2=%s LC2=%s Season=%s | CPI=%.2f (%s) M=%d Q=%.0f | Villages=%d (%d partnered) | Recipes=%d Goods=%d",
+                Ic2Bridge.isLoaded(),
+                Lc2SoftBridge.isLoaded(),
+                season.name(),
+                econ.computeCpi(),
+                econ.getInflationState().name(),
+                econ.totalMoneySupply(),
+                econ.rollingGoodsCirculation(),
+                data.allVillages().size(),
+                partnered,
+                TyC2RuntimeData.mintRecipes().allRecipes().size(),
+                TyC2RuntimeData.goodsCatalog().allGoods().size()
+        )), false);
+        return 1;
+    }
+
+    private static int showSeason(CommandSourceStack src) {
+        Season s = SeasonSoftBridge.currentSeason(src.getLevel());
+        src.sendSuccess(Component.translatable("gui.tyc2.economy.season",
+                Component.translatable("season.tyc2." + s.key())), false);
+        return 1;
+    }
+
+    private static int showCpi(CommandSourceStack src) {
+        TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
+        data.syncMacroAccountTotals();
+        MacroEconomyEngine econ = data.economy();
+        src.sendSuccess(Component.literal(String.format(
+                Locale.ROOT,
+                "[TyC2] CPI=%.3f (%s) | MoneySupply=%d IC (MintedNet=%d, Banks=%d, Villages=%d) | Circulation Q=%.1f | History=%d pts",
+                econ.computeCpi(),
+                econ.getInflationState().name(),
+                econ.totalMoneySupply(),
+                econ.totalMintedNet(),
+                econ.playerAndGuildBankTotal(),
+                econ.villageBankTotal(),
+                econ.rollingGoodsCirculation(),
+                econ.history().size()
+        )), false);
+        return 1;
+    }
+
+    private static int listVillages(CommandSourceStack src) {
+        TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
+        if (data.allVillages().isEmpty()) {
+            src.sendSuccess(Component.literal("[TyC2] No tracked villages yet."), false);
+            return 1;
+        }
+        for (VillageRecord v : data.allVillages()) {
+            src.sendSuccess(Component.literal(String.format(
+                    Locale.ROOT,
+                    "- %s [%s] Lv.%d Pop=%d Funds=%d IC Partnered=%s Hub=(%d,%d,%d) Orders=%d Jobs=%d",
+                    v.getVillageName(),
+                    v.getBiomeStyle().id(),
+                    v.getLevel(),
+                    v.getPopulation(),
+                    v.getVillageBalance(),
+                    v.isPartnered(),
+                    v.getHubPos().x(), v.getHubPos().y(), v.getHubPos().z(),
+                    v.getActiveOrders().size(),
+                    v.getConstructionQueue().size()
+            )), false);
+        }
+        return data.allVillages().size();
+    }
+
+    private static int reloadExternal(CommandSourceStack src) {
+        TyC2RuntimeData.reloadExternalConfigOnly();
+        src.sendSuccess(Component.literal("[TyC2] Reloaded config/tyc2/*.json overrides."), true);
+        return 1;
+    }
+
+    private static int mintCoins(CommandSourceStack src, long amount) {
+        try {
+            ServerPlayer player = src.getPlayerOrException();
+            TyC2Ids.giveCoinsToPlayer(player, amount, Ic2Bridge.isLoaded());
+            TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
+            data.economy().recordMinting(amount);
+            data.setDirty();
+            src.sendSuccess(Component.literal("[TyC2] Minted " + amount + " IC (CPI now "
+                    + String.format(Locale.ROOT, "%.2f", data.economy().computeCpi()) + ")"), true);
+            return 1;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("Player required for /tyc2 mint"));
+            return 0;
+        }
+    }
+
+    private static int showBalance(CommandSourceStack src) {
+        try {
+            ServerPlayer player = src.getPlayerOrException();
+            TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
+            data.bank().getOrCreatePersonal(player.getUUID(), player.getGameProfile().getName());
+            long bal = data.bank().getActiveBalance(player.getUUID());
+            src.sendSuccess(Component.translatable("gui.tyc2.atm.balance", bal), false);
+            return 1;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("Player required"));
+            return 0;
+        }
+    }
+
+    private static int addBank(CommandSourceStack src, long amount) {
+        try {
+            ServerPlayer player = src.getPlayerOrException();
+            TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
+            data.bank().getOrCreatePersonal(player.getUUID(), player.getGameProfile().getName());
+            BankAccountManager.AccountRef ref = data.bank().resolveSettlementAccount(player.getUUID());
+            data.bank().creditAccount(ref, amount, BankAccountManager.TransactionType.SYSTEM_ADJUST,
+                    src.getServer().overworld().getGameTime(), "Admin", "/tyc2 bank add");
+            data.syncMacroAccountTotals();
+            data.setDirty();
+            src.sendSuccess(Component.literal("[TyC2] Credited " + amount + " IC. New balance: "
+                    + data.bank().getBalance(ref) + " IC"), true);
+            return 1;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("Player required"));
+            return 0;
+        }
+    }
+
+    private static int forceLevelUp(CommandSourceStack src) {
+        try {
+            ServerPlayer player = src.getPlayerOrException();
+            ServerLevel level = player.getLevel();
+            TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
+            Optional<VillageRecord> vOpt = data.findNearestVillage(
+                    level.dimension().location().toString(), player.blockPosition(), 128
+            );
+            if (vOpt.isEmpty()) {
+                src.sendFailure(Component.literal("[TyC2] No tracked village within 128 blocks."));
+                return 0;
+            }
+            VillageRecord v = vOpt.get();
+            int next = Math.min(10, v.getLevel() + 1);
+            v.setLevel(next);
+            TycoonForgeWorldManager.refreshVillageOrders(level, data, v, src.getServer().overworld().getGameTime());
+            data.setDirty();
+            src.sendSuccess(Component.literal("[TyC2] Upgraded " + v.getVillageName() + " to Lv." + next), true);
+            return 1;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("Player required"));
+            return 0;
+        }
+    }
+
+    private static int forceExpand(CommandSourceStack src, String projectArg) {
+        try {
+            ServerPlayer player = src.getPlayerOrException();
+            ServerLevel level = player.getLevel();
+            TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
+            Optional<VillageRecord> vOpt = data.findNearestVillage(
+                    level.dimension().location().toString(), player.blockPosition(), 128
+            );
+            if (vOpt.isEmpty()) {
+                src.sendFailure(Component.literal("[TyC2] No tracked village within 128 blocks."));
+                return 0;
+            }
+            ProjectType type = null;
+            if (projectArg != null && !projectArg.isBlank()) {
+                type = ProjectType.valueOf(projectArg.trim().toUpperCase(Locale.ROOT));
+            }
+            var res = TycoonForgeWorldManager.forcePlanExpansion(level, data, vOpt.get(), type);
+            if (res.success()) {
+                src.sendSuccess(res.toComponent(), true);
+                return 1;
+            }
+            src.sendFailure(res.toComponent());
+            return 0;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("[TyC2] Expand failed: " + e.getMessage()));
+            return 0;
+        }
+    }
+}
