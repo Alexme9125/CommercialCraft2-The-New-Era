@@ -4,10 +4,12 @@ import com.tycooncraft.tyc2.core.IndustrialTier;
 import com.tycooncraft.tyc2.core.MintRecipe;
 import com.tycooncraft.tyc2.core.Season;
 import com.tycooncraft.tyc2.core.TradeGood;
+import com.tycooncraft.tyc2.village.WorkplaceSpec;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,6 +63,7 @@ public final class TyC2RegistryApi {
 
     private static final Map<String, TradeGood> CUSTOM_GOODS = new ConcurrentHashMap<>();
     private static final Map<String, MintRecipe> CUSTOM_MINT_RECIPES = new ConcurrentHashMap<>();
+    private static final Map<String, WorkplaceSpec> CUSTOM_WORKPLACES = new ConcurrentHashMap<>();
     private static final Map<String, SeasonProvider> SEASON_PROVIDERS = new ConcurrentHashMap<>();
     private static final Map<String, IndustrialTierProvider> TIER_PROVIDERS = new ConcurrentHashMap<>();
 
@@ -212,11 +215,45 @@ public final class TyC2RegistryApi {
     }
 
     /**
+     * Registers or replaces a custom aided {@link WorkplaceSpec} that will automatically be merged
+     * into {@link com.tycooncraft.tyc2.village.WorkplaceCatalog#getAvailableWorkplaces}.
+     *
+     * @param spec workplace definition
+     */
+    public static void registerWorkplace(WorkplaceSpec spec) {
+        Objects.requireNonNull(spec, "spec must not be null");
+        CUSTOM_WORKPLACES.put(spec.professionId(), spec);
+    }
+
+    /**
+     * Unregisters a previously registered custom {@link WorkplaceSpec} by profession ID.
+     *
+     * @param professionId villager profession ID
+     * @return {@code true} if removed
+     */
+    public static boolean unregisterWorkplace(String professionId) {
+        if (professionId == null || professionId.isBlank()) {
+            return false;
+        }
+        return CUSTOM_WORKPLACES.remove(professionId.trim().toLowerCase(Locale.ROOT)) != null;
+    }
+
+    /**
+     * Returns a snapshot of all custom workplaces registered via this API.
+     *
+     * @return unmodifiable list of custom workplace specs
+     */
+    public static List<WorkplaceSpec> getRegisteredWorkplaces() {
+        return Collections.unmodifiableList(new ArrayList<>(CUSTOM_WORKPLACES.values()));
+    }
+
+    /**
      * Clears all API-registered entries. Intended for test isolation and server reload lifecycles.
      */
     public static void reset() {
         CUSTOM_GOODS.clear();
         CUSTOM_MINT_RECIPES.clear();
+        CUSTOM_WORKPLACES.clear();
         SEASON_PROVIDERS.clear();
         TIER_PROVIDERS.clear();
     }

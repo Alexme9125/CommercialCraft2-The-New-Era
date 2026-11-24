@@ -120,12 +120,60 @@ public final class ExpansionPlanner {
             VillageRecord village, ProjectType projectType, TerrainProbe probe, String jobId) {
         Objects.requireNonNull(village, "village");
         Objects.requireNonNull(projectType, "projectType");
+        StructureBlueprint canonical = VillageArchitectureCatalog.getBlueprint(
+                village.getBiomeStyle(), projectType);
+        return planBlueprintIgnoringZone(village, canonical, probe, jobId, false, null);
+    }
+
+    /**
+     * Plans a collision-safe placement for an explicit canonical {@link StructureBlueprint}
+     * (used by both regular village expansion and player-funded aided workplaces) without mutating
+     * {@code village}.
+     *
+     * @param village target village state
+     * @param canonical canonical {@link Facing2D#NORTH}-facing blueprint
+     * @param probe pure-Java terrain callback
+     * @param jobId unique identifier assigned to the generated {@link ConstructionJob}
+     * @param ignorePause {@code true} to allow player-funded aid construction even while auto-expansion is paused
+     * @return planning result
+     */
+    public PlanResult planBlueprint(
+            VillageRecord village,
+            StructureBlueprint canonical,
+            TerrainProbe probe,
+            String jobId,
+            boolean ignorePause) {
+        return planBlueprintIgnoringZone(village, canonical, probe, jobId, ignorePause, null);
+    }
+
+    /**
+     * Plans a collision-safe placement for an explicit canonical {@link StructureBlueprint},
+     * optionally ignoring one pre-reserved {@link Aabb3i} belonging to the same aid project so it
+     * can finalize cleanly onto its own reserved footprint (or fall back to any other safe ring site).
+     *
+     * @param village target village state
+     * @param canonical canonical {@link Facing2D#NORTH}-facing blueprint
+     * @param probe pure-Java terrain callback
+     * @param jobId unique identifier assigned to the generated {@link ConstructionJob}
+     * @param ignorePause {@code true} to bypass {@link VillageRecord#isExpansionPaused()}
+     * @param ignoredOwnReservedZone optional pre-locked zone owned by this aid project (nullable)
+     * @return planning result
+     */
+    public PlanResult planBlueprintIgnoringZone(
+            VillageRecord village,
+            StructureBlueprint canonical,
+            TerrainProbe probe,
+            String jobId,
+            boolean ignorePause,
+            Aabb3i ignoredOwnReservedZone) {
+        Objects.requireNonNull(village, "village");
+        Objects.requireNonNull(canonical, "canonical");
         Objects.requireNonNull(probe, "probe");
         if (jobId == null || jobId.isBlank()) {
             throw new IllegalArgumentException("jobId must not be null or blank");
         }
 
-        if (village.isExpansionPaused()) {
+        if (!ignorePause && village.isExpansionPaused()) {
             return PlanResult.fail("Village expansion is currently paused");
         }
 
@@ -135,14 +183,20 @@ public final class ExpansionPlanner {
             return PlanResult.fail("Invalid expansion radius bounds");
         }
 
-        StructureBlueprint canonical = VillageArchitectureCatalog.getBlueprint(
-                village.getBiomeStyle(), projectType);
+        ProjectType projectType = canonical.projectType();
         BlockPos3i hub = village.getHubPos();
 
-        // Collect all existing blocked zones (registered occupiedZones + active construction queue boxes)
+        // Collect all existing blocked zones (registered occupiedZones excluding own pre-reserved zone + active queue)
         List<Aabb3i> blockedZones = new ArrayList<>(
                 village.getOccupiedZones().size() + village.getConstructionQueue().size());
-        blockedZones.addAll(village.getOccupiedZones());
+        boolean skippedOwnZone = false;
+        for (Aabb3i zone : village.getOccupiedZones()) {
+            if (!skippedOwnZone && ignoredOwnReservedZone != null && ignoredOwnReservedZone.equals(zone)) {
+                skippedOwnZone = true;
+                continue;
+            }
+            blockedZones.add(zone);
+        }
         Set<BlockPos3i> queuedBlockCoords = new HashSet<>();
         for (ConstructionJob queued : village.getConstructionQueue()) {
             blockedZones.add(queued.getBoundingBox());
@@ -151,8 +205,28 @@ public final class ExpansionPlanner {
             }
         }
 
+        // First attempt: reuse the exact pre-reserved footprint if still clean and collision-safe
+        if (ignoredOwnReservedZone != null) {
+            int cx = ignoredOwnReservedZone.minX() + (ignoredOwnReservedZone.sizeX() / 2);
+            int cz = ignoredOwnReservedZone.minZ() + (ignoredOwnReservedZone.sizeZ() / 2);
+            Facing2D[] preferredFacings = candidateFacings(projectType, hub, cx, cz);
+            for (Facing2D facing : preferredFacings) {
+                StructureBlueprint bp = canonical.rotated(facing);
+                if (bp.width() == ignoredOwnReservedZone.sizeX()
+                        && bp.depth() == ignoredOwnReservedZone.sizeZ()) {
+                    Optional<PlanResult> reservedCandidate = evaluateCandidate(
+                            village, bp,
+                            ignoredOwnReservedZone.minX(), ignoredOwnReservedZone.minZ(),
+                            probe, blockedZones, queuedBlockCoords, jobId);
+                    if (reservedCandidate.isPresent()) {
+                        return reservedCandidate.get();
+                    }
+                }
+            }
+        }
+
         // Rotate starting angle based on existing structure count so village expands evenly in 360 degrees
-        double baseAngleOffset = (village.getOccupiedZones().size() * 2.399963229728653); // golden angle (rad)
+        double baseAngleOffset = (blockedZones.size() * 2.399963229728653); // golden angle (rad)
 
         for (int r = minRadius; r <= maxRadius; r = nextRadius(r, maxRadius)) {
             int steps = Math.max(12, (int) Math.round((2.0 * Math.PI * r) / 4.0));
@@ -195,17 +269,40 @@ public final class ExpansionPlanner {
      * @return {@code true} if committed, {@code false} if {@code result} was unsuccessful
      */
     public boolean commitPlan(VillageRecord village, PlanResult result, long currentTick) {
+        return commitPlanWithPriority(village, result, currentTick, false);
+    }
+
+    /**
+     * Commits a successful {@link PlanResult} into {@code village} with optional high-priority queue
+     * insertion for player-funded aid construction.
+     *
+     * <p>When {@code highPriority} is {@code true}, the job is placed ahead of queued regular expansion
+     * jobs (at index 1 if index 0 already has placed blocks, or index 0 otherwise) and does not overwrite
+     * {@link VillageRecord#getLastExpansionTick()} so regular auto-expansion cadence stays independent.
+     *
+     * @param village target village record to mutate
+     * @param result successful plan result
+     * @param currentTick current server game tick
+     * @param highPriority {@code true} for aided workplace priority insertion
+     * @return {@code true} if committed, {@code false} if {@code result} was unsuccessful
+     */
+    public boolean commitPlanWithPriority(
+            VillageRecord village, PlanResult result, long currentTick, boolean highPriority) {
         Objects.requireNonNull(village, "village");
         Objects.requireNonNull(result, "result");
         if (!result.success() || result.job() == null || result.reservedZone() == null) {
             return false;
         }
-        village.addOccupiedZone(result.reservedZone());
+        if (!village.getOccupiedZones().contains(result.reservedZone())) {
+            village.addOccupiedZone(result.reservedZone());
+        }
         if (result.lc2PadPos() != null) {
             village.addReservedLc2Pad(result.lc2PadPos());
         }
-        village.enqueueConstruction(result.job());
-        village.setLastExpansionTick(currentTick);
+        village.enqueueConstructionWithPriority(result.job(), highPriority);
+        if (!highPriority) {
+            village.setLastExpansionTick(currentTick);
+        }
         return true;
     }
 

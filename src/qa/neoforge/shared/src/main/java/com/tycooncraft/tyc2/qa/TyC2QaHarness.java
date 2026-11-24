@@ -9,16 +9,23 @@ import com.tycooncraft.tyc2.blockentity.CooperationHubBlockEntity;
 import com.tycooncraft.tyc2.blockentity.MintMachineBlockEntity;
 import com.tycooncraft.tyc2.blockentity.PrimitiveMintMachineBlockEntity;
 import com.tycooncraft.tyc2.compat.Ic2SoftBridge;
+import com.tycooncraft.tyc2.compat.JadeSoftBridge;
 import com.tycooncraft.tyc2.compat.Lc2SoftBridge;
 import com.tycooncraft.tyc2.core.BankAccountManager;
 import com.tycooncraft.tyc2.core.CurrencyDenomination;
+import com.tycooncraft.tyc2.core.DemandGenerator;
+import com.tycooncraft.tyc2.core.IndustrialTier;
 import com.tycooncraft.tyc2.core.MacroEconomyEngine;
+import com.tycooncraft.tyc2.core.Season;
 import com.tycooncraft.tyc2.core.TradeGood;
+import com.tycooncraft.tyc2.core.TyC2Config;
 import com.tycooncraft.tyc2.item.CommTerminalItem;
 import com.tycooncraft.tyc2.menu.MayorNegotiationMenu;
 import com.tycooncraft.tyc2.network.TyC2ActionPayload;
 import com.tycooncraft.tyc2.platform.TyC2Native;
 import com.tycooncraft.tyc2.platform.TyC2Nbt;
+import com.tycooncraft.tyc2.village.Aabb3i;
+import com.tycooncraft.tyc2.village.AidConstructionProject;
 import com.tycooncraft.tyc2.village.BiomeStyle;
 import com.tycooncraft.tyc2.village.BlockPos3i;
 import com.tycooncraft.tyc2.village.ConstructionJob;
@@ -27,8 +34,15 @@ import com.tycooncraft.tyc2.village.ExpansionDesire;
 import com.tycooncraft.tyc2.village.OrderSide;
 import com.tycooncraft.tyc2.village.ProjectType;
 import com.tycooncraft.tyc2.village.SlotStack;
+import com.tycooncraft.tyc2.village.SpawnMarker;
+import com.tycooncraft.tyc2.village.StructureBlueprint;
+import com.tycooncraft.tyc2.village.VillageEmploymentStats;
 import com.tycooncraft.tyc2.village.VillageRecord;
 import com.tycooncraft.tyc2.village.VillageTradeOrder;
+import com.tycooncraft.tyc2.village.WorkplaceArchitectureCatalog;
+import com.tycooncraft.tyc2.village.WorkplaceCatalog;
+import com.tycooncraft.tyc2.village.WorkplaceSize;
+import com.tycooncraft.tyc2.village.WorkplaceSpec;
 import com.tycooncraft.tyc2.world.LevelTerrainProbe;
 import com.tycooncraft.tyc2.world.TyC2DataLoader;
 import com.tycooncraft.tyc2.world.TyC2WorldManager;
@@ -38,15 +52,18 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -123,6 +140,15 @@ public final class TyC2QaHarness {
     private int expansionObservedSteps = 0;
     private int autoFulfillInitialBank = 0;
     private String autoFulfillOrderId;
+
+    // Aid construction & low-unemployment bonus state tracking
+    private String aidProjectId;
+    private double aidFirstObservedGathered = -1.0;
+    private double aidExpectedGatherSpeed = 1.0;
+    private boolean aidBuildingStarted = false;
+    private List<BlockPos> aidWorkstationPositions = List.of();
+    private List<UUID> aidUnemployedUuids = List.of();
+    private double aidUnemploymentBefore = 0.0;
 
     // Enhanced state tracking
     private BlockPos ic2GenMintPos;
@@ -275,6 +301,7 @@ public final class TyC2QaHarness {
                 checks.check("config.general_created", Files.isRegularFile(Path.of("config/tyc2/general.json")));
                 checks.check("config.custom_goods_created", Files.isRegularFile(Path.of("config/tyc2/custom_goods.json")));
                 checks.check("config.custom_mint_created", Files.isRegularFile(Path.of("config/tyc2/custom_mint_recipes.json")));
+                checks.check("config.custom_workplaces_created", Files.isRegularFile(Path.of("config/tyc2/custom_workplaces.json")));
 
                 checks.check("datapack.mint_recipes_loaded",
                         TyC2DataLoader.mintRecipes().allRecipes().size() >= 18,
@@ -285,6 +312,50 @@ public final class TyC2QaHarness {
                 checks.check("datapack.levels_loaded",
                         TyC2DataLoader.levelTable().allLevels().size() == 10,
                         "levels=" + TyC2DataLoader.levelTable().allLevels().size());
+
+                // (a) Workplace datapack loading (all 13 vanilla professions + JUNGLE & SWAMP biome styles valid)
+                List<String> expectedVanillaProfs = List.of(
+                        "minecraft:farmer", "minecraft:fisherman", "minecraft:shepherd", "minecraft:fletcher",
+                        "minecraft:butcher", "minecraft:leatherworker", "minecraft:mason", "minecraft:cartographer",
+                        "minecraft:toolsmith", "minecraft:weaponsmith", "minecraft:armorer", "minecraft:cleric",
+                        "minecraft:librarian"
+                );
+                Set<String> availableProfs = TyC2DataLoader.workplaceCatalog()
+                        .getAvailableWorkplaces(TyC2Native::blockExists)
+                        .stream().map(WorkplaceSpec::professionId).collect(Collectors.toSet());
+                List<String> missingProfs = expectedVanillaProfs.stream()
+                        .filter(p -> !availableProfs.contains(p)).toList();
+                checks.check("datapack.workplaces_all_13_vanilla",
+                        missingProfs.isEmpty() && availableProfs.size() >= 13,
+                        "available=" + availableProfs.size() + ", missing=" + missingProfs);
+
+                checks.check("biome.seven_styles_incl_jungle_swamp",
+                        BiomeStyle.values().length == 7
+                                && BiomeStyle.fromBiomeId("minecraft:bamboo_jungle") == BiomeStyle.JUNGLE
+                                && BiomeStyle.fromBiomeId("minecraft:mangrove_swamp") == BiomeStyle.SWAMP,
+                        "count=" + BiomeStyle.values().length);
+                WorkplaceSpec libSpec = TyC2DataLoader.workplaceCatalog()
+                        .getByProfessionId("minecraft:librarian").orElseThrow();
+                boolean jungleSwampBlocksValid = true;
+                for (BiomeStyle style : List.of(BiomeStyle.JUNGLE, BiomeStyle.SWAMP)) {
+                    StructureBlueprint bp = WorkplaceArchitectureCatalog.getBlueprint(libSpec, WorkplaceSize.SMALL, style);
+                    boolean hasWsMarker = bp.spawnMarkers().stream()
+                            .anyMatch(m -> m.kind() == SpawnMarker.MarkerKind.WORKSTATION
+                                    && "minecraft:librarian".equals(m.hint()));
+                    boolean allBlocksExist = bp.placements().stream()
+                            .map(p -> {
+                                String specStr = p.blockStateSpec();
+                                int br = specStr.indexOf('[');
+                                return br >= 0 ? specStr.substring(0, br) : specStr;
+                            })
+                            .filter(id -> !"minecraft:air".equals(id))
+                            .allMatch(TyC2Native::blockExists);
+                    if (!hasWsMarker || !allBlocksExist) {
+                        jungleSwampBlocksValid = false;
+                    }
+                }
+                checks.check("biome.jungle_swamp_workplace_blueprints_valid", jungleSwampBlocksValid,
+                        "JUNGLE & SWAMP blueprint blocks & WORKSTATION markers verified");
 
                 for (String b : List.of(
                         "tyc2:primitive_mint_machine", "tyc2:mint_machine", "tyc2:atm_machine", "tyc2:cooperation_hub")) {
@@ -1085,19 +1156,405 @@ public final class TyC2QaHarness {
                             .allMatch(p -> level.getBlockState(p).is(Blocks.COBBLESTONE));
                     checks.check("expansion.protected_road_unharmed", roadIntact);
 
-                    // Place persistence sentinels in Hub Inbound slot 10 and Outbound slot 510
-                    village.getStorage().setSlotRaw(10, new SlotStack("minecraft:emerald", 13, ""));
-                    village.getStorage().setSlotRaw(510, new SlotStack("minecraft:gold_ingot", 7, ""));
-                    long aliceFinalBal = data.bank().getOrCreatePersonal(PLAYER_A_UUID, "TycoonAlice").balance();
-                    checks.putMeta("aliceFinalBalance", Long.toString(aliceFinalBal));
-                    data.setDirty();
-
-                    checks.check("standalone.write.world_saved", server.saveEverything(false, true, true));
-                    complete(server, null);
+                    // Advance to Aid Construction & Low-Unemployment Bonus live QA stages!
+                    stage = 6;
+                    stageStartTick = ticks;
                 }
+            }
+            case 6 -> {
+                // Stage 6: Aid Construction funding (CPI + bank debit + M sink + pre-reserved zone),
+                //          Cancel while COLLECTING (full refund + zone release + M conservation),
+                //          and Pause-Independent Aid launch setup + Jade/TOP HUD checks!
+                TycoonSavedData data = TyC2WorldManager.getData(level);
+                VillageRecord village = data.getVillage(villageId).orElseThrow();
+                TyC2Config cfg = TyC2DataLoader.config();
+                BankAccountManager bank = data.bank();
+
+                // Ensure deterministic unemployment >= 25% (exact 2 unemployed adult villagers alongside >=4 employed)
+                Method evalMayor = TyC2WorldManager.class.getDeclaredMethod(
+                        "evaluateVillageMayorAndPop",
+                        ServerLevel.class, TycoonSavedData.class, VillageRecord.class, BlockPos.class, long.class
+                );
+                evalMayor.setAccessible(true);
+                evalMayor.invoke(null, level, data, village, bellPos, level.getGameTime());
+
+                List<Entity> nearbyVillagers = TyC2Native.findVillagersInRadius(
+                        level, bellPos, village.effectiveVillagerScanRadius()
+                );
+                UUID mayorUuid = village.getMayorState().getMayorEntityUuid();
+                List<UUID> trackedUnemployed = new ArrayList<>();
+                for (Entity e : nearbyVillagers) {
+                    if (mayorUuid != null && mayorUuid.equals(e.getUUID())) {
+                        continue;
+                    }
+                    if (TyC2Native.isAdultVillager(e) && !TyC2Native.isNitwitVillager(e)
+                            && VillageEmploymentStats.isUnemployedProfession(TyC2Native.villagerProfessionId(e))) {
+                        trackedUnemployed.add(e.getUUID());
+                    }
+                }
+                int spawnIdx = 0;
+                while (trackedUnemployed.size() < 2) {
+                    Entity u = TyC2QaPlatform.spawnUnemployedAdultVillager(
+                            level, bellPos.getX() - 2.5 - spawnIdx, surfaceY, bellPos.getZ() - 2.5
+                    );
+                    trackedUnemployed.add(u.getUUID());
+                    spawnIdx++;
+                }
+                this.aidUnemployedUuids = List.copyOf(trackedUnemployed);
+                evalMayor.invoke(null, level, data, village, bellPos, level.getGameTime());
+
+                VillageEmploymentStats statsBefore = village.getEmploymentStats();
+                this.aidUnemploymentBefore = statsBefore.unemploymentRate();
+                this.aidExpectedGatherSpeed = statsBefore.gatherSpeedMultiplier(cfg);
+                checks.check("aid.initial_unemployment_ge_25pct",
+                        statsBefore.workforceCount() >= 5
+                                && statsBefore.unemployedCount() >= 2
+                                && statsBefore.unemploymentRate() >= cfg.lowUnemploymentThreshold()
+                                && !statsBefore.isLowUnemploymentBonusActive(cfg)
+                                && aidExpectedGatherSpeed > 1.0,
+                        String.format("workforce=%d, unemployed=%d, rate=%.3f, gatherSpeed=%.3f",
+                                statsBefore.workforceCount(), statsBefore.unemployedCount(),
+                                statsBefore.unemploymentRate(), aidExpectedGatherSpeed));
+
+                // Credit Alice's personal bank & sync macro totals so M is strictly exact before START_AID / CANCEL_AID
+                BankAccountManager.AccountRef aliceRef = BankAccountManager.AccountRef.personal(PLAYER_A_UUID);
+                bank.setActiveCompany(PLAYER_A_UUID, null);
+                bank.creditAccount(aliceRef, 4_000L, BankAccountManager.TransactionType.SYSTEM_ADJUST,
+                        level.getGameTime(), "QA", "Aid funding capital");
+                long villageBalSum = 0L;
+                int partneredCnt = 0;
+                for (VillageRecord vr : data.allVillages()) {
+                    if (vr.isPartnered()) {
+                        villageBalSum += vr.getVillageBalance();
+                        partneredCnt++;
+                    }
+                }
+                data.economy().syncAccountTotals(
+                        bank.getTotalCombinedBalance(), villageBalSum, Math.max(1, partneredCnt)
+                );
+
+                // (b) Fund Aid Construction (START_AID small minecraft:librarian) via real HUB action
+                WorkplaceSpec libSpec = TyC2DataLoader.workplaceCatalog()
+                        .getByProfessionId("minecraft:librarian").orElseThrow();
+                long expectedCost = WorkplaceCatalog.quoteCostIc(
+                        libSpec, WorkplaceSize.SMALL, data.economy().computeCpi(), cfg
+                );
+                long bankBeforeStart = bank.getBalance(aliceRef);
+                long supplyBeforeStart = data.economy().totalMoneySupply();
+                long sinksBeforeStart = data.economy().cumulativeSinks();
+                int zonesBeforeStart = village.getOccupiedZones().size();
+
+                TyC2QaPlatform.clearActionBarKey(playerA);
+                TyC2WorldManager.handleActionPayload(playerA, level,
+                        new TyC2ActionPayload("HUB", bellPos, "START_AID",
+                                "{\"professionId\":\"minecraft:librarian\",\"size\":\"small\",\"cashMode\":false}"));
+
+                checks.check("aid.start_action_key",
+                        "status.tyc2.aid.started".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
+                        "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
+                checks.check("aid.start_queued_and_cpi_priced",
+                        village.getAidProjects().size() == 1
+                                && village.getAidProjects().get(0).paidIc() == expectedCost
+                                && village.getAidProjects().get(0).status() == AidConstructionProject.Status.COLLECTING,
+                        "count=" + village.getAidProjects().size()
+                                + ", expectedCost=" + expectedCost
+                                + ", paid=" + (village.getAidProjects().isEmpty() ? -1 : village.getAidProjects().get(0).paidIc()));
+                AidConstructionProject firstAid = village.getAidProjects().get(0);
+                Aabb3i firstZone = firstAid.reservedZone();
+                checks.check("aid.start_bank_debited_exact",
+                        bank.getBalance(aliceRef) == bankBeforeStart - expectedCost,
+                        "before=" + bankBeforeStart + ", after=" + bank.getBalance(aliceRef) + ", cost=" + expectedCost);
+                checks.check("aid.start_pre_reserved_zone_in_occupied",
+                        firstZone != null
+                                && village.getOccupiedZones().contains(firstZone)
+                                && village.getOccupiedZones().size() == zonesBeforeStart + 1,
+                        "zone=" + firstZone + ", zones=" + zonesBeforeStart + "->" + village.getOccupiedZones().size());
+                checks.check("aid.start_money_supply_m_sink_exact",
+                        data.economy().totalMoneySupply() == supplyBeforeStart - expectedCost
+                                && data.economy().cumulativeSinks() == sinksBeforeStart + expectedCost,
+                        "M=" + supplyBeforeStart + "->" + data.economy().totalMoneySupply()
+                                + ", sinks=" + sinksBeforeStart + "->" + data.economy().cumulativeSinks());
+
+                // (c) Cancel Aid Construction (CANCEL_AID) while COLLECTING -> full refund, zone released, M conserved!
+                TyC2QaPlatform.clearActionBarKey(playerA);
+                TyC2WorldManager.handleActionPayload(playerA, level,
+                        new TyC2ActionPayload("HUB", bellPos, "CANCEL_AID",
+                                "{\"projectId\":\"" + firstAid.projectId() + "\"}"));
+
+                checks.check("aid.cancel_action_key",
+                        "status.tyc2.aid.cancelled".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
+                        "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
+                checks.check("aid.cancel_removed_and_full_refund",
+                        village.getAidProjects().isEmpty()
+                                && bank.getBalance(aliceRef) == bankBeforeStart,
+                        "remaining=" + village.getAidProjects().size()
+                                + ", bankAfterCancel=" + bank.getBalance(aliceRef) + " (expected=" + bankBeforeStart + ")");
+                checks.check("aid.cancel_released_reserved_zone",
+                        !village.getOccupiedZones().contains(firstZone)
+                                && village.getOccupiedZones().size() == zonesBeforeStart,
+                        "zonesAfterCancel=" + village.getOccupiedZones().size() + " (expected=" + zonesBeforeStart + ")");
+                checks.check("aid.cancel_money_supply_m_exact_conservation",
+                        data.economy().totalMoneySupply() == supplyBeforeStart
+                                && data.economy().cumulativeSinks() == sinksBeforeStart,
+                        "M=" + data.economy().totalMoneySupply() + " (expected=" + supplyBeforeStart + ")"
+                                + ", sinks=" + data.economy().cumulativeSinks() + " (expected=" + sinksBeforeStart + ")");
+
+                // (d-setup) Pause regular expansion (expansionPaused = true), then fund Aid Construction!
+                TyC2WorldManager.handleActionPayload(playerA, level,
+                        new TyC2ActionPayload("HUB", bellPos, "TOGGLE_PAUSE_EXPANSION", "{}"));
+                checks.check("aid.expansion_paused_enabled", village.isExpansionPaused(),
+                        "expansionPaused=" + village.isExpansionPaused());
+
+                TyC2QaPlatform.clearActionBarKey(playerA);
+                TyC2WorldManager.handleActionPayload(playerA, level,
+                        new TyC2ActionPayload("HUB", bellPos, "START_AID",
+                                "{\"professionId\":\"minecraft:librarian\",\"size\":\"small\",\"cashMode\":false}"));
+                checks.check("aid.start_while_paused_succeeds",
+                        "status.tyc2.aid.started".equals(TyC2QaPlatform.lastActionBarKey(playerA))
+                                && village.getAidProjects().size() == 1,
+                        "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
+                AidConstructionProject activeAid = village.getAidProjects().get(0);
+                this.aidProjectId = activeAid.projectId();
+                this.aidFirstObservedGathered = -1.0;
+                this.aidBuildingStarted = false;
+                this.aidWorkstationPositions = List.of();
+
+                // (f-1) Jade/TOP HUD bridge lines while Aid is COLLECTING (unemployment + active aid + mayor)
+                List<Component> hubHudCollecting = JadeSoftBridge.buildBlockHudLines(level, bellPos);
+                verifyHudContainsValidKey("hud.hub_unemployment_collecting", hubHudCollecting, "hud.tyc2.hub.unemployment");
+                verifyHudContainsValidKey("hud.hub_aid_active_collecting", hubHudCollecting, "hud.tyc2.hub.aid_active");
+                Entity mayorEntity = nearbyVillagers.stream()
+                        .filter(e -> mayorUuid != null && mayorUuid.equals(e.getUUID()))
+                        .findFirst().orElseThrow(() -> new AssertionError("Mayor entity missing for HUD check"));
+                List<Component> mayorHud = JadeSoftBridge.buildEntityHudLines(level, mayorEntity);
+                verifyHudContainsValidKey("hud.mayor_unemployment", mayorHud, "hud.tyc2.mayor.unemployment");
+
+                stage = 61;
+                stageStartTick = ticks;
+            }
+            case 61 -> {
+                // Stage 61: Verify background gathering advances while expansionPaused=true at unemployed-accelerated rate,
+                //           then advance virtual gathering to final tick so live server transitions to BUILDING!
+                TycoonSavedData data = TyC2WorldManager.getData(level);
+                VillageRecord village = data.getVillage(villageId).orElseThrow();
+                AidConstructionProject proj = village.findAidProject(aidProjectId)
+                        .orElseThrow(() -> new AssertionError("Aid project missing during gathering: " + aidProjectId));
+                double gathered = proj.gatheredProgressTicks();
+                if (aidFirstObservedGathered < 0.0) {
+                    if (gathered > 0.0) {
+                        aidFirstObservedGathered = gathered;
+                    } else if (ticks - stageStartTick > 40) {
+                        throw new AssertionError("Aid background gathering did not tick within 40 ticks");
+                    }
+                    return;
+                }
+                if (gathered > aidFirstObservedGathered + 0.01) {
+                    double stepDelta = gathered - aidFirstObservedGathered;
+                    double expectedStep = 20.0 * aidExpectedGatherSpeed;
+                    checks.check("aid.gathering_advances_accelerated_while_paused",
+                            village.isExpansionPaused()
+                                    && proj.status() == AidConstructionProject.Status.COLLECTING
+                                    && stepDelta > 20.0
+                                    && Math.abs(stepDelta - expectedStep) < 0.05,
+                            String.format("paused=%s, stepDelta=%.2f, expected=%.2f (speed=%.3fx)",
+                                    village.isExpansionPaused(), stepDelta, expectedStep, aidExpectedGatherSpeed));
+
+                    // Fast-forward remaining virtual gathering ticks to just 1 live cycle before WAITING_SITE
+                    double advanceBy = Math.max(0.0, (proj.requiredTicks() - 10.0) - proj.gatheredProgressTicks());
+                    AidConstructionProject nearComplete = proj.advanceGathering(advanceBy);
+                    village.updateAidProject(nearComplete);
+                    data.setDirty();
+                    stage = 62;
+                    stageStartTick = ticks;
+                } else if (ticks - stageStartTick > 80) {
+                    throw new AssertionError("Aid gathering did not take a second 20-tick step within 80 ticks (gathered=" + gathered + ")");
+                }
+            }
+            case 62 -> {
+                // Stage 62: Live transition to BUILDING with priority, gradual workstation build, job assignment,
+                //           unemployment < 25%, low-unemployment bonus & Jade/TOP bonus HUD, then persist & save!
+                TycoonSavedData data = TyC2WorldManager.getData(level);
+                VillageRecord village = data.getVillage(villageId).orElseThrow();
+                TyC2Config cfg = TyC2DataLoader.config();
+                Optional<AidConstructionProject> aidOpt = village.findAidProject(aidProjectId);
+                Optional<ConstructionJob> activeJobOpt = village.getActiveConstructionJob();
+
+                if (!aidBuildingStarted) {
+                    if (aidOpt.isPresent()
+                            && aidOpt.get().status() == AidConstructionProject.Status.BUILDING
+                            && activeJobOpt.isPresent()) {
+                        aidBuildingStarted = true;
+                        AidConstructionProject buildingProj = aidOpt.get();
+                        ConstructionJob job = activeJobOpt.get();
+                        checks.check("aid.transitioned_to_building_with_priority_while_paused",
+                                village.isExpansionPaused()
+                                        && job.getProjectType() == ProjectType.AID_WORKPLACE_SMALL
+                                        && job.getJobId().equals(buildingProj.plannedJobId()),
+                                "jobId=" + job.getJobId() + ", type=" + job.getProjectType()
+                                        + ", blocks=" + job.getTotalBlocks());
+
+                        List<BlockPos> wsPosList = new ArrayList<>();
+                        for (SpawnMarker.WorldSpawnMarker m : job.getSpawnMarkers()) {
+                            if (m.kind() == SpawnMarker.MarkerKind.WORKSTATION) {
+                                wsPosList.add(new BlockPos(m.pos().x(), m.pos().y(), m.pos().z()));
+                            }
+                        }
+                        this.aidWorkstationPositions = List.copyOf(wsPosList);
+                        checks.check("aid.job_has_workstation_marker", !aidWorkstationPositions.isEmpty(),
+                                "markers=" + aidWorkstationPositions);
+
+                        // Cancelling while BUILDING MUST be rejected!
+                        TyC2QaPlatform.clearActionBarKey(playerA);
+                        TyC2WorldManager.handleActionPayload(playerA, level,
+                                new TyC2ActionPayload("HUB", bellPos, "CANCEL_AID",
+                                        "{\"projectId\":\"" + aidProjectId + "\"}"));
+                        checks.check("aid.cancel_rejected_while_building",
+                                "status.tyc2.aid.cannot_cancel".equals(TyC2QaPlatform.lastActionBarKey(playerA))
+                                        && village.findAidProject(aidProjectId).isPresent(),
+                                "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
+                    } else if (ticks - stageStartTick > 80) {
+                        throw new AssertionError("Aid project did not transition to BUILDING within 80 ticks (aid="
+                                + aidOpt + ", activeJob=" + activeJobOpt + ")");
+                    }
+                    return;
+                }
+
+                // Wait for gradual aid construction to complete
+                if (activeJobOpt.isPresent()) {
+                    if (ticks - stageStartTick > 1_500) {
+                        throw new AssertionError("Aid construction timed out at "
+                                + activeJobOpt.get().getPlacedCount() + "/" + activeJobOpt.get().getTotalBlocks());
+                    }
+                    return;
+                }
+
+                // Aid construction completed! Verify workstation block placed, protected blocks intact, job assigned!
+                checks.check("aid.completed_removed_from_queue", village.findAidProject(aidProjectId).isEmpty(),
+                        "remainingAid=" + village.getAidProjects().size());
+                boolean allWorkstationsPlaced = !aidWorkstationPositions.isEmpty()
+                        && aidWorkstationPositions.stream()
+                        .allMatch(p -> "minecraft:lectern".equals(TyC2Native.blockId(level.getBlockState(p))));
+                checks.check("aid.workstation_block_placed_exact", allWorkstationsPlaced,
+                        "positions=" + aidWorkstationPositions + ", blocks=" + aidWorkstationPositions.stream()
+                                .map(p -> TyC2Native.blockId(level.getBlockState(p))).toList());
+
+                // Protected player chest & road STILL 100% intact after aid construction!
+                BlockEntity beAfterAid = level.getBlockEntity(protectedChestPos);
+                boolean chestStillIntact = level.getBlockState(protectedChestPos).is(Blocks.CHEST)
+                        && beAfterAid instanceof ChestBlockEntity c
+                        && c.getItem(0).is(Items.DIAMOND)
+                        && c.getItem(0).getCount() == 3;
+                boolean roadStillIntact = protectedRoadPositions.stream()
+                        .allMatch(p -> level.getBlockState(p).is(Blocks.COBBLESTONE));
+                checks.check("aid.protected_blocks_unharmed", chestStillIntact && roadStillIntact,
+                        "chest=" + chestStillIntact + ", road=" + roadStillIntact);
+
+                // Verify automatic villager job assignment & unemployment drop < 25%!
+                List<Entity> postVillagers = TyC2Native.findVillagersInRadius(
+                        level, bellPos, village.effectiveVillagerScanRadius()
+                );
+                long newlyAssignedLibrarians = postVillagers.stream()
+                        .filter(e -> aidUnemployedUuids.contains(e.getUUID())
+                                && "minecraft:librarian".equals(TyC2Native.villagerProfessionId(e)))
+                        .count();
+                VillageEmploymentStats statsAfter = village.getEmploymentStats();
+                checks.check("aid.auto_assigned_unemployed_villager",
+                        newlyAssignedLibrarians >= 1,
+                        "newlyAssignedLibrarians=" + newlyAssignedLibrarians);
+                checks.check("aid.unemployment_dropped_below_25pct",
+                        statsAfter.unemploymentRate() < aidUnemploymentBefore
+                                && statsAfter.unemploymentRate() < cfg.lowUnemploymentThreshold()
+                                && statsAfter.isLowUnemploymentBonusActive(cfg),
+                        String.format("before=%.3f -> after=%.3f (unemployed=%d/%d)",
+                                aidUnemploymentBefore, statsAfter.unemploymentRate(),
+                                statsAfter.unemployedCount(), statsAfter.workforceCount()));
+
+                // (e) Low-unemployment (<25%) bonus: faster demand refresh + boosted trade quantity!
+                int effectiveRefresh = statsAfter.effectiveDemandRefreshTicks(cfg);
+                checks.check("employment_bonus.effective_refresh_faster_than_base",
+                        effectiveRefresh < cfg.demandRefreshTicks() && effectiveRefresh >= 200,
+                        "effective=" + effectiveRefresh + " < base=" + cfg.demandRefreshTicks());
+
+                DemandGenerator dg = TyC2DataLoader.demandGenerator();
+                int baselineQtySum = 0;
+                int boostedQtySum = 0;
+                for (int seed = 101; seed <= 108; seed++) {
+                    DemandGenerator.GeneratedDemand baseDem = dg.generate(
+                            village.getLevel(), village.getBiomeStyle().id(), village.getVillageBalance(),
+                            IndustrialTier.TIER_0, Season.NONE, data.economy(),
+                            TyC2Native::itemExists, VillageEmploymentStats.EMPTY,
+                            TyC2DataLoader.workplaceCatalog(), new Random(seed)
+                    );
+                    DemandGenerator.GeneratedDemand boostDem = dg.generate(
+                            village.getLevel(), village.getBiomeStyle().id(), village.getVillageBalance(),
+                            IndustrialTier.TIER_0, Season.NONE, data.economy(),
+                            TyC2Native::itemExists, statsAfter,
+                            TyC2DataLoader.workplaceCatalog(), new Random(seed)
+                    );
+                    baselineQtySum += baseDem.allOrders().stream().mapToInt(DemandGenerator.GeneratedOrder::quantity).sum();
+                    boostedQtySum += boostDem.allOrders().stream().mapToInt(DemandGenerator.GeneratedOrder::quantity).sum();
+                }
+                checks.check("employment_bonus.trade_quantity_boosted",
+                        statsAfter.tradeQuantityMultiplier(cfg) >= cfg.lowUnempQtyMinMult()
+                                && boostedQtySum > (int) Math.round(baselineQtySum * 1.15),
+                        String.format("qtyMult=%.3f, baseQtySum=%d -> boostedQtySum=%d (ratio=%.2fx)",
+                                statsAfter.tradeQuantityMultiplier(cfg), baselineQtySum, boostedQtySum,
+                                baselineQtySum > 0 ? (double) boostedQtySum / baselineQtySum : 0.0));
+
+                // Live order refresh on the village uses effectiveDemandRefreshTicks & boosted quantities
+                long refreshNow = level.getGameTime();
+                TyC2WorldManager.refreshVillageOrders(level, data, village, refreshNow);
+                boolean liveOrdersAccelerated = !village.getActiveOrders().isEmpty()
+                        && village.getActiveOrders().stream()
+                        .allMatch(o -> (o.expiresTick() - refreshNow) == effectiveRefresh);
+                checks.check("employment_bonus.live_refresh_uses_accelerated_expiry",
+                        liveOrdersAccelerated,
+                        "orders=" + village.getActiveOrders().size() + ", effectiveRefresh=" + effectiveRefresh);
+
+                // (f-2) Jade/TOP HUD bridge lines AFTER unemployment < 25% now emit employment_bonus!
+                List<Component> hubHudAfter = JadeSoftBridge.buildBlockHudLines(level, bellPos);
+                verifyHudContainsValidKey("hud.hub_unemployment_after_aid", hubHudAfter, "hud.tyc2.hub.unemployment");
+                verifyHudContainsValidKey("hud.hub_employment_bonus_active", hubHudAfter, "hud.tyc2.hub.employment_bonus");
+
+                // Queue 1 small mason aid project right before shutdown to test cold-restart NBT persistence
+                TyC2WorldManager.handleActionPayload(playerA, level,
+                        new TyC2ActionPayload("HUB", bellPos, "START_AID",
+                                "{\"professionId\":\"minecraft:mason\",\"size\":\"small\",\"cashMode\":false}"));
+                checks.check("aid.persist_sentinel_queued",
+                        village.getAidProjects().size() == 1
+                                && "minecraft:mason".equals(village.getAidProjects().get(0).professionId()),
+                        "queued=" + village.getAidProjects().size());
+                AidConstructionProject persistAid = village.getAidProjects().get(0);
+                checks.putMeta("aidPersistProjectId", persistAid.projectId());
+                checks.putMeta("aidPersistPaidIc", Long.toString(persistAid.paidIc()));
+
+                // Place persistence sentinels in Hub Inbound slot 10 and Outbound slot 510
+                village.getStorage().setSlotRaw(10, new SlotStack("minecraft:emerald", 13, ""));
+                village.getStorage().setSlotRaw(510, new SlotStack("minecraft:gold_ingot", 7, ""));
+                long aliceFinalBal = data.bank().getOrCreatePersonal(PLAYER_A_UUID, "TycoonAlice").balance();
+                checks.putMeta("aliceFinalBalance", Long.toString(aliceFinalBal));
+                data.setDirty();
+
+                checks.check("standalone.write.world_saved", server.saveEverything(false, true, true));
+                complete(server, null);
             }
             default -> complete(server, null);
         }
+    }
+
+    private void verifyHudContainsValidKey(String checkName, List<Component> lines, String expectedKey) {
+        Component matched = null;
+        for (Component c : lines) {
+            if (expectedKey.equals(TyC2QaPlatform.translationKeyOf(c))) {
+                matched = c;
+                break;
+            }
+        }
+        String rendered = matched == null ? "<missing>" : matched.getString();
+        boolean hasLang = Language.getInstance().has(expectedKey);
+        boolean noRawSubkeys = matched != null && !rendered.isBlank() && !rendered.contains(".tyc2.");
+        checks.check(checkName, matched != null && hasLang && noRawSubkeys,
+                "key=" + expectedKey + ", hasLang=" + hasLang + ", rendered=" + rendered);
     }
 
     // =========================================================================
@@ -1110,7 +1567,10 @@ public final class TyC2QaHarness {
         }
         TycoonSavedData data = TyC2WorldManager.getData(level);
         checks.check("read.config_present", Files.isRegularFile(Path.of("config/tyc2/general.json")));
+        checks.check("read.custom_workplaces_present", Files.isRegularFile(Path.of("config/tyc2/custom_workplaces.json")));
         long expectedAliceBal = -1L;
+        String expectedAidId = "";
+        long expectedAidPaid = -1L;
         Path writeReport = Path.of("qa-report-standalone-write.properties");
         if (Files.isRegularFile(writeReport)) {
             var p = new java.util.Properties();
@@ -1118,6 +1578,8 @@ public final class TyC2QaHarness {
                 p.load(r);
             }
             expectedAliceBal = Long.parseLong(p.getProperty("aliceFinalBalance", "-1"));
+            expectedAidId = p.getProperty("aidPersistProjectId", "");
+            expectedAidPaid = Long.parseLong(p.getProperty("aidPersistPaidIc", "-1"));
         }
         long aliceBal = data.bank().getOrCreatePersonal(PLAYER_A_UUID, "TycoonAlice").balance();
         checks.check("read.bank_alice_preserved",
@@ -1150,7 +1612,21 @@ public final class TyC2QaHarness {
         checks.check("read.hub_outbound_sentinel_preserved",
                 village.getStorage().getSlot(510)
                         .map(s -> "minecraft:gold_ingot".equals(s.itemId()) && s.count() == 7).orElse(false));
-        checks.check("read.occupied_zones_preserved", village.getOccupiedZones().size() >= 2);
+        checks.check("read.occupied_zones_preserved", village.getOccupiedZones().size() >= 3);
+        checks.check("read.employment_stats_preserved",
+                village.getEmploymentStats().workforceCount() >= 5
+                        && village.getEmploymentStats().unemploymentRate() < 0.25,
+                "workforce=" + village.getEmploymentStats().workforceCount()
+                        + ", rate=" + village.getEmploymentStats().unemploymentRate());
+        final long expectedAidPaidFinal = expectedAidPaid;
+        checks.check("read.aid_project_preserved",
+                !expectedAidId.isBlank()
+                        && village.findAidProject(expectedAidId)
+                        .map(ap -> "minecraft:mason".equals(ap.professionId())
+                                && ap.paidIc() == expectedAidPaidFinal
+                                && ap.reservedZone() != null)
+                        .orElse(false),
+                "expectedAidId=" + expectedAidId + ", count=" + village.getAidProjects().size());
         checks.check("read.player_placed_tracker_preserved",
                 data.isPlayerPlaced(TyC2Native.dimensionId(level),
                         protectedChestPos.getX(), protectedChestPos.getY(), protectedChestPos.getZ()));

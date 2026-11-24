@@ -93,6 +93,38 @@ public final class TyC2Ids {
         return item != null && item != Items.AIR;
     }
 
+    /** Checks whether a block ID is registered in Forge's live block registry and is not air. */
+    public static boolean blockExists(@Nullable String blockId) {
+        ResourceLocation rl = parse(blockId);
+        if (rl == null || !ForgeRegistries.BLOCKS.containsKey(rl)) {
+            return false;
+        }
+        Block block = ForgeRegistries.BLOCKS.getValue(rl);
+        return block != null && block != Blocks.AIR;
+    }
+
+    /** Creates an icon {@link ItemStack} for a block or item ID, falling back to {@link Block#asItem()}. */
+    public static ItemStack createBlockOrItemIcon(@Nullable String id) {
+        if (id == null || id.isBlank()) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack stack = createStack(id, 1, "", null);
+        if (!stack.isEmpty()) {
+            return stack;
+        }
+        ResourceLocation rl = parse(id);
+        if (rl != null && ForgeRegistries.BLOCKS.containsKey(rl)) {
+            Block block = ForgeRegistries.BLOCKS.getValue(rl);
+            if (block != null && block != Blocks.AIR) {
+                Item asItem = block.asItem();
+                if (asItem != null && asItem != Items.AIR) {
+                    return new ItemStack(asItem);
+                }
+            }
+        }
+        return ItemStack.EMPTY;
+    }
+
     /** Resolves an {@link Item} by ID, returning {@code null} if missing or air. */
     @Nullable
     public static Item getItem(@Nullable String itemId) {

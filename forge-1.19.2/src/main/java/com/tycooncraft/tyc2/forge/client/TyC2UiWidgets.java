@@ -1,11 +1,19 @@
 package com.tycooncraft.tyc2.forge.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.tycooncraft.tyc2.forge.network.S2CHubSyncPacket;
+import com.tycooncraft.tyc2.forge.util.TyC2Ids;
+import com.tycooncraft.tyc2.village.WorkplaceArchetype;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiComponent;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 /**
@@ -251,5 +259,63 @@ public final class TyC2UiWidgets {
             return String.format("%.1fk", value / 1_000.0);
         }
         return Long.toString(value);
+    }
+
+    /** Resolves a client-localized display name for a vanilla or modded villager profession. */
+    public static String localizedProfessionName(
+            String professionId, String archetypeName, String displayNameFallback
+    ) {
+        WorkplaceArchetype arch = WorkplaceArchetype.fromNameOrDefault(archetypeName, WorkplaceArchetype.GENERIC);
+        if (arch != WorkplaceArchetype.GENERIC) {
+            return Component.translatable(arch.langKey()).getString();
+        }
+        ResourceLocation rl = TyC2Ids.parse(professionId);
+        if (rl != null) {
+            String mcKey = "entity.minecraft.villager."
+                    + ("minecraft".equals(rl.getNamespace())
+                    ? rl.getPath()
+                    : rl.getNamespace() + "." + rl.getPath());
+            if (I18n.exists(mcKey)) {
+                return Component.translatable(mcKey).getString();
+            }
+            String modKey = "profession." + rl.getNamespace() + "." + rl.getPath();
+            if (I18n.exists(modKey)) {
+                return Component.translatable(modKey).getString();
+            }
+        }
+        if (displayNameFallback != null && !displayNameFallback.isBlank()) {
+            return displayNameFallback;
+        }
+        return Component.translatable("profession.tyc2.generic").getString();
+    }
+
+    /** Formats an aid project status string from {@link S2CHubSyncPacket.AidProjectDto}. */
+    public static String formatAidStatus(S2CHubSyncPacket.AidProjectDto aid) {
+        return switch (aid.statusName()) {
+            case "COLLECTING" -> Component.translatable("gui.tyc2.aid.status.collecting", aid.progressPct()).getString();
+            case "WAITING_SITE" -> Component.translatable("gui.tyc2.aid.status.waiting_site").getString();
+            case "NO_SITE" -> Component.translatable("gui.tyc2.aid.status.no_site").getString();
+            case "BUILDING" -> Component.translatable("gui.tyc2.aid.status.building", aid.progressPct()).getString();
+            default -> Component.translatable("gui.tyc2.aid.status.collecting", aid.progressPct()).getString();
+        };
+    }
+
+    /** Builds the hover tooltip lines displaying gathered/required materials for an aid construction project. */
+    public static List<Component> buildAidMaterialsTooltip(S2CHubSyncPacket.AidProjectDto aid) {
+        List<Component> tips = new ArrayList<>();
+        String profName = localizedProfessionName(aid.professionId(), aid.archetypeName(), aid.displayNameFallback());
+        Component sizeComp = Component.translatable(
+                aid.large() ? "gui.tyc2.aid.size.large" : "gui.tyc2.aid.size.small"
+        );
+        tips.add(Component.literal(profName + " - ").append(sizeComp).withStyle(ChatFormatting.GOLD));
+        tips.add(Component.translatable("gui.tyc2.aid.materials_tooltip").withStyle(ChatFormatting.AQUA));
+        for (S2CHubSyncPacket.MatDto m : aid.materials()) {
+            boolean done = m.delivered() >= m.required();
+            String itemName = TyC2Ids.localizedItemName(m.itemId(), null);
+            tips.add(Component.literal("  " + itemName + ": " + m.delivered() + "/" + m.required())
+                    .withStyle(done ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
+        }
+        tips.add(Component.translatable("gui.tyc2.aid.cost", aid.paidIc()).withStyle(ChatFormatting.GRAY));
+        return tips;
     }
 }

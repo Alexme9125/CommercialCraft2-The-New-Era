@@ -2,6 +2,7 @@ package com.tycooncraft.tyc2.forge.network;
 
 import com.tycooncraft.tyc2.core.MacroEconomyEngine;
 import com.tycooncraft.tyc2.core.Season;
+import com.tycooncraft.tyc2.core.TyC2Config;
 import com.tycooncraft.tyc2.forge.block.CooperationHubBlockEntity;
 import com.tycooncraft.tyc2.forge.client.TyC2ClientHandlers;
 import com.tycooncraft.tyc2.forge.compat.Lc2SoftBridge;
@@ -10,13 +11,18 @@ import com.tycooncraft.tyc2.forge.data.TyC2RuntimeData;
 import com.tycooncraft.tyc2.forge.util.TyC2Ids;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeSavedData;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeWorldManager;
+import com.tycooncraft.tyc2.village.AidConstructionProject;
 import com.tycooncraft.tyc2.village.ConstructionJob;
 import com.tycooncraft.tyc2.village.CooperationHubStorage;
 import com.tycooncraft.tyc2.village.ExpansionDesire;
 import com.tycooncraft.tyc2.village.OrderSide;
+import com.tycooncraft.tyc2.village.VillageEmploymentStats;
 import com.tycooncraft.tyc2.village.VillageLevelTable;
 import com.tycooncraft.tyc2.village.VillageRecord;
 import com.tycooncraft.tyc2.village.VillageTradeOrder;
+import com.tycooncraft.tyc2.village.WorkplaceCatalog;
+import com.tycooncraft.tyc2.village.WorkplaceSize;
+import com.tycooncraft.tyc2.village.WorkplaceSpec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +67,35 @@ public final class S2CHubSyncPacket {
     }
 
     public record MatDto(String itemId, int delivered, int required) {
+    }
+
+    public record WorkplaceDto(
+            String professionId,
+            String workstationBlockId,
+            String archetypeName,
+            String displayNameFallback,
+            long costSmallIc,
+            long costLargeIc,
+            int minLevelSmall,
+            int minLevelLarge,
+            boolean smallUnlocked,
+            boolean largeUnlocked
+    ) {
+    }
+
+    public record AidProjectDto(
+            String projectId,
+            String professionId,
+            String workstationBlockId,
+            String archetypeName,
+            String displayNameFallback,
+            boolean large,
+            String statusName,
+            int progressPct,
+            long paidIc,
+            boolean canCancel,
+            List<MatDto> materials
+    ) {
     }
 
     public final UUID villageId;
@@ -112,6 +147,18 @@ public final class S2CHubSyncPacket {
     public final int jobPlaced;
     public final int jobTotal;
     public final List<String> nearbyLc2Stations;
+    public final int workforceCount;
+    public final int employedCount;
+    public final int unemployedCount;
+    public final int unemploymentPct;
+    public final boolean employmentBonusActive;
+    public final int restockBonusPct;
+    public final int qtyBonusPct;
+    public final double gatherSpeedMult;
+    public final int lowUnempThresholdPct;
+    public final int maxQueuedAid;
+    public final List<WorkplaceDto> availableWorkplaces;
+    public final List<AidProjectDto> aidProjects;
     public final Component feedbackComponent;
     public final String feedback;
 
@@ -159,6 +206,18 @@ public final class S2CHubSyncPacket {
             int jobPlaced,
             int jobTotal,
             List<String> nearbyLc2Stations,
+            int workforceCount,
+            int employedCount,
+            int unemployedCount,
+            int unemploymentPct,
+            boolean employmentBonusActive,
+            int restockBonusPct,
+            int qtyBonusPct,
+            double gatherSpeedMult,
+            int lowUnempThresholdPct,
+            int maxQueuedAid,
+            List<WorkplaceDto> availableWorkplaces,
+            List<AidProjectDto> aidProjects,
             Component feedbackComponent
     ) {
         this.villageId = villageId;
@@ -204,6 +263,18 @@ public final class S2CHubSyncPacket {
         this.jobPlaced = jobPlaced;
         this.jobTotal = jobTotal;
         this.nearbyLc2Stations = nearbyLc2Stations;
+        this.workforceCount = workforceCount;
+        this.employedCount = employedCount;
+        this.unemployedCount = unemployedCount;
+        this.unemploymentPct = unemploymentPct;
+        this.employmentBonusActive = employmentBonusActive;
+        this.restockBonusPct = restockBonusPct;
+        this.qtyBonusPct = qtyBonusPct;
+        this.gatherSpeedMult = gatherSpeedMult;
+        this.lowUnempThresholdPct = lowUnempThresholdPct;
+        this.maxQueuedAid = maxQueuedAid;
+        this.availableWorkplaces = availableWorkplaces;
+        this.aidProjects = aidProjects;
         this.feedbackComponent = feedbackComponent == null ? Component.empty() : feedbackComponent;
         this.feedback = this.feedbackComponent.getString();
     }
@@ -226,8 +297,10 @@ public final class S2CHubSyncPacket {
             dimLevel = player.getServer().overworld();
         }
         Season season = SeasonSoftBridge.currentSeason(dimLevel);
+        TyC2Config cfg = TyC2RuntimeData.config();
+        VillageEmploymentStats emp = village.getEmploymentStats();
         long now = player.getServer().overworld().getGameTime();
-        long refreshTicks = TyC2RuntimeData.config().demandRefreshTicks();
+        long refreshTicks = emp.effectiveDemandRefreshTicks(cfg);
         long elapsed = Math.max(0L, now - village.getLastDemandRefreshTick());
         int refreshSecs = (int) Math.max(0L, (refreshTicks - elapsed) / 20L);
 
@@ -293,6 +366,54 @@ public final class S2CHubSyncPacket {
         long playerBankBal = data.bank().getActiveBalance(player.getUUID());
         int ownerTier = data.resolveVillageOwnerTier(village).level();
 
+        double liveCpi = econ.computeCpi();
+        int unempPct = emp.workforceCount() <= 0 ? 0 : (int) Math.round(emp.unemploymentRate() * 100.0);
+        boolean empBonusActive = emp.isLowUnemploymentBonusActive(cfg);
+        int restockBonusPct = empBonusActive
+                ? (int) Math.round((emp.restockSpeedMultiplier(cfg) - 1.0) * 100.0) : 0;
+        int qtyBonusPct = empBonusActive
+                ? (int) Math.round((emp.tradeQuantityMultiplier(cfg) - 1.0) * 100.0) : 0;
+        double gatherSpeed = emp.gatherSpeedMultiplier(cfg);
+        int thresholdPct = (int) Math.round(cfg.lowUnemploymentThreshold() * 100.0);
+
+        List<WorkplaceDto> workplaceDtos = new ArrayList<>();
+        for (WorkplaceSpec spec : TyC2RuntimeData.workplaceCatalog().getAvailableWorkplaces(TyC2Ids::blockExists)) {
+            workplaceDtos.add(new WorkplaceDto(
+                    spec.professionId(),
+                    spec.workstationBlockId(),
+                    spec.archetype().name(),
+                    spec.displayNameFallback(),
+                    WorkplaceCatalog.quoteCostIc(spec, WorkplaceSize.SMALL, liveCpi, cfg),
+                    WorkplaceCatalog.quoteCostIc(spec, WorkplaceSize.LARGE, liveCpi, cfg),
+                    spec.minVillageLevelSmall(),
+                    spec.minVillageLevelLarge(),
+                    spec.isUnlockedAtLevel(village.getLevel(), WorkplaceSize.SMALL),
+                    spec.isUnlockedAtLevel(village.getLevel(), WorkplaceSize.LARGE)
+            ));
+        }
+
+        List<AidProjectDto> aidDtos = new ArrayList<>();
+        for (AidConstructionProject proj : village.getAidProjects()) {
+            Map<String, Integer> gathered = proj.displayedGatheredMaterials();
+            List<MatDto> aidMats = new ArrayList<>(proj.requiredMaterials().size());
+            for (Map.Entry<String, Integer> e : proj.requiredMaterials().entrySet()) {
+                aidMats.add(new MatDto(e.getKey(), gathered.getOrDefault(e.getKey(), 0), e.getValue()));
+            }
+            aidDtos.add(new AidProjectDto(
+                    proj.projectId(),
+                    proj.professionId(),
+                    proj.workstationBlockId(),
+                    proj.archetype().name(),
+                    proj.displayNameFallback(),
+                    proj.size() == WorkplaceSize.LARGE,
+                    proj.status().name(),
+                    TycoonForgeWorldManager.resolveAidProgressPct(village, proj),
+                    proj.paidIc(),
+                    proj.canCancel(),
+                    aidMats
+            ));
+        }
+
         return new S2CHubSyncPacket(
                 village.getVillageId(),
                 village.getVillageName(),
@@ -315,7 +436,7 @@ public final class S2CHubSyncPacket {
                 storage.getUsedSlotCount(CooperationHubStorage.Zone.INBOUND),
                 storage.getUsedSlotCount(CooperationHubStorage.Zone.OUTBOUND),
                 slotDtos,
-                econ.computeCpi(),
+                liveCpi,
                 econ.getInflationState().name(),
                 econ.totalMoneySupply(),
                 econ.rollingGoodsCirculation(),
@@ -337,6 +458,18 @@ public final class S2CHubSyncPacket {
                 jobOpt.map(ConstructionJob::getPlacedCount).orElse(0),
                 jobOpt.map(ConstructionJob::getTotalBlocks).orElse(0),
                 lc2Stations,
+                emp.workforceCount(),
+                emp.employedCount(),
+                emp.unemployedCount(),
+                unempPct,
+                empBonusActive,
+                restockBonusPct,
+                qtyBonusPct,
+                gatherSpeed,
+                thresholdPct,
+                cfg.maxQueuedAidProjects(),
+                workplaceDtos,
+                aidDtos,
                 feedback
         );
     }
@@ -418,6 +551,48 @@ public final class S2CHubSyncPacket {
         buf.writeVarInt(p.nearbyLc2Stations.size());
         for (String st : p.nearbyLc2Stations) {
             buf.writeUtf(st, 64);
+        }
+        buf.writeVarInt(p.workforceCount);
+        buf.writeVarInt(p.employedCount);
+        buf.writeVarInt(p.unemployedCount);
+        buf.writeVarInt(p.unemploymentPct);
+        buf.writeBoolean(p.employmentBonusActive);
+        buf.writeVarInt(p.restockBonusPct);
+        buf.writeVarInt(p.qtyBonusPct);
+        buf.writeDouble(p.gatherSpeedMult);
+        buf.writeVarInt(p.lowUnempThresholdPct);
+        buf.writeVarInt(p.maxQueuedAid);
+        buf.writeVarInt(p.availableWorkplaces.size());
+        for (WorkplaceDto wp : p.availableWorkplaces) {
+            buf.writeUtf(wp.professionId(), 96);
+            buf.writeUtf(wp.workstationBlockId(), 96);
+            buf.writeUtf(wp.archetypeName(), 32);
+            buf.writeUtf(wp.displayNameFallback(), 64);
+            buf.writeVarLong(wp.costSmallIc());
+            buf.writeVarLong(wp.costLargeIc());
+            buf.writeVarInt(wp.minLevelSmall());
+            buf.writeVarInt(wp.minLevelLarge());
+            buf.writeBoolean(wp.smallUnlocked());
+            buf.writeBoolean(wp.largeUnlocked());
+        }
+        buf.writeVarInt(p.aidProjects.size());
+        for (AidProjectDto aid : p.aidProjects) {
+            buf.writeUtf(aid.projectId(), 64);
+            buf.writeUtf(aid.professionId(), 96);
+            buf.writeUtf(aid.workstationBlockId(), 96);
+            buf.writeUtf(aid.archetypeName(), 32);
+            buf.writeUtf(aid.displayNameFallback(), 64);
+            buf.writeBoolean(aid.large());
+            buf.writeUtf(aid.statusName(), 24);
+            buf.writeVarInt(aid.progressPct());
+            buf.writeVarLong(aid.paidIc());
+            buf.writeBoolean(aid.canCancel());
+            buf.writeVarInt(aid.materials().size());
+            for (MatDto m : aid.materials()) {
+                buf.writeUtf(m.itemId(), 96);
+                buf.writeVarInt(m.delivered());
+                buf.writeVarInt(m.required());
+            }
         }
         buf.writeComponent(p.feedbackComponent);
     }
@@ -502,13 +677,61 @@ public final class S2CHubSyncPacket {
         for (int i = 0; i < lc2Count; i++) {
             lc2.add(buf.readUtf(64));
         }
+        int wf = buf.readVarInt();
+        int empCnt = buf.readVarInt();
+        int unempCnt = buf.readVarInt();
+        int unempPct = buf.readVarInt();
+        boolean bonusAct = buf.readBoolean();
+        int restockPct = buf.readVarInt();
+        int qtyPct = buf.readVarInt();
+        double gatherMult = buf.readDouble();
+        int threshPct = buf.readVarInt();
+        int maxAid = buf.readVarInt();
+        int wpCount = Math.min(128, buf.readVarInt());
+        List<WorkplaceDto> wps = new ArrayList<>(wpCount);
+        for (int i = 0; i < wpCount; i++) {
+            wps.add(new WorkplaceDto(
+                    buf.readUtf(96),
+                    buf.readUtf(96),
+                    buf.readUtf(32),
+                    buf.readUtf(64),
+                    buf.readVarLong(),
+                    buf.readVarLong(),
+                    buf.readVarInt(),
+                    buf.readVarInt(),
+                    buf.readBoolean(),
+                    buf.readBoolean()
+            ));
+        }
+        int aidCount = Math.min(16, buf.readVarInt());
+        List<AidProjectDto> aids = new ArrayList<>(aidCount);
+        for (int i = 0; i < aidCount; i++) {
+            String pId = buf.readUtf(64);
+            String profId = buf.readUtf(96);
+            String wsId = buf.readUtf(96);
+            String arch = buf.readUtf(32);
+            String fbName = buf.readUtf(64);
+            boolean large = buf.readBoolean();
+            String status = buf.readUtf(24);
+            int prog = buf.readVarInt();
+            long paid = buf.readVarLong();
+            boolean cancel = buf.readBoolean();
+            int amCount = Math.min(32, buf.readVarInt());
+            List<MatDto> ams = new ArrayList<>(amCount);
+            for (int k = 0; k < amCount; k++) {
+                ams.add(new MatDto(buf.readUtf(96), buf.readVarInt(), buf.readVarInt()));
+            }
+            aids.add(new AidProjectDto(pId, profId, wsId, arch, fbName, large, status, prog, paid, cancel, ams));
+        }
         Component fb = buf.readComponent();
 
         return new S2CHubSyncPacket(
                 vid, name, biome, lv, pop, vol, bal, mayor, depop, expPaused, manage, chunk,
                 refSecs, bankBal, orders, outZone, pIdx, totPages, inUsed, outUsed, slots,
                 cpi, inf, ms, gc, season, tier, hist, canUpg, nPop, nVol, nBal, nSink,
-                hasExp, expProj, expBud, expAuto, mats, hasJob, jobProj, jobPlaced, jobTotal, lc2, fb
+                hasExp, expProj, expBud, expAuto, mats, hasJob, jobProj, jobPlaced, jobTotal, lc2,
+                wf, empCnt, unempCnt, unempPct, bonusAct, restockPct, qtyPct, gatherMult,
+                threshPct, maxAid, wps, aids, fb
         );
     }
 

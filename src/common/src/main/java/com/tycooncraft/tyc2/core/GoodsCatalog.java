@@ -91,12 +91,13 @@ public final class GoodsCatalog {
         add(TradeGood.builder("tyc2:gunpowder", "minecraft:gunpowder", GoodsCategory.MONSTER_DROP, 7)
                 .levelRange(1, 6).sellable(true).buyable(false).quantityRange(6, 16).build());
         add(TradeGood.builder("tyc2:slime_ball", "minecraft:slime_ball", GoodsCategory.MONSTER_DROP, 9)
-                .levelRange(2, 6).sellable(true).buyable(false).quantityRange(4, 14).build());
+                .levelRange(2, 6).sellable(true).buyable(false).quantityRange(4, 14)
+                .biomeAffinities("swamp").build());
 
         // Forestry, winter goods, desert/biome staples (Lv 1-5)
         add(TradeGood.builder("tyc2:stick", "minecraft:stick", GoodsCategory.FORESTRY, 1)
                 .levelRange(1, 3).sellable(true).buyable(false).quantityRange(16, 48)
-                .biomeAffinities("plains", "taiga", "savanna").build());
+                .biomeAffinities("plains", "taiga", "savanna", "jungle", "swamp").build());
         add(TradeGood.builder("tyc2:oak_log", "minecraft:oak_log", GoodsCategory.FORESTRY, 3)
                 .levelRange(1, 5).sellable(true).buyable(false).quantityRange(8, 24)
                 .biomeAffinities("plains").build());
@@ -106,6 +107,15 @@ public final class GoodsCatalog {
         add(TradeGood.builder("tyc2:acacia_log", "minecraft:acacia_log", GoodsCategory.FORESTRY, 3)
                 .levelRange(1, 5).sellable(true).buyable(false).quantityRange(8, 24)
                 .biomeAffinities("savanna").build());
+        add(TradeGood.builder("tyc2:jungle_log", "minecraft:jungle_log", GoodsCategory.FORESTRY, 3)
+                .levelRange(1, 5).sellable(true).buyable(false).quantityRange(8, 24)
+                .biomeAffinities("jungle").build());
+        add(TradeGood.builder("tyc2:clay_ball", "minecraft:clay_ball", GoodsCategory.BUILDING, 3)
+                .levelRange(1, 5).sellable(true).buyable(false).quantityRange(12, 32)
+                .biomeAffinities("swamp").build());
+        add(TradeGood.builder("tyc2:lily_pad", "minecraft:lily_pad", GoodsCategory.AGRICULTURE, 4)
+                .levelRange(1, 5).sellable(true).buyable(false).quantityRange(6, 18)
+                .biomeAffinities("swamp").build());
         add(TradeGood.builder("tyc2:honey_bottle", "minecraft:honey_bottle", GoodsCategory.AGRICULTURE, 6)
                 .levelRange(1, 5).sellable(true).buyable(false).quantityRange(4, 12)
                 .biomeAffinities("plains").build());
@@ -160,7 +170,7 @@ public final class GoodsCatalog {
         add(TradeGood.builder("tyc2:melon_slice", "minecraft:melon_slice", GoodsCategory.AGRICULTURE, 2)
                 .levelRange(1, 6).sellable(true).buyable(false).quantityRange(12, 36)
                 .harvestSeasons(Season.SUMMER)
-                .biomeAffinities("savanna").build());
+                .biomeAffinities("savanna", "jungle").build());
         add(TradeGood.builder("tyc2:sweet_berries", "minecraft:sweet_berries", GoodsCategory.AGRICULTURE, 3)
                 .levelRange(1, 5).sellable(true).buyable(false).quantityRange(10, 28)
                 .harvestSeasons(Season.SPRING, Season.SUMMER, Season.AUTUMN)
@@ -171,21 +181,24 @@ public final class GoodsCatalog {
                 .biomeAffinities("plains").build());
         add(TradeGood.builder("tyc2:sugar_cane", "minecraft:sugar_cane", GoodsCategory.AGRICULTURE, 3)
                 .levelRange(2, 6).sellable(true).buyable(false).quantityRange(12, 32)
-                .harvestSeasons(Season.SUMMER).build());
+                .harvestSeasons(Season.SUMMER)
+                .biomeAffinities("jungle", "swamp").build());
         add(TradeGood.builder("tyc2:cocoa_beans", "minecraft:cocoa_beans", GoodsCategory.AGRICULTURE, 5)
                 .levelRange(2, 6).sellable(true).buyable(false).quantityRange(8, 24)
-                .harvestSeasons(Season.SUMMER).build());
+                .harvestSeasons(Season.SUMMER)
+                .biomeAffinities("jungle").build());
         add(TradeGood.builder("tyc2:bamboo", "minecraft:bamboo", GoodsCategory.AGRICULTURE, 2)
                 .levelRange(2, 6).sellable(true).buyable(false).quantityRange(16, 48)
-                .harvestSeasons(Season.SUMMER).build());
+                .harvestSeasons(Season.SUMMER)
+                .biomeAffinities("jungle").build());
 
         // Year-round cave/marine crops (All 4 seasons)
         add(TradeGood.builder("tyc2:brown_mushroom", "minecraft:brown_mushroom", GoodsCategory.AGRICULTURE, 4)
                 .levelRange(1, 6).sellable(true).buyable(false).quantityRange(8, 20)
-                .harvestSeasons(Season.allFourSeasons()).biomeAffinities("taiga").build());
+                .harvestSeasons(Season.allFourSeasons()).biomeAffinities("taiga", "swamp").build());
         add(TradeGood.builder("tyc2:red_mushroom", "minecraft:red_mushroom", GoodsCategory.AGRICULTURE, 4)
                 .levelRange(1, 6).sellable(true).buyable(false).quantityRange(8, 20)
-                .harvestSeasons(Season.allFourSeasons()).biomeAffinities("taiga").build());
+                .harvestSeasons(Season.allFourSeasons()).biomeAffinities("taiga", "swamp").build());
         add(TradeGood.builder("tyc2:kelp", "minecraft:kelp", GoodsCategory.AGRICULTURE, 2)
                 .levelRange(1, 5).sellable(true).buyable(false).quantityRange(16, 40)
                 .harvestSeasons(Season.allFourSeasons()).build());

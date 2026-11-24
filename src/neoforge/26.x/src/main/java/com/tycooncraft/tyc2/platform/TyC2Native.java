@@ -8,12 +8,15 @@ import com.tycooncraft.tyc2.item.CommTerminalItem;
 import com.tycooncraft.tyc2.village.SlotStack;
 import java.io.BufferedReader;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import net.minecraft.commands.CommandSourceStack;
@@ -49,6 +52,9 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.village.poi.PoiManager;
+import net.minecraft.world.entity.ai.village.poi.PoiType;
+import net.minecraft.world.entity.ai.village.poi.PoiTypes;
 import net.minecraft.world.entity.animal.golem.IronGolem;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.npc.villager.VillagerProfession;
@@ -163,6 +169,15 @@ public final class TyC2Native {
             return Optional.empty();
         }
         return BuiltInRegistries.BLOCK.getOptional(id);
+    }
+
+    /** Returns {@code true} if the qualified block ID is registered in Minecraft's live block registry. */
+    public static boolean blockExists(String qualifiedId) {
+        if (qualifiedId == null || qualifiedId.isBlank()) {
+            return false;
+        }
+        Identifier id = Identifier.tryParse(qualifiedId.trim());
+        return id != null && BuiltInRegistries.BLOCK.containsKey(id);
     }
 
     /** Creates an ItemStack from a qualified item ID and count, or empty if absent. */
@@ -594,8 +609,8 @@ public final class TyC2Native {
     private static Map<String, String> scanDatapackJson(ResourceManager manager) {
         Map<String, String> result = new LinkedHashMap<>();
         String[] roots = {
-                "mint_recipes", "goods", "seasons", "levels",
-                "tyc2/mint_recipes", "tyc2/goods", "tyc2/seasons", "tyc2/levels"
+                "mint_recipes", "goods", "seasons", "levels", "workplaces",
+                "tyc2/mint_recipes", "tyc2/goods", "tyc2/seasons", "tyc2/levels", "tyc2/workplaces"
         };
         for (String root : roots) {
             boolean builtInNamespaceOnly = !root.startsWith("tyc2/");
@@ -635,6 +650,202 @@ public final class TyC2Native {
     /** Returns {@code true} if {@code entity} is a Nitwit Villager. */
     public static boolean isNitwitVillager(Entity entity) {
         return entity instanceof Villager v && v.getVillagerData().profession().is(VillagerProfession.NITWIT);
+    }
+
+    /**
+     * Returns the canonical lowercase profession registry ID of a villager
+     * (e.g. {@code "minecraft:farmer"}, {@code "minecraft:none"}, {@code "minecraft:nitwit"},
+     * or modded {@code "ns:path"}). Returns {@code "minecraft:none"} for non-villager entities.
+     */
+    public static String villagerProfessionId(Entity entity) {
+        if (!(entity instanceof Villager v)) {
+            return "minecraft:none";
+        }
+        Holder<VillagerProfession> holder = v.getVillagerData().profession();
+        if (holder == null) {
+            return "minecraft:none";
+        }
+        return holder.unwrapKey()
+                .map(k -> k.identifier().toString().toLowerCase(Locale.ROOT))
+                .orElseGet(() -> {
+                    Identifier key = BuiltInRegistries.VILLAGER_PROFESSION.getKey(holder.value());
+                    return key == null ? "minecraft:none" : key.toString().toLowerCase(Locale.ROOT);
+                });
+    }
+
+    /**
+     * Scans {@link BuiltInRegistries#VILLAGER_PROFESSION} and {@link BuiltInRegistries#POINT_OF_INTEREST_TYPE}
+     * to discover non-{@code none}/non-{@code nitwit} professions with a valid non-air default workstation block.
+     */
+    public static List<DiscoveredProfession> discoverModdedProfessions() {
+        List<DiscoveredProfession> discovered = new ArrayList<>();
+        try {
+            List<Holder.Reference<PoiType>> poiHolders = BuiltInRegistries.POINT_OF_INTEREST_TYPE.listElements()
+                    .sorted(Comparator.comparing(h -> h.key().identifier().toString()))
+                    .toList();
+            List<Map.Entry<ResourceKey<VillagerProfession>, VillagerProfession>> entries =
+                    new ArrayList<>(BuiltInRegistries.VILLAGER_PROFESSION.entrySet());
+            entries.sort(Comparator.comparing(e -> e.getKey().identifier().toString()));
+
+            for (Map.Entry<ResourceKey<VillagerProfession>, VillagerProfession> entry : entries) {
+                ResourceKey<VillagerProfession> key = entry.getKey();
+                Identifier id = key.identifier();
+                String profId = id.toString().toLowerCase(Locale.ROOT);
+                VillagerProfession prof = entry.getValue();
+                if (prof == null
+                        || VillagerProfession.NONE.equals(key)
+                        || VillagerProfession.NITWIT.equals(key)
+                        || "minecraft:none".equals(profId)
+                        || "minecraft:nitwit".equals(profId)) {
+                    continue;
+                }
+                String workstationBlockId = findWorkstationBlockId(prof, poiHolders);
+                if (workstationBlockId == null || workstationBlockId.isBlank()) {
+                    continue;
+                }
+                Component nameComp = prof.name();
+                String rawName = nameComp == null ? "" : nameComp.getString();
+                String fallback = (!rawName.isBlank()
+                        && !rawName.startsWith("entity.")
+                        && !rawName.contains(":")
+                        && !rawName.equals(id.getPath()))
+                        ? rawName.trim()
+                        : "";
+                discovered.add(new DiscoveredProfession(profId, workstationBlockId, fallback));
+            }
+        } catch (Throwable ex) {
+            LOGGER.warn("Failed to scan villager professions for dynamic discovery: {}", ex.getMessage());
+        }
+        return discovered;
+    }
+
+    private static String findWorkstationBlockId(
+            VillagerProfession prof,
+            List<Holder.Reference<PoiType>> poiHolders
+    ) {
+        String fromHeld = matchWorkstationBlock(prof.heldJobSite(), poiHolders);
+        if (fromHeld != null) {
+            return fromHeld;
+        }
+        return matchWorkstationBlock(prof.acquirableJobSite(), poiHolders);
+    }
+
+    private static String matchWorkstationBlock(
+            Predicate<Holder<PoiType>> predicate,
+            List<Holder.Reference<PoiType>> poiHolders
+    ) {
+        if (predicate == null
+                || predicate == PoiType.NONE
+                || predicate == VillagerProfession.ALL_ACQUIRABLE_JOBS) {
+            return null;
+        }
+        List<Holder.Reference<PoiType>> matches = new ArrayList<>();
+        for (Holder.Reference<PoiType> poi : poiHolders) {
+            try {
+                if (predicate.test(poi)) {
+                    matches.add(poi);
+                }
+            } catch (Throwable ignored) {
+                // Skip misbehaving third-party POI predicates
+            }
+        }
+        if (matches.isEmpty() || matches.size() > 8) {
+            return null;
+        }
+        for (Holder.Reference<PoiType> poi : matches) {
+            String bestBlock = null;
+            for (BlockState state : poi.value().matchingStates()) {
+                if (state == null || state.isAir()) {
+                    continue;
+                }
+                String bid = blockId(state).toLowerCase(Locale.ROOT);
+                if (bid.isBlank() || "minecraft:air".equals(bid)
+                        || "minecraft:cave_air".equals(bid)
+                        || "minecraft:void_air".equals(bid)) {
+                    continue;
+                }
+                if (bestBlock == null || bid.compareTo(bestBlock) < 0) {
+                    bestBlock = bid;
+                }
+            }
+            if (bestBlock != null) {
+                return bestBlock;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Immediately assigns an adult unemployed non-nitwit villager to the workstation at
+     * {@code workstationPos} with {@code professionId}, claiming its POI ticket when available,
+     * setting {@link MemoryModuleType#JOB_SITE}, updating {@code VillagerData}, and guiding navigation.
+     */
+    public static boolean assignVillagerToWorkstation(
+            ServerLevel level,
+            Entity villager,
+            BlockPos workstationPos,
+            String professionId
+    ) {
+        if (level == null
+                || !(villager instanceof Villager v)
+                || !v.isAlive()
+                || v.isBaby()
+                || isNitwitVillager(v)
+                || workstationPos == null
+                || professionId == null
+                || professionId.isBlank()
+                || !level.hasChunkAt(workstationPos)) {
+            return false;
+        }
+        BlockState state = level.getBlockState(workstationPos);
+        if (state.isAir()) {
+            return false;
+        }
+        Identifier profId = Identifier.tryParse(professionId.trim().toLowerCase(Locale.ROOT));
+        if (profId == null) {
+            return false;
+        }
+        Optional<Holder.Reference<VillagerProfession>> profHolderOpt =
+                BuiltInRegistries.VILLAGER_PROFESSION.get(profId);
+        if (profHolderOpt.isEmpty()) {
+            return false;
+        }
+        Holder.Reference<VillagerProfession> profHolder = profHolderOpt.get();
+        if (profHolder.is(VillagerProfession.NONE) || profHolder.is(VillagerProfession.NITWIT)) {
+            return false;
+        }
+        VillagerProfession prof = profHolder.value();
+
+        // Ensure POI is registered at workstationPos (handles same-tick block placement) and claim ticket if free
+        try {
+            PoiManager poiManager = level.getPoiManager();
+            if (poiManager.getType(workstationPos).isEmpty()) {
+                PoiTypes.forState(state).ifPresent(poi -> poiManager.add(workstationPos, poi));
+            }
+            Predicate<Holder<PoiType>> poiPred = h -> {
+                try {
+                    return (prof.heldJobSite() != null && prof.heldJobSite().test(h))
+                            || (prof.acquirableJobSite() != null && prof.acquirableJobSite().test(h));
+                } catch (Throwable ignored) {
+                    return false;
+                }
+            };
+            poiManager.take(poiPred, (h, p) -> p.equals(workstationPos), workstationPos, 1);
+        } catch (Throwable ex) {
+            LOGGER.debug("POI claim skipped for {} at {}: {}", professionId, workstationPos, ex.getMessage());
+        }
+
+        if (v.getBrain().hasMemoryValue(MemoryModuleType.JOB_SITE)) {
+            v.releasePoi(MemoryModuleType.JOB_SITE);
+        }
+        v.getBrain().eraseMemory(MemoryModuleType.POTENTIAL_JOB_SITE);
+        GlobalPos jobPos = GlobalPos.of(level.dimension(), workstationPos);
+        v.getBrain().setMemory(MemoryModuleType.JOB_SITE, jobPos);
+        v.setVillagerData(v.getVillagerData().withProfession(profHolder));
+        v.refreshBrain(level);
+        v.getBrain().setMemory(MemoryModuleType.JOB_SITE, jobPos);
+        v.getNavigation().moveTo(workstationPos.getX() + 0.5, workstationPos.getY(), workstationPos.getZ() + 0.5, 0.55D);
+        return true;
     }
 
     /** Returns the villager's trade XP, or 0 if not a villager. */

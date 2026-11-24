@@ -138,6 +138,33 @@ public final class TyC2QaPlatform {
         return v;
     }
 
+    public static Entity spawnUnemployedAdultVillager(ServerLevel level, double x, double y, double z) {
+        EntityType<?> type = BuiltInRegistries.ENTITY_TYPE
+                .getOptional(Identifier.withDefaultNamespace("villager"))
+                .orElseThrow(() -> new AssertionError("Missing minecraft:villager"));
+        Entity created = type.create(level, EntitySpawnReason.COMMAND);
+        if (!(created instanceof Villager v)) {
+            throw new AssertionError("Failed to create Unemployed Villager on 26.x: " + created);
+        }
+        v.setAge(0);
+        BuiltInRegistries.VILLAGER_PROFESSION.get(VillagerProfession.NONE)
+                .ifPresent(prof -> v.setVillagerData(v.getVillagerData().withProfession(prof)));
+        v.setVillagerXp(0);
+        v.snapTo(x, y, z, 0.0F, 0.0F);
+        v.setNoAi(true);
+        if (!level.addFreshEntity(v)) {
+            throw new AssertionError("Failed to add Unemployed Villager to level");
+        }
+        return v;
+    }
+
+    public static String translationKeyOf(Component component) {
+        if (component == null) {
+            return "";
+        }
+        return component.getContents() instanceof TranslatableContents tc ? tc.getKey() : component.getString();
+    }
+
     public static Entity villagerTradingPlayer(Entity entity) {
         return entity instanceof Villager v ? v.getTradingPlayer() : null;
     }

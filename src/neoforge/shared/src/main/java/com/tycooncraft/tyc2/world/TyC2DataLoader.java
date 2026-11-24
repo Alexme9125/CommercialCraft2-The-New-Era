@@ -5,8 +5,10 @@ import com.tycooncraft.tyc2.core.GoodsCatalog;
 import com.tycooncraft.tyc2.core.JsonLite;
 import com.tycooncraft.tyc2.core.MintRecipeRegistry;
 import com.tycooncraft.tyc2.core.TyC2Config;
+import com.tycooncraft.tyc2.platform.DiscoveredProfession;
 import com.tycooncraft.tyc2.platform.TyC2Native;
 import com.tycooncraft.tyc2.village.VillageLevelTable;
+import com.tycooncraft.tyc2.village.WorkplaceCatalog;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -35,12 +37,14 @@ public final class TyC2DataLoader {
     private static volatile MintRecipeRegistry mintRecipes = MintRecipeRegistry.createDefault();
     private static volatile GoodsCatalog goodsCatalog = GoodsCatalog.createDefault();
     private static volatile VillageLevelTable levelTable = VillageLevelTable.DEFAULT;
+    private static volatile WorkplaceCatalog workplaceCatalog = WorkplaceCatalog.createDefault();
     private static volatile DemandGenerator demandGenerator = new DemandGenerator(goodsCatalog, config);
 
     // Working buffers used during a single datapack reload pass
     private static MintRecipeRegistry stagingRecipes;
     private static GoodsCatalog stagingGoods;
     private static VillageLevelTable stagingLevels;
+    private static WorkplaceCatalog stagingWorkplaces;
     private static List<String> stagingSeasonOverlays;
 
     private TyC2DataLoader() {
@@ -77,6 +81,11 @@ public final class TyC2DataLoader {
         return levelTable;
     }
 
+    /** Returns the active aided villager workplace catalog (built-in + datapack + external + modded). */
+    public static WorkplaceCatalog workplaceCatalog() {
+        return workplaceCatalog;
+    }
+
     /** Returns the active demand generator bound to current catalog & config. */
     public static DemandGenerator demandGenerator() {
         return demandGenerator;
@@ -94,9 +103,12 @@ public final class TyC2DataLoader {
 
         MintRecipeRegistry recipes = MintRecipeRegistry.createDefault();
         GoodsCatalog goods = GoodsCatalog.createDefault();
-        applyExternalOverrides(configDir, recipes, goods);
+        WorkplaceCatalog workplaces = WorkplaceCatalog.createDefault();
+        applyExternalOverrides(configDir, recipes, goods, workplaces);
+        mergeModdedProfessions(workplaces, config);
         mintRecipes = recipes;
         goodsCatalog = goods;
+        workplaceCatalog = workplaces;
         demandGenerator = new DemandGenerator(goodsCatalog, config);
     }
 
@@ -104,6 +116,7 @@ public final class TyC2DataLoader {
         stagingRecipes = MintRecipeRegistry.createDefault();
         stagingGoods = GoodsCatalog.createDefault();
         stagingLevels = VillageLevelTable.DEFAULT;
+        stagingWorkplaces = WorkplaceCatalog.createDefault();
         stagingSeasonOverlays = new ArrayList<>();
     }
 
@@ -116,6 +129,7 @@ public final class TyC2DataLoader {
                 case "mint_recipes" -> stagingRecipes.mergeFromJson(json);
                 case "goods" -> stagingGoods.mergeFromJson(json);
                 case "seasons" -> stagingSeasonOverlays.add(json);
+                case "workplaces" -> stagingWorkplaces.mergeFromJson(json);
                 case "levels" -> {
                     VillageLevelTable parsed = parseLevelsJson(json);
                     if (parsed != null) {
@@ -148,17 +162,23 @@ public final class TyC2DataLoader {
             LOGGER.warn("Failed to reload config/tyc2/general.json: {}", ex.getMessage());
         }
 
-        applyExternalOverrides(configDir, stagingRecipes, stagingGoods);
+        if (stagingWorkplaces == null) {
+            stagingWorkplaces = WorkplaceCatalog.createDefault();
+        }
+        applyExternalOverrides(configDir, stagingRecipes, stagingGoods, stagingWorkplaces);
+        mergeModdedProfessions(stagingWorkplaces, config);
 
         mintRecipes = stagingRecipes;
         goodsCatalog = stagingGoods;
         levelTable = stagingLevels;
+        workplaceCatalog = stagingWorkplaces;
         demandGenerator = new DemandGenerator(goodsCatalog, config);
 
         LOGGER.info(
-                "Loaded TyC2 data: {} mint recipes, {} trade goods, disableIc2MetalFormerCoinRecipe={}",
+                "Loaded TyC2 data: {} mint recipes, {} trade goods, {} available workplaces, disableIc2MetalFormerCoinRecipe={}",
                 mintRecipes.allRecipes().size(),
                 goodsCatalog.allGoods().size(),
+                workplaceCatalog.getAvailableWorkplaces(TyC2Native::blockExists).size(),
                 config.disableIc2MetalFormerCoinRecipe()
         );
     }
@@ -166,7 +186,8 @@ public final class TyC2DataLoader {
     private static void applyExternalOverrides(
             Path configDir,
             MintRecipeRegistry recipes,
-            GoodsCatalog goods
+            GoodsCatalog goods,
+            WorkplaceCatalog workplaces
     ) {
         try {
             recipes.loadExternalConfig(configDir.resolve("custom_mint_recipes.json"), true);
@@ -177,6 +198,26 @@ public final class TyC2DataLoader {
             goods.loadExternalConfig(configDir.resolve("custom_goods.json"), true);
         } catch (Exception ex) {
             LOGGER.warn("Failed to load config/tyc2/custom_goods.json: {}", ex.getMessage());
+        }
+        try {
+            workplaces.loadExternalConfig(configDir.resolve("custom_workplaces.json"), true);
+        } catch (Exception ex) {
+            LOGGER.warn("Failed to load config/tyc2/custom_workplaces.json: {}", ex.getMessage());
+        }
+    }
+
+    private static void mergeModdedProfessions(WorkplaceCatalog workplaces, TyC2Config cfg) {
+        workplaces.clearDynamicModdedProfessions();
+        if (cfg == null || !cfg.enableModdedProfessions()) {
+            return;
+        }
+        for (DiscoveredProfession dp : TyC2Native.discoverModdedProfessions()) {
+            workplaces.registerModdedProfession(
+                    dp.professionId(),
+                    dp.workstationBlockId(),
+                    dp.displayNameFallback(),
+                    cfg
+            );
         }
     }
 

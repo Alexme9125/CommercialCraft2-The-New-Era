@@ -217,6 +217,12 @@ public final class LevelTerrainProbe implements TerrainProbe {
                 || id.contains("stonecutter")
                 || id.contains("grindstone")
                 || id.contains("barrel")
+                || id.contains("blast_furnace")
+                || id.contains("smoker")
+                || id.contains("brewing_stand")
+                || id.contains("cauldron")
+                || id.contains("water_cauldron")
+                || id.contains("bookshelf")
                 || id.contains("iron_bars")
                 || id.contains("bricks");
     }

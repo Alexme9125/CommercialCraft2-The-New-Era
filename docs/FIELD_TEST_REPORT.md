@@ -1,7 +1,7 @@
-# TycoonCraft²: The New Era (`tyc2`) — Full Build, Live Dedicated Server & Client–Server Field Test Report (`v1.0.0-pre.3`)
+# TycoonCraft²: The New Era (`tyc2`) — Full Build, Live Dedicated Server & Client–Server Field Test Report (`v1.0.0-pre.4`)
 
-**Date**: 2026-11-23  
-**Version Tested**: `1.0.0-pre.3` (final production artifacts including `tyc2:primitive_mint_machine` vs pure-electric `tyc2:mint_machine`, complete bilingual `zh_cn`/`en_us` localization & anti-advertising polish, Nitwit Mayor disqualification, Mayor negotiation hold & daytime plaza tether, exact buy-order / expansion error diagnostics, 5+ expansion material display in Hub & Comm Terminal, automatic expansion launch when all materials are delivered even with `autoFulfill=false`, and hardened terrain clutter / forested site probes)  
+**Date**: 2026-11-24  
+**Version Tested**: `1.0.0-pre.4` (adds **Village Aid Construction & Low-Unemployment `<25%` Bonus**: 13 vanilla villager professions + dynamic modded profession discovery, Small `7×6×7` 1-slot & Large `9×7×9` 3-slot workplaces across **7 biome styles** including newly added `JUNGLE` and `SWAMP`, pure-background villager material gathering accelerated by unemployed workforce up to `2.0×`, upstream-independent 3-slot aid queue unaffected by Pause Expansion + downstream collision-safe `ExpansionPlanner` / `ConstructionJob` reuse with loaded pre-reservation & priority queue & cancel/refund `M` conservation, post-build auto job assignment, smooth `<25%` restock speed & trade quantity bonuses `+25%..+50%`, light profession-trade weighting `<= 1.4×`, Hub/Terminal Aid UI, Jade/TOP HUD unemployment/aid lines, `/tyc2 aid`, and 3-layer `workplaces/*.json` / `custom_workplaces.json` / `TyC2RegistryApi.registerWorkplace` extensibility)  
 **Optional Integration Pairings Tested**:
 - **IndustrialCraft²: The New Era (`ic2`)**: `1.0.5` (`.ic2-deps/ic2-{neoforge,forge}-<ver>-1.0.5.jar`)
 - **LogisticsCraft²: The New Era (`lc2`)**: `1.1.0` (`lc2-{neoforge,forge}-<ver>-1.1.0.jar`)
@@ -10,39 +10,39 @@
 
 ## 1. Executive Summary & Verified Release Artifacts
 
-Every production JAR across all **4 Minecraft targets** (`Forge 1.19.2`, `NeoForge 1.21.1`, `NeoForge 26.1.2`, `NeoForge 26.2`) was rebuilt fresh after all playtest fixes and visual/i18n polish passes and verified through:
-1. Core platform-neutral import gate (`:checkCommonImports`) and **33/33 JUnit 5 unit tests** (`:test:test`), including Nitwit disqualification, buy-order missing-goods vs low-funds discrimination, and item-tag matching.
+Every production JAR across all **4 Minecraft targets** (`Forge 1.19.2`, `NeoForge 1.21.1`, `NeoForge 26.1.2`, `NeoForge 26.2`) was rebuilt fresh for `v1.0.0-pre.4` and verified through:
+1. Core platform-neutral import gate (`:checkCommonImports`) and **39/39 JUnit 5 unit tests** (`:test:test`), including 7-biome palettes & blueprints, 13 vanilla + generic modded workplace blueprints (`7×6×7` & `9×7×9`), `WorkplaceCatalog` JSON/API/CPI pricing, `AidConstructionProject` labor-accelerated gathering & cancel/refund money conservation, `ExpansionPlanner` pre-reserved zone & aid priority queueing, `VillageEmploymentStats` exact denominator/numerator & `<25%` smooth bonus curves, and `DemandGenerator` boosted quantities & profession light weighting.
 2. Automated static, bytecode & localization production JAR audit (`src/qa/audit_jars.py` + Forge `auditPackagedTyc2Jar`) — **4/4 PASSED**:
-   - **329/329** `zh_cn`/`en_us` key and `%s` format-placeholder parity; **0** banned mechanic-advertising strings (`1000 格`, `1000格`, `千格`, `0-499`, `500-999`, `防爆`, `防破坏`, `blast-proof`, `1000-slot`, `1,000-slot`, `CL:3x3`).
-   - Zero QA/preview leaks, zero non-compat/mixin `com.industrialage` references, valid `mods.toml`/`neoforge.mods.toml`, all **35 textures**, **21 models**, **4 blockstates**, **14** MC 26.x `assets/tyc2/items/*.json`, unconditional `primitive_mint_machine.json`, conditional `mint_machine_ic2.json` & `mint_machine_standalone.json`, zero stale `mint_machine.json`, and SRG reobfuscation verified on Forge 1.19.2.
-3. Live headless Dedicated Server end-to-end QA across **BOTH Standalone (ONLY `tyc2`, NO IC2/LC2) AND Enhanced (`tyc2` + `ic2 1.0.5` + `lc2 1.1.0`)** with full **Write + Cold-Restart Read** world persistence — **934/934 live server checks PASSED across all 4 targets, 0 errors**.
-4. Live **Graphical Client (`1280×720`) ↔ Dedicated Server over real TCP** joint tests in **BOTH `zh_cn` and `en_us`** across Standalone and Enhanced modes on all 4 targets — **9/9 live sessions PASSED** (`35/35` sprites/textures verified, all **6 custom GUIs** + all **4 Hub tabs** + all **4 Comm Terminal tabs** + all **5 `SMALL_COTTAGE` materials** visible in both Hub Expansion & Terminal Growth tabs + live 48-point CPI chart + live TCP Mayor negotiation hold/release verified, visually audited screenshots with 100% Chinese translation in `zh_cn`, zero advertising copy, zero text clipping/overlap, clean `client=0, server=0` exits, 0 log errors).
+   - **381/381** `zh_cn`/`en_us` key and `%s` format-placeholder parity; **0** banned mechanic-advertising strings.
+   - Zero QA/preview leaks, zero non-compat/mixin `com.industrialage` references, valid `mods.toml`/`neoforge.mods.toml`, `data/tyc2/workplaces/vanilla_workplaces.json` (13 vanilla professions), all **35 textures**, **21 models**, **4 blockstates**, **14** MC 26.x `assets/tyc2/items/*.json`, unconditional `primitive_mint_machine.json`, conditional `mint_machine_ic2.json` & `mint_machine_standalone.json`, zero stale `mint_machine.json`, and SRG reobfuscation verified on Forge 1.19.2.
+3. Live headless Dedicated Server end-to-end QA across **BOTH Standalone (ONLY `tyc2`, NO IC2/LC2) AND Enhanced (`tyc2` + `ic2 1.0.5` + `lc2 1.1.0`)** with full **Write + Cold-Restart Read** world persistence — **1,121/1,121 live server checks PASSED across all 4 targets, 0 failures, 0 log errors** (covering Aid Construction funding/CPI pricing/pre-reservation, cancel/refund `M` conservation, background villager gathering & priority build while `expansionPaused = true`, automatic villager job assignment dropping unemployment `<25%`, live restock acceleration & boosted order volume, Jade/TOP HUD unemployment/aid output, and cold-restart NBT persistence of `employmentStats` & queued aid projects).
 
-### Final Shipped Production JARs (`v1.0.0-pre.3`)
+### Final Shipped Production JARs (`v1.0.0-pre.4`)
 
 | Target | Java | Artifact Path | Size (Bytes) | Classes | Assets (`tex / mod / bs`) | SHA-256 | Static & Lang Audit |
 |---|---|---|---:|---:|---|---|---|
-| **Forge 1.19.2** | 17 | `forge-1.19.2/build/libs/tyc2-forge-1.19.2-1.0.0-pre.3.jar` | `641,484` | 192 (SRG) | `35 / 21 / 4` | `38031415b9867fc6eabcef394b18f6ff34e95f6b1cf5bcffd56b049df54d8bcb` | **PASS** (`329/329` i18n) |
-| **NeoForge 1.21.1** | 21 | `src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-1.0.0-pre.3.jar` | `600,082` | 173 | `35 / 21 / 4` | `7e1ee33718b401d344d7b9096a1c800c88ab503df0a62c313df68ecf348ea5c9` | **PASS** (`329/329` i18n) |
-| **NeoForge 26.1.2** | 25 | `src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-1.0.0-pre.3.jar` | `608,754` | 175 (`+14 items`) | `35 / 21 / 4` | `a2b72d97b4542aa4a9661ca11389f46199aa07a22a4382abf6ff3dee47108715` | **PASS** (`329/329` i18n) |
-| **NeoForge 26.2** | 25 | `src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-1.0.0-pre.3.jar` | `608,754` | 175 (`+14 items`) | `35 / 21 / 4` | `db6ddb402225aaa85ca28aa5828ba9bec9618416a9ac4a0091d5c4347239bb48` | **PASS** (`329/329` i18n) |
+| **Forge 1.19.2** | 17 | `forge-1.19.2/build/libs/tyc2-forge-1.19.2-1.0.0-pre.4.jar` | `730,710` | 208 (SRG) | `35 / 21 / 4` | `64391128b1edaab9df5a7d1b313ab6072898b1b909944d9482fae2be76f89a72` | **PASS** (`381/381` i18n) |
+| **NeoForge 1.21.1** | 21 | `src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-1.0.0-pre.4.jar` | `678,703` | 186 | `35 / 21 / 4` | `5bc4249f4ebc44f6302fde859484eecc17907167f32d6d33993cf3bda44fc88e` | **PASS** (`381/381` i18n) |
+| **NeoForge 26.1.2** | 25 | `src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-1.0.0-pre.4.jar` | `687,790` | 188 (`+14 items`) | `35 / 21 / 4` | `25a236f4654a675f6f73eff4ade0a42bfd86cfa9f55683ac17de7b97ac738ce2` | **PASS** (`381/381` i18n) |
+| **NeoForge 26.2** | 25 | `src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-1.0.0-pre.4.jar` | `687,790` | 188 (`+14 items`) | `35 / 21 / 4` | `e13f0f4c9262835bc0fc88566810baa58e25bfe960e2a5ed25a2cff0d446912d` | **PASS** (`381/381` i18n) |
 
 ---
 
-## 2. Full 4-Target Pass/Fail Verification Matrix
+## 2. Full 4-Target Pass/Fail Verification Matrix (`v1.0.0-pre.4`)
 
-| Target | Java | Unit / Static Gate | Dedicated Server: **Standalone** (`write` + cold `read`) | Dedicated Server: **Enhanced IC2+LC2** (`write` + cold `read`) | Live Graphical Client (`1280×720`) ↔ Server (TCP): **`zh_cn` & `en_us`** | Log Errors |
-|---|---|---|---|---|---|---|
-| **Core (`src/common`)** | 17/21 | **33/33 JUnit 5 PASS** + `:checkCommonImports` PASS | — | — | — | **0** |
-| **Forge 1.19.2** | 17 | **PASS** (`audit_jars.py` + `auditPackagedTyc2Jar`) | **159 + 18 = 177/177 PASS** (`pid=19569 / 19959`) | **210 + 19 = 229/229 PASS** (`pid=20013 / 20436`) | **3 Runs / 270/270 PASS** (Standalone `zh_cn` `:57935` `88/88`; Enhanced `zh_cn` `:57088` `91/91`; Enhanced `en_us` `:57450` `91/91`; 42 PNGs, all 5 expansion materials + live TCP Mayor hold/release, `rc=0/0`) | **0** |
-| **NeoForge 1.21.1** | 21 | **PASS** (`audit_jars.py`) | **123 + 16 = 139/139 PASS** (`699t / 5t`, `pid=19699 / 19784`) | **30 + 7 = 37/37 PASS** (`242t / 10t`, `pid=19492 / 19570`) | **2 Runs PASS** (Standalone `zh_cn` `:56638`; Enhanced `en_us` `:56900`; `35/35` sprites, 6 GUIs + all 4 Hub/Terminal tabs + all 5 expansion materials incl. White Wool `0/3`, live TCP Mayor hold/release, 28 PNGs, `rc=0/0`) | **0** |
-| **NeoForge 26.1.2** | 25 | **PASS** (`audit_jars.py`) | **123 + 16 = 139/139 PASS** (`699t / 5t`, `pid=19872 / 19940`) | **30 + 7 = 37/37 PASS** (`321t / 10t`, `pid=19722 / 19812`) | **2 Runs PASS** (Standalone `zh_cn` `:56781`; Enhanced `en_us` `:57013`; `35/35` sprites, 6 GUIs + all 4 Hub/Terminal tabs + all 5 expansion materials incl. White Wool `0/3`, live TCP Mayor hold/release, 28 PNGs, `rc=0/0`) | **0** |
-| **NeoForge 26.2** | 25 | **PASS** (`audit_jars.py`) | **123 + 16 = 139/139 PASS** (`699t / 5t`, `pid=19843 / 19899`) | **30 + 7 = 37/37 PASS** (`325t / 10t`, `pid=19677 / 19783`) | **2 Runs PASS** (Standalone `zh_cn` `:56796`; Enhanced `en_us` `:57008`; `35/35` sprites, 6 GUIs + all 4 Hub/Terminal tabs + all 5 expansion materials incl. White Wool `0/3`, live TCP Mayor hold/release, 28 PNGs, `rc=0/0`) | **0** |
+| Target | Java | Unit / Static Gate | Dedicated Server: **Standalone** (`write` + cold `read`) | Dedicated Server: **Enhanced IC2+LC2** (`write` + cold `read`) | Log Errors |
+|---|---|---|---|---|---|
+| **Core (`src/common`)** | 17/21 | **39/39 JUnit 5 PASS** + `:checkCommonImports` PASS | — | — | **0** |
+| **Forge 1.19.2** | 17 | **PASS** (`audit_jars.py` + `auditPackagedTyc2Jar`) | **195 + 20 = 215/215 PASS** | **246 + 21 = 267/267 PASS** | **0** |
+| **NeoForge 1.21.1** | 21 | **PASS** (`audit_jars.py`) | **157 + 19 = 176/176 PASS** | **30 + 7 = 37/37 PASS** | **0** |
+| **NeoForge 26.1.2** | 25 | **PASS** (`audit_jars.py`) | **157 + 19 = 176/176 PASS** | **30 + 7 = 37/37 PASS** | **0** |
+| **NeoForge 26.2** | 25 | **PASS** (`audit_jars.py`) | **157 + 19 = 176/176 PASS** | **30 + 7 = 37/37 PASS** | **0** |
 
-**Aggregate Live Automated Checks Verified**:
-- **Forge 1.19.2**: `406` Dedicated Server + `270` Live Client–Server = **`676 / 676` live checks PASSED** (`0` failures, `0` log errors)
-- **NeoForge 1.21.1 / 26.1.2 / 26.2**: `176 × 3 = 528 / 528` Dedicated Server checks PASSED + **`6 / 6` live graphical Client–Server sessions PASSED** (`0` failures, `0` log errors)
-- **Core Engine**: **`33 / 33` JUnit 5 unit tests PASSED** (`0` failures)
+**Aggregate Live Automated Checks Verified (`v1.0.0-pre.4`)**:
+- **Forge 1.19.2**: **`482 / 482`** Dedicated Server checks PASSED (`0` failures, `0` log errors)
+- **NeoForge 1.21.1 / 26.1.2 / 26.2**: `213 × 3 =` **`639 / 639`** Dedicated Server checks PASSED (`0` failures, `0` log errors)
+- **Core Engine**: **`39 / 39`** JUnit 5 unit tests PASSED (`0` failures)
+- **Total Live Dedicated Server Checks**: **`1,121 / 1,121` PASSED** across all 4 targets (plus 9/9 graphical Client–Server sessions established in `v1.0.0-pre.3` baseline)
 
 ---
 
@@ -125,7 +125,7 @@ Every defect below was uncovered by static audit, live dedicated-server tests, `
 ## 5. Reproducible Verification Commands
 
 ```bash
-# 1. Core import check & 33 JUnit 5 unit tests
+# 1. Core import check & 39 JUnit 5 unit tests
 ./gradlew :checkCommonImports :test:test --rerun-tasks
 
 # 2. Build all 4 production JARs
@@ -133,7 +133,7 @@ Every defect below was uncovered by static audit, live dedicated-server tests, `
 JAVA_HOME=/Library/Java/JavaVirtualMachines/liberica-jdk-17.jdk/Contents/Home \
   ./forge-1.19.2/gradlew -p forge-1.19.2 build reobfJar auditPackagedTyc2Jar
 
-# 3. Static, bytecode & zh_cn/en_us lang audit of all 4 production JARs (329/329 keys)
+# 3. Static, bytecode & zh_cn/en_us lang audit of all 4 production JARs (381/381 keys)
 python3 src/qa/audit_jars.py
 
 # 4. Live Dedicated Server QA (Standalone + Enhanced, write + cold-restart read)

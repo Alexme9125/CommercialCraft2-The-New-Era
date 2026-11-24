@@ -62,6 +62,7 @@ public final class TyC2ForgeMod {
         event.enqueueWork(() -> {
             TyC2ForgeNetwork.register();
             TyC2ChunkTickets.registerValidationCallback();
+            TyC2RuntimeData.refreshModdedProfessions();
         });
     }
 

@@ -128,6 +128,8 @@ public record BiomePalette(
             case SAVANNA -> SAVANNA_PALETTE;
             case TAIGA -> TAIGA_PALETTE;
             case SNOWY -> SNOWY_PALETTE;
+            case JUNGLE -> JUNGLE_PALETTE;
+            case SWAMP -> SWAMP_PALETTE;
         };
     }
 
@@ -260,6 +262,58 @@ public record BiomePalette(
             "minecraft:spruce_planks",
             "minecraft:spruce_log",
             "minecraft:stone_bricks");
+
+    private static final BiomePalette JUNGLE_PALETTE = new BiomePalette(
+            "minecraft:jungle_log",
+            "minecraft:jungle_planks",
+            "minecraft:stripped_jungle_log",
+            "minecraft:jungle_slab",
+            "minecraft:jungle_stairs",
+            "minecraft:mossy_cobblestone",
+            "minecraft:chiseled_stone_bricks",
+            "minecraft:jungle_planks",
+            "minecraft:jungle_stairs",
+            "minecraft:jungle_slab",
+            "minecraft:jungle_door",
+            "minecraft:lime_stained_glass_pane",
+            "minecraft:jungle_fence",
+            "minecraft:jungle_fence_gate",
+            "minecraft:dirt_path",
+            "minecraft:mossy_cobblestone",
+            "minecraft:jungle_fence",
+            "minecraft:lantern",
+            "minecraft:lime_bed",
+            "minecraft:wheat",
+            "minecraft:farmland",
+            "minecraft:jungle_planks",
+            "minecraft:jungle_log",
+            "minecraft:mossy_stone_bricks");
+
+    private static final BiomePalette SWAMP_PALETTE = new BiomePalette(
+            "minecraft:dark_oak_log",
+            "minecraft:spruce_planks",
+            "minecraft:stripped_dark_oak_log",
+            "minecraft:spruce_slab",
+            "minecraft:spruce_stairs",
+            "minecraft:mossy_cobblestone",
+            "minecraft:mud_bricks",
+            "minecraft:oak_planks",
+            "minecraft:dark_oak_stairs",
+            "minecraft:dark_oak_slab",
+            "minecraft:dark_oak_door",
+            "minecraft:purple_stained_glass_pane",
+            "minecraft:dark_oak_fence",
+            "minecraft:dark_oak_fence_gate",
+            "minecraft:coarse_dirt",
+            "minecraft:mud_bricks",
+            "minecraft:dark_oak_fence",
+            "minecraft:lantern",
+            "minecraft:purple_bed",
+            "minecraft:potatoes",
+            "minecraft:farmland",
+            "minecraft:spruce_planks",
+            "minecraft:dark_oak_log",
+            "minecraft:mud_bricks");
 
     private static void requireBlockId(String value, String field) {
         if (value == null || value.isBlank()) {

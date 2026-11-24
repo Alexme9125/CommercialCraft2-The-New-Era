@@ -220,10 +220,58 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
             "data/tyc2/goods/kaleidoscope_cookery.json",
             "data/tyc2/seasons/harvest_seasons.json",
             "data/tyc2/levels/village_levels.json",
+            "data/tyc2/workplaces/vanilla_workplaces.json",
         ]
         for req in required_data:
             if req not in entries:
                 issues.append(f"[{name}] Missing datapack preset: {req}")
+
+        # Verify vanilla_workplaces.json covers all 13 vanilla villager professions
+        if "data/tyc2/workplaces/vanilla_workplaces.json" in entries:
+            try:
+                wp_data = json.loads(zf.read("data/tyc2/workplaces/vanilla_workplaces.json").decode("utf-8"))
+                wp_entries = wp_data.get("workplaces", [])
+                wp_profs = {str(w.get("professionId", "")).lower() for w in wp_entries if isinstance(w, dict)}
+                expected_profs = {
+                    "minecraft:farmer",
+                    "minecraft:fisherman",
+                    "minecraft:shepherd",
+                    "minecraft:fletcher",
+                    "minecraft:butcher",
+                    "minecraft:leatherworker",
+                    "minecraft:mason",
+                    "minecraft:cartographer",
+                    "minecraft:toolsmith",
+                    "minecraft:weaponsmith",
+                    "minecraft:armorer",
+                    "minecraft:cleric",
+                    "minecraft:librarian",
+                }
+                missing_profs = sorted(expected_profs - wp_profs)
+                if missing_profs:
+                    issues.append(f"[{name}] vanilla_workplaces.json missing professions: {missing_profs}")
+            except Exception as exc:
+                issues.append(f"[{name}] Failed parsing vanilla_workplaces.json: {exc}")
+
+        # Verify core Aid Construction, 7-biome, and HUD localization keys exist
+        if "assets/tyc2/lang/en_us.json" in entries:
+            en_keys = set(json.loads(zf.read("assets/tyc2/lang/en_us.json").decode("utf-8")).keys())
+            for req_key in (
+                "biome.tyc2.jungle",
+                "biome.tyc2.swamp",
+                "project.tyc2.aid_workplace_small",
+                "project.tyc2.aid_workplace_large",
+                "gui.tyc2.hub.tab.aid",
+                "hud.tyc2.hub.unemployment",
+                "hud.tyc2.hub.employment_bonus",
+                "hud.tyc2.hub.aid_active",
+                "hud.tyc2.mayor.unemployment",
+                "status.tyc2.aid.started",
+                "status.tyc2.aid.cancelled",
+                "status.tyc2.aid.completed",
+            ):
+                if req_key not in en_keys:
+                    issues.append(f"[{name}] Missing required lang key: {req_key}")
 
         # Validate ALL JSON files in JAR
         for e in entries:

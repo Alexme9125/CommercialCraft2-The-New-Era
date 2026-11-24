@@ -148,6 +148,8 @@ public final class VillageRecord {
     private long lastDemandRefreshTick;
     private long lastExpansionTick;
     private final List<ConstructionJob> constructionQueue;
+    private final List<AidConstructionProject> aidProjects;
+    private VillageEmploymentStats employmentStats;
 
     /**
      * Creates a new unpartnered Level-1 {@link VillageRecord} centered at {@code hubPos}.
@@ -188,6 +190,8 @@ public final class VillageRecord {
         this.lastDemandRefreshTick = 0L;
         this.lastExpansionTick = 0L;
         this.constructionQueue = new ArrayList<>();
+        this.aidProjects = new ArrayList<>();
+        this.employmentStats = VillageEmploymentStats.EMPTY;
     }
 
     /**
@@ -243,6 +247,93 @@ public final class VillageRecord {
             long lastDemandRefreshTick,
             long lastExpansionTick,
             List<ConstructionJob> constructionQueue) {
+        this(
+                villageId,
+                dimensionId,
+                villageName,
+                hubPos,
+                biomeStyle,
+                partnered,
+                ownerPlayerUuid,
+                companyAccountId,
+                level,
+                population,
+                cumulativeTradeVolume,
+                villageBalance,
+                mayorState,
+                storage,
+                activeOrders,
+                activeExpansion,
+                occupiedZones,
+                reservedLc2Pads,
+                expansionPaused,
+                minExpansionRadius,
+                maxExpansionRadius,
+                lastDemandRefreshTick,
+                lastExpansionTick,
+                constructionQueue,
+                List.of(),
+                VillageEmploymentStats.EMPTY);
+    }
+
+    /**
+     * Restores a {@link VillageRecord} with full persisted state including aid construction projects
+     * and cached {@link VillageEmploymentStats}.
+     *
+     * @param villageId unique village UUID
+     * @param dimensionId dimension registry ID
+     * @param villageName village display name
+     * @param hubPos Hub block position
+     * @param biomeStyle architectural biome style
+     * @param partnered whether partnership is active
+     * @param ownerPlayerUuid owning player UUID (nullable)
+     * @param companyAccountId linked company/guild account ID (nullable)
+     * @param level village level ({@code 1..10})
+     * @param population last tracked living villager count
+     * @param cumulativeTradeVolume total IC traded historically
+     * @param villageBalance current municipal treasury balance in IC
+     * @param mayorState Mayor lifecycle state
+     * @param storage 1,000-slot Cooperation Hub storage
+     * @param activeOrders current active trade orders
+     * @param activeExpansion current expansion desire (nullable)
+     * @param occupiedZones protected bounding boxes of existing and built structures
+     * @param reservedLc2Pads reserved LC2 logistics pad coordinates
+     * @param expansionPaused whether automatic expansion is paused
+     * @param minExpansionRadius inner expansion search radius
+     * @param maxExpansionRadius outer expansion search radius
+     * @param lastDemandRefreshTick tick of last demand refresh
+     * @param lastExpansionTick tick of last expansion launch
+     * @param constructionQueue queued gradual construction jobs
+     * @param aidProjects active and queued aid construction projects (nullable)
+     * @param employmentStats cached village employment statistics (nullable)
+     */
+    public VillageRecord(
+            UUID villageId,
+            String dimensionId,
+            String villageName,
+            BlockPos3i hubPos,
+            BiomeStyle biomeStyle,
+            boolean partnered,
+            UUID ownerPlayerUuid,
+            String companyAccountId,
+            int level,
+            int population,
+            long cumulativeTradeVolume,
+            long villageBalance,
+            MayorState mayorState,
+            CooperationHubStorage storage,
+            List<VillageTradeOrder> activeOrders,
+            ExpansionDesire activeExpansion,
+            List<Aabb3i> occupiedZones,
+            List<BlockPos3i> reservedLc2Pads,
+            boolean expansionPaused,
+            int minExpansionRadius,
+            int maxExpansionRadius,
+            long lastDemandRefreshTick,
+            long lastExpansionTick,
+            List<ConstructionJob> constructionQueue,
+            List<AidConstructionProject> aidProjects,
+            VillageEmploymentStats employmentStats) {
         this.villageId = Objects.requireNonNull(villageId, "villageId");
         this.dimensionId = requireNonBlank(dimensionId, "dimensionId");
         this.villageName = requireNonBlank(villageName, "villageName");
@@ -267,6 +358,8 @@ public final class VillageRecord {
         this.lastDemandRefreshTick = Math.max(0L, lastDemandRefreshTick);
         this.lastExpansionTick = Math.max(0L, lastExpansionTick);
         this.constructionQueue = new ArrayList<>(Objects.requireNonNull(constructionQueue, "constructionQueue"));
+        this.aidProjects = aidProjects == null ? new ArrayList<>() : new ArrayList<>(aidProjects);
+        this.employmentStats = employmentStats == null ? VillageEmploymentStats.EMPTY : employmentStats;
     }
 
     /**
@@ -860,6 +953,17 @@ public final class VillageRecord {
     }
 
     /**
+     * Removes a single matching occupied zone (used when cancelling an aid project that pre-reserved
+     * its site bounding box prior to block placement).
+     *
+     * @param zone bounding box to remove
+     * @return {@code true} if removed
+     */
+    public boolean removeOccupiedZone(Aabb3i zone) {
+        return zone != null && occupiedZones.remove(zone);
+    }
+
+    /**
      * Returns an unmodifiable view of all reserved LC2 logistics pad coordinates.
      *
      * @return reserved LC2 pad coordinates
@@ -983,6 +1087,172 @@ public final class VillageRecord {
      */
     public void enqueueConstruction(ConstructionJob job) {
         constructionQueue.add(Objects.requireNonNull(job, "job"));
+    }
+
+    /**
+     * Enqueues a planned {@link ConstructionJob}, optionally inserting high-priority aid construction
+     * jobs ahead of queued regular expansion jobs without interrupting an already-started head job.
+     *
+     * @param job construction job to enqueue
+     * @param highPriority {@code true} to insert at index 1 if index 0 already has placed blocks, else index 0
+     */
+    public void enqueueConstructionWithPriority(ConstructionJob job, boolean highPriority) {
+        Objects.requireNonNull(job, "job");
+        if (!highPriority || constructionQueue.isEmpty()) {
+            constructionQueue.add(job);
+            return;
+        }
+        ConstructionJob head = constructionQueue.get(0);
+        if (!head.isCompleted() && head.getPlacedCount() > 0) {
+            constructionQueue.add(1, job);
+        } else {
+            constructionQueue.add(0, job);
+        }
+    }
+
+    /**
+     * Returns the dynamic villager scan radius covering the full village expansion perimeter:
+     * {@code max(48, maxExpansionRadius + 12)}.
+     *
+     * @return villager scan radius in blocks
+     */
+    public int effectiveVillagerScanRadius() {
+        return Math.max(48, maxExpansionRadius + 12);
+    }
+
+    /**
+     * Returns an unmodifiable view of active and queued {@link AidConstructionProject}s.
+     *
+     * @return aid project list
+     */
+    public List<AidConstructionProject> getAidProjects() {
+        return Collections.unmodifiableList(aidProjects);
+    }
+
+    /**
+     * Replaces the aid project list with {@code projects}.
+     *
+     * @param projects replacement list (null clears list)
+     */
+    public void setAidProjects(List<AidConstructionProject> projects) {
+        aidProjects.clear();
+        if (projects != null) {
+            aidProjects.addAll(projects);
+        }
+    }
+
+    /**
+     * Appends an {@link AidConstructionProject} unconditionally.
+     *
+     * @param project aid project to add
+     */
+    public void addAidProject(AidConstructionProject project) {
+        aidProjects.add(Objects.requireNonNull(project, "project"));
+    }
+
+    /**
+     * Appends an {@link AidConstructionProject} if the queue has fewer than {@code maxQueued} entries.
+     *
+     * @param project aid project to add
+     * @param maxQueued maximum queue capacity ({@code >= 1})
+     * @return {@code true} if added, {@code false} if queue is full
+     */
+    public boolean addAidProject(AidConstructionProject project, int maxQueued) {
+        Objects.requireNonNull(project, "project");
+        if (aidProjects.size() >= Math.max(1, maxQueued)) {
+            return false;
+        }
+        aidProjects.add(project);
+        return true;
+    }
+
+    /**
+     * Looks up an aid project by its {@link AidConstructionProject#projectId()}.
+     *
+     * @param projectId project identifier
+     * @return optional matching project
+     */
+    public Optional<AidConstructionProject> findAidProject(String projectId) {
+        if (projectId == null || projectId.isBlank()) {
+            return Optional.empty();
+        }
+        for (AidConstructionProject project : aidProjects) {
+            if (projectId.equals(project.projectId())) {
+                return Optional.of(project);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Looks up an aid project linked to a {@link ConstructionJob#getJobId()}.
+     *
+     * @param jobId construction job ID
+     * @return optional matching project
+     */
+    public Optional<AidConstructionProject> findAidProjectByJobId(String jobId) {
+        if (jobId == null || jobId.isBlank()) {
+            return Optional.empty();
+        }
+        for (AidConstructionProject project : aidProjects) {
+            if (jobId.equals(project.plannedJobId())) {
+                return Optional.of(project);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Replaces an existing aid project with matching {@link AidConstructionProject#projectId()}.
+     *
+     * @param updated updated project snapshot
+     * @return {@code true} if found and replaced
+     */
+    public boolean updateAidProject(AidConstructionProject updated) {
+        Objects.requireNonNull(updated, "updated");
+        for (int i = 0; i < aidProjects.size(); i++) {
+            if (updated.projectId().equals(aidProjects.get(i).projectId())) {
+                aidProjects.set(i, updated);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Removes an aid project by {@code projectId} and returns the removed snapshot if present.
+     *
+     * @param projectId project identifier
+     * @return optional removed aid project
+     */
+    public Optional<AidConstructionProject> removeAidProject(String projectId) {
+        if (projectId == null || projectId.isBlank()) {
+            return Optional.empty();
+        }
+        for (int i = 0; i < aidProjects.size(); i++) {
+            if (projectId.equals(aidProjects.get(i).projectId())) {
+                return Optional.of(aidProjects.remove(i));
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Returns the last scanned (or persisted) {@link VillageEmploymentStats} snapshot.
+     *
+     * @return employment statistics (never null)
+     */
+    public VillageEmploymentStats getEmploymentStats() {
+        return employmentStats;
+    }
+
+    /**
+     * Updates the cached {@link VillageEmploymentStats} snapshot.
+     *
+     * @param stats new snapshot (null resets to {@link VillageEmploymentStats#EMPTY})
+     */
+    public void setEmploymentStats(VillageEmploymentStats stats) {
+        this.employmentStats = stats == null ? VillageEmploymentStats.EMPTY : stats;
     }
 
     /**

@@ -9,6 +9,7 @@ import com.tycooncraft.tyc2.village.CooperationHubStorage;
 import com.tycooncraft.tyc2.village.ExpansionDesire;
 import com.tycooncraft.tyc2.village.SlotStack;
 import com.tycooncraft.tyc2.village.VillageRecord;
+import com.tycooncraft.tyc2.village.WorkplaceSize;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -38,7 +39,9 @@ public final class C2SHubActionPacket {
         TOGGLE_EXPANSION_PAUSE,
         RENAME_VILLAGE,
         RELOCATE_HUB,
-        TERMINATE_PARTNERSHIP
+        TERMINATE_PARTNERSHIP,
+        START_AID,
+        CANCEL_AID
     }
 
     public final BlockPos hubPos;
@@ -236,6 +239,18 @@ public final class C2SHubActionPacket {
                 if (res.success()) {
                     closeScreen = true;
                 }
+            }
+            case START_AID -> {
+                WorkplaceSize size = pkt.intArgA == 1 ? WorkplaceSize.LARGE : WorkplaceSize.SMALL;
+                var res = TycoonForgeWorldManager.startAidConstruction(
+                        player, vid, pkt.textArg, size, pkt.flagArg,
+                        menu != null ? menu.getCashContainer() : null, null
+                );
+                feedback = res.toComponent();
+            }
+            case CANCEL_AID -> {
+                var res = TycoonForgeWorldManager.cancelAidConstruction(player, vid, pkt.textArg, true);
+                feedback = res.toComponent();
             }
         }
 

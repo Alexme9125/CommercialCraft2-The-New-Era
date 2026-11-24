@@ -112,6 +112,7 @@ class GeometryAndBiomeTest {
 
     @Test
     void biomeStyleMappingAndPalettes() {
+        assertEquals(7, BiomeStyle.values().length);
         assertEquals(BiomeStyle.PLAINS, BiomeStyle.fromBiomeId("minecraft:plains"));
         assertEquals(BiomeStyle.PLAINS, BiomeStyle.fromBiomeId("minecraft:meadow"));
         assertEquals(BiomeStyle.DESERT, BiomeStyle.fromBiomeId("minecraft:desert"));
@@ -122,6 +123,16 @@ class GeometryAndBiomeTest {
         assertEquals(BiomeStyle.SNOWY, BiomeStyle.fromBiomeId("minecraft:snowy_plains"));
         assertEquals(BiomeStyle.SNOWY, BiomeStyle.fromBiomeId("minecraft:snowy_taiga"));
         assertEquals(BiomeStyle.SNOWY, BiomeStyle.fromBiomeId("minecraft:ice_spikes"));
+        assertEquals(BiomeStyle.SNOWY, BiomeStyle.fromBiomeId("minecraft:grove"));
+        assertEquals(BiomeStyle.JUNGLE, BiomeStyle.fromBiomeId("minecraft:jungle"));
+        assertEquals(BiomeStyle.JUNGLE, BiomeStyle.fromBiomeId("minecraft:bamboo_jungle"));
+        assertEquals(BiomeStyle.JUNGLE, BiomeStyle.fromBiomeId("minecraft:sparse_jungle"));
+        assertEquals(BiomeStyle.JUNGLE, BiomeStyle.fromBiomeId("biomesoplenty:rainforest"));
+        assertEquals(BiomeStyle.SWAMP, BiomeStyle.fromBiomeId("minecraft:swamp"));
+        assertEquals(BiomeStyle.SWAMP, BiomeStyle.fromBiomeId("minecraft:mangrove_swamp"));
+        assertEquals(BiomeStyle.SWAMP, BiomeStyle.fromBiomeId("biomesoplenty:marsh"));
+        assertEquals(BiomeStyle.SWAMP, BiomeStyle.fromBiomeId("biomesoplenty:bog"));
+        assertEquals(BiomeStyle.SWAMP, BiomeStyle.fromBiomeId("biomesoplenty:bayou"));
         assertEquals(BiomeStyle.PLAINS, BiomeStyle.fromBiomeId(null));
 
         for (BiomeStyle style : BiomeStyle.values()) {
@@ -134,10 +145,29 @@ class GeometryAndBiomeTest {
             assertTrue(p.helipadBlock().contains(":"));
         }
 
-        // Desert log is cut_sandstone (no axis property); Plains log is oak_log (has axis property)
+        // Verify JUNGLE and SWAMP cross-version-safe palettes
+        BiomePalette jungle = BiomeStyle.JUNGLE.palette();
+        assertEquals("minecraft:jungle_log", jungle.log());
+        assertEquals("minecraft:chiseled_stone_bricks", jungle.accentStone());
+        assertEquals("minecraft:lime_stained_glass_pane", jungle.glassPane());
+        assertEquals("minecraft:lime_bed", jungle.bed());
+        assertEquals("minecraft:mossy_stone_bricks", jungle.helipadBlock());
+
+        BiomePalette swamp = BiomeStyle.SWAMP.palette();
+        assertEquals("minecraft:dark_oak_log", swamp.log());
+        assertEquals("minecraft:spruce_planks", swamp.planks());
+        assertEquals("minecraft:mud_bricks", swamp.accentStone());
+        assertEquals("minecraft:purple_stained_glass_pane", swamp.glassPane());
+        assertEquals("minecraft:purple_bed", swamp.bed());
+
+        // Desert log is cut_sandstone (no axis property); Plains/Jungle/Swamp logs support axis
         assertEquals("minecraft:cut_sandstone",
                 BiomePalette.withAxisIfSupported(BiomeStyle.DESERT.palette().log(), "y"));
         assertEquals("minecraft:oak_log[axis=y]",
                 BiomePalette.withAxisIfSupported(BiomeStyle.PLAINS.palette().log(), "y"));
+        assertEquals("minecraft:jungle_log[axis=y]",
+                BiomePalette.withAxisIfSupported(BiomeStyle.JUNGLE.palette().log(), "y"));
+        assertEquals("minecraft:dark_oak_log[axis=y]",
+                BiomePalette.withAxisIfSupported(BiomeStyle.SWAMP.palette().log(), "y"));
     }
 }

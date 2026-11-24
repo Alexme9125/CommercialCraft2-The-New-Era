@@ -12,14 +12,14 @@ If you also install [IndustrialCraft²: The New Era (`ic2`)](https://github.com/
 
 Pick the JAR that matches your Minecraft version and mod loader, then drop it into your instance's `mods/` folder. Multiplayer requires the mod on both client and server.
 
-[v1.0.0-pre.3 Release Notes](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/tag/v1.0.0-pre.3) · [SHA-256 Checksums](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/SHA256SUMS.txt) · [Live Server & Client-Server Field Test Report](docs/FIELD_TEST_REPORT.md) · [Design Specification](docs/DESIGN.md)
+[v1.0.0-pre.4 Release Notes](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/tag/v1.0.0-pre.4) · [SHA-256 Checksums](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.4/SHA256SUMS.txt) · [Live Server & Client-Server Field Test Report](docs/FIELD_TEST_REPORT.md) · [Design Specification](docs/DESIGN.md)
 
 | Minecraft | Loader | Java | Download |
 | --- | --- | ---: | --- |
-| 1.19.2 | Forge 43.5.0 | 17 | [Forge 1.19.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/tyc2-forge-1.19.2-1.0.0-pre.3.jar) |
-| 1.21.1 | NeoForge 21.1.265 | 21 | [NeoForge 1.21.1 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/tyc2-neoforge-1.21.1-1.0.0-pre.3.jar) |
-| 26.1.2 | NeoForge 26.1.2.128 | 25 | [NeoForge 26.1.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/tyc2-neoforge-26.1.2-1.0.0-pre.3.jar) |
-| 26.2 | NeoForge 26.2.0.95 | 25 | [NeoForge 26.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/tyc2-neoforge-26.2-1.0.0-pre.3.jar) |
+| 1.19.2 | Forge 43.5.0 | 17 | [Forge 1.19.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.4/tyc2-forge-1.19.2-1.0.0-pre.4.jar) |
+| 1.21.1 | NeoForge 21.1.265 | 21 | [NeoForge 1.21.1 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.4/tyc2-neoforge-1.21.1-1.0.0-pre.4.jar) |
+| 26.1.2 | NeoForge 26.1.2.128 | 25 | [NeoForge 26.1.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.4/tyc2-neoforge-26.1.2-1.0.0-pre.4.jar) |
+| 26.2 | NeoForge 26.2.0.95 | 25 | [NeoForge 26.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.4/tyc2-neoforge-26.2-1.0.0-pre.4.jar) |
 
 TyC2 detects optional companion mods at startup and ignores any you do not install.
 
@@ -85,25 +85,34 @@ Prices move with a global Consumer Price Index (CPI) driven by total money suppl
 
 When Serene Seasons or Ecliptic Seasons is installed, farming villages sell in-season harvests at `0.75x` price and double volume. Once a crop goes out of season, especially in winter, villages stop selling it and post `1.45x` to `1.75x` buy orders instead, so you can stockpile harvests and sell them in the off-season. Farmer's Delight, Kaleidoscope Cookery, and IC2 crops and dishes join the catalog automatically when those mods are present.
 
-Partnered villages also post periodic expansion material orders. Once supplied, the village builds outward `2` blocks every `3` ticks from the ground up using templates tailored to its biome (Plains, Desert, Savanna, Taiga, or Snowy): roads and streetlights, crop farms, animal ranches, cottages, larger homes, multi-story townhouses, and open waterfront piers or helipad plazas sized for LC2 ports and drone stations. The builder checks live terrain and a player-placed block tracker so it never overwrites player builds, chests, machines, pipes, or existing village structures. Finished houses attract new villagers automatically. You can pause expansion or adjust the allowed radius (`10` to `72` blocks) anytime in the Hub settings.
+Partnered villages also post periodic expansion material orders. Once supplied, the village builds outward `2` blocks every `3` ticks from the ground up using templates tailored to its biome (Plains, Desert, Savanna, Taiga, Snowy, Jungle, or Swamp — 7 biome palettes): roads and streetlights, crop farms, animal ranches, cottages, larger homes, multi-story townhouses, and open waterfront piers or helipad plazas sized for LC2 ports and drone stations. The builder checks live terrain and a player-placed block tracker so it never overwrites player builds, chests, machines, pipes, or existing village structures. Finished houses attract new villagers automatically. You can pause expansion or adjust the allowed radius (`10` to `72` blocks) anytime in the Hub settings.
+
+#### Village Aid Construction and Low-Unemployment Bonus
+
+As village population grows, you can fund dedicated profession workplaces from the Cooperation Hub (**Growth → Aid** sub-tab, cash or bank) or remotely through the Comm Terminal (bank + `100 EU`):
+
+- **Professions and sizes**: Covers all 13 Vanilla villager professions plus automatically discovered modded villager professions and their POI workstations. Choose a **Small Workplace** (`7x6x7`, 1 workstation, Lv 1+) or a **Large Workshop** (`9x7x9`, 3 workstations, Lv 3+). Aid buildings place zero beds so they create jobs without inflating population.
+- **Pricing, gathering, and priority building**: Quotes scale with live CPI and burn currency as an infrastructure money sink. After funding, villagers gather materials virtually in the background (works in unloaded chunks, unaffected by Pause Expansion, up to `2.0x` faster with more unemployed adults). Cancelling before block placement begins issues a full refund and restores global money supply `M`. Ready aid projects build ahead of queued regular expansion and automatically assign nearby unemployed adult villagers upon completion.
+- **Low-unemployment bonus (`< 25%`)**: Keeping adult non-nitwit unemployment below `25%` (with the Mayor counted as employed) activates a smooth bonus scaling toward `0%`: `+25%` to `+50%` faster order restocking and `+25%` to `+50%` larger order quantities (`+10%` to `+20%` on rare enchanted books and endgame items), plus gentle trade weighting for active village professions. Jade and The One Probe HUDs display unemployment, active bonus rates, and aid construction progress on both the Hub and Mayor.
 
 ## Commands and customization
 
-Built-in commands (the last four require OP):
+Built-in commands (the last five require OP):
 
-- `/tyc2 status`: show global CPI, money supply, active season, and nearest village info
+- `/tyc2 status`: show global CPI, money supply, active season, and nearest village info (including unemployment, bonus, and aid queue)
 - `/tyc2 cpi`: show the current price index and inflation state
 - `/tyc2 season`: show the detected season
 - `/tyc2 reload`: reload external config files and data overrides
 - `/tyc2 mint <amount>`: debug helper to adjust tracked money supply
 - `/tyc2 expand [projectType]`: trigger an expansion project on the nearest partnered village
+- `/tyc2 aid <profession> [small|large]`: immediately launch an aided workplace build on the nearest partnered village
 - `/tyc2 levelup`: test upgrading the nearest partnered village
 
 Modpack authors and developers can extend the mod through three layers:
 
-1. Datapack JSON (supports `/reload`): add or override `data/<namespace>/tyc2/goods/*.json`, `mint_recipes/*.json` (supports `#ingots/*` tags), `seasons/*.json`, and `levels/*.json`.
-2. External config folder (created on first launch): edit `config/tyc2/general.json` (toggle IC2 Metal Former coin blocking, negotiation costs, CPI bounds, refresh and expansion timers), or add entries to `custom_goods.json` and `custom_mint_recipes.json` and run `/tyc2 reload`.
-3. Public Java API: use `com.tycooncraft.tyc2.api.TyC2RegistryApi` to register custom goods, minting recipes, season providers, and industrial tier detectors from another mod.
+1. Datapack JSON (supports `/reload`): add or override `data/<namespace>/tyc2/goods/*.json`, `mint_recipes/*.json` (supports `#ingots/*` tags), `seasons/*.json`, `levels/*.json`, and `workplaces/*.json`.
+2. External config folder (created on first launch): edit `config/tyc2/general.json` (toggle IC2 Metal Former coin blocking, negotiation costs, CPI bounds, refresh/expansion timers, aid/unemployment tuning, and modded profession blacklist), or add entries to `custom_goods.json`, `custom_mint_recipes.json`, and `custom_workplaces.json` and run `/tyc2 reload`.
+3. Public Java API: use `com.tycooncraft.tyc2.api.TyC2RegistryApi` to register custom goods, minting recipes, aided workplaces (`registerWorkplace`), season providers, and industrial tier detectors from another mod.
 
 ## Building from source
 
@@ -135,7 +144,7 @@ IC2 is optional at runtime, but compiling the isolated soft-integration bridges 
 Run these commands from the repository root (on Windows, replace `./gradlew` with `gradlew.bat` and `./forge-1.19.2/gradlew` with `forge-1.19.2\gradlew.bat`):
 
 ```sh
-# 1. Pure-Java import check, 31 JUnit 5 tests, and NeoForge 1.21.1 / 26.1.2 / 26.2 JARs
+# 1. Pure-Java import check, 39 JUnit 5 tests, and NeoForge 1.21.1 / 26.1.2 / 26.2 JARs
 ./gradlew :checkCommonImports :test:test :neoforge:1.21.1:jar :neoforge:26.1.2:jar :neoforge:26.2:jar
 
 # 2. Forge 1.19.2 reobfuscated JAR with JDK 17 (point JAVA_HOME to your JDK 17 install)
@@ -144,10 +153,10 @@ JAVA_HOME=/path/to/jdk-17 ./forge-1.19.2/gradlew -p forge-1.19.2 build reobfJar
 
 Built JARs appear at:
 
-- Forge 1.19.2: `forge-1.19.2/build/libs/tyc2-forge-1.19.2-1.0.0-pre.3.jar`
-- NeoForge 1.21.1: `src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-1.0.0-pre.3.jar`
-- NeoForge 26.1.2: `src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-1.0.0-pre.3.jar`
-- NeoForge 26.2: `src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-1.0.0-pre.3.jar`
+- Forge 1.19.2: `forge-1.19.2/build/libs/tyc2-forge-1.19.2-1.0.0-pre.4.jar`
+- NeoForge 1.21.1: `src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-1.0.0-pre.4.jar`
+- NeoForge 26.1.2: `src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-1.0.0-pre.4.jar`
+- NeoForge 26.2: `src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-1.0.0-pre.4.jar`
 
 ### Run static audits and live QA (optional)
 

@@ -4,7 +4,7 @@ import java.util.Locale;
 import java.util.Objects;
 
 /**
- * The five canonical Minecraft village architectural styles supported by TycoonCraft².
+ * The seven canonical Minecraft village architectural styles supported by TycoonCraft².
  */
 public enum BiomeStyle {
     /** Temperate oak-and-stone village architecture. */
@@ -16,7 +16,11 @@ public enum BiomeStyle {
     /** Boreal spruce-and-mossy-cobblestone village architecture. */
     TAIGA("taiga"),
     /** Frost spruce, snow-block, and packed-ice village architecture. */
-    SNOWY("snowy");
+    SNOWY("snowy"),
+    /** Lush jungle-timber and mossy-stone village architecture. */
+    JUNGLE("jungle"),
+    /** Marshland dark-oak, spruce, and mud-brick village architecture. */
+    SWAMP("swamp");
 
     private final String id;
 
@@ -74,6 +78,18 @@ public enum BiomeStyle {
         }
         if (path.contains("savanna")) {
             return SAVANNA;
+        }
+        if (path.contains("jungle")
+                || path.contains("bamboo")
+                || path.contains("rainforest")) {
+            return JUNGLE;
+        }
+        if (path.contains("swamp")
+                || path.contains("mangrove")
+                || path.contains("marsh")
+                || path.contains("bog")
+                || path.contains("bayou")) {
+            return SWAMP;
         }
         if (path.contains("taiga")
                 || path.contains("spruce")

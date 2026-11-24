@@ -1,7 +1,11 @@
 package com.tycooncraft.tyc2.core;
 
+import com.tycooncraft.tyc2.village.VillageEmploymentStats;
+import com.tycooncraft.tyc2.village.WorkplaceCatalog;
+
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,6 +26,9 @@ public final class DemandGenerator {
     private static final int[] SELL_ORDER_COUNTS = {0, 3, 4, 4, 5, 6, 6, 7, 8, 9, 10};
     private static final int[] BUY_ORDER_COUNTS = {0, 2, 3, 4, 4, 5, 6, 6, 7, 8, 9};
     private static final double[] QTY_SCALES = {0.0, 1.0, 1.3, 1.6, 2.0, 2.5, 3.2, 4.0, 5.0, 6.5, 8.0};
+    private static final double PROFESSION_WEIGHT_STEP = 0.12;
+    private static final double MAX_PROFESSION_WEIGHT_MULT = 1.40;
+    private static final WorkplaceCatalog DEFAULT_WORKPLACES = WorkplaceCatalog.createDefault();
 
     /**
      * Side of a generated village trade order.
@@ -163,9 +170,55 @@ public final class DemandGenerator {
             Predicate<String> itemExists,
             Random random
     ) {
+        return generate(
+                villageLevel,
+                biomeId,
+                villageBalance,
+                playerIndustrialTier,
+                currentSeason,
+                economy,
+                itemExists,
+                VillageEmploymentStats.EMPTY,
+                DEFAULT_WORKPLACES,
+                random
+        );
+    }
+
+    /**
+     * Generates Sell Orders and Buy Orders for a partnered village, additionally factoring in
+     * {@link VillageEmploymentStats} low-unemployment trade quantity bonuses ({@code 1.25x..1.50x},
+     * moderated {@code 1.10x..1.20x} on rare categories) and gentle active-profession category weighting
+     * ({@code <= 1.40x}) while strictly preserving all village level and {@link IndustrialTier} caps.
+     *
+     * @param villageLevel village level (1..10)
+     * @param biomeId village biome ID or style key (e.g. {@code "minecraft:plains"})
+     * @param villageBalance current village balance in IC
+     * @param playerIndustrialTier owner player or company highest industrial tier
+     * @param currentSeason current season (or {@link Season#NONE})
+     * @param economy live macro-economy engine
+     * @param itemExists runtime predicate verifying an item ID is registered in Minecraft
+     * @param employmentStats village employment snapshot (null treated as {@link VillageEmploymentStats#EMPTY})
+     * @param workplaceCatalog workplace catalog mapping professions to trade categories (null uses default)
+     * @param random RNG source
+     * @return generated sell and buy orders
+     */
+    public GeneratedDemand generate(
+            int villageLevel,
+            String biomeId,
+            long villageBalance,
+            IndustrialTier playerIndustrialTier,
+            Season currentSeason,
+            MacroEconomyEngine economy,
+            Predicate<String> itemExists,
+            VillageEmploymentStats employmentStats,
+            WorkplaceCatalog workplaceCatalog,
+            Random random
+    ) {
         Objects.requireNonNull(economy, "economy must not be null");
         Objects.requireNonNull(itemExists, "itemExists must not be null");
         Random rng = random == null ? new Random() : random;
+        VillageEmploymentStats stats = employmentStats == null ? VillageEmploymentStats.EMPTY : employmentStats;
+        WorkplaceCatalog workplaces = workplaceCatalog == null ? DEFAULT_WORKPLACES : workplaceCatalog;
 
         int level = clampLevel(villageLevel);
         Season season = currentSeason == null ? Season.NONE : currentSeason;
@@ -176,15 +229,18 @@ public final class DemandGenerator {
                 config.enforceIndustrialTierCap()
         );
         double qtyScale = quantityScaleForLevel(level);
+        double empQtyMult = stats.tradeQuantityMultiplier(config);
+        double empRareQtyMult = stats.rareTradeQuantityMultiplier(config);
+        Map<GoodsCategory, Integer> profCountByCategory = countProfessionsByCategory(stats, workplaces);
         List<TradeGood> liveGoods = catalog.getAvailableGoods(itemExists);
 
         List<GeneratedOrder> sellOrders = generateSellOrders(
                 level, biomeId, villageBalance, maxUnlockedTier, season, seasonalActive,
-                qtyScale, economy, liveGoods, rng
+                qtyScale, empQtyMult, empRareQtyMult, profCountByCategory, economy, liveGoods, rng
         );
         List<GeneratedOrder> buyOrders = generateBuyOrders(
                 level, biomeId, villageBalance, maxUnlockedTier, season, seasonalActive,
-                qtyScale, economy, liveGoods, rng
+                qtyScale, empQtyMult, empRareQtyMult, profCountByCategory, economy, liveGoods, rng
         );
 
         return new GeneratedDemand(
@@ -201,6 +257,9 @@ public final class DemandGenerator {
             Season season,
             boolean seasonalActive,
             double qtyScale,
+            double empQtyMult,
+            double empRareQtyMult,
+            Map<GoodsCategory, Integer> profCountByCategory,
             MacroEconomyEngine economy,
             List<TradeGood> liveGoods,
             Random rng
@@ -245,6 +304,7 @@ public final class DemandGenerator {
                     weight *= 2.2;
                 }
             }
+            weight *= professionCategoryWeight(good.category(), profCountByCategory);
             pool.add(new WeightedCandidate(good, weight, inSeasonCrop, biomeMatch));
         }
 
@@ -256,7 +316,7 @@ public final class DemandGenerator {
             MacroEconomyEngine.PriceQuote quote = economy.quotePrice(
                     good, level, villageBalance, biomeId, season, false
             );
-            int qty = rollQuantity(good, qtyScale, wc.seasonalHighlight, rng);
+            int qty = rollQuantity(good, qtyScale, wc.seasonalHighlight, empQtyMult, empRareQtyMult, rng);
             orders.add(new GeneratedOrder(
                     "sell_" + level + "_" + idx++,
                     OrderSide.VILLAGE_SELLS,
@@ -283,6 +343,9 @@ public final class DemandGenerator {
             Season season,
             boolean seasonalActive,
             double qtyScale,
+            double empQtyMult,
+            double empRareQtyMult,
+            Map<GoodsCategory, Integer> profCountByCategory,
             MacroEconomyEngine economy,
             List<TradeGood> liveGoods,
             Random rng
@@ -314,6 +377,7 @@ public final class DemandGenerator {
             } else if (level >= 7 && good.category() == GoodsCategory.FOOD_FINE) {
                 weight *= 2.5;
             }
+            weight *= professionCategoryWeight(good.category(), profCountByCategory);
 
             MacroEconomyEngine.PriceQuote preview = economy.quotePrice(
                     good, level, villageBalance, biomeId, season, true
@@ -381,7 +445,7 @@ public final class DemandGenerator {
             MacroEconomyEngine.PriceQuote quote = economy.quotePrice(
                     good, level, villageBalance, biomeId, season, true
             );
-            int qty = rollQuantity(good, qtyScale, false, rng);
+            int qty = rollQuantity(good, qtyScale, false, empQtyMult, empRareQtyMult, rng);
             // Respect village liquidity: village cannot offer a Buy Order exceeding its balance when funded
             if (villageBalance > 0L) {
                 long maxAffordable = villageBalance / quote.finalUnitPrice();
@@ -409,16 +473,52 @@ public final class DemandGenerator {
         return orders;
     }
 
-    private static int rollQuantity(TradeGood good, double qtyScale, boolean inSeasonDouble, Random rng) {
+    private static Map<GoodsCategory, Integer> countProfessionsByCategory(
+            VillageEmploymentStats stats, WorkplaceCatalog workplaces) {
+        Map<String, Integer> activeProfs = stats.activeProfessionCounts();
+        if (activeProfs.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<GoodsCategory, Integer> counts = new EnumMap<>(GoodsCategory.class);
+        for (Map.Entry<String, Integer> entry : activeProfs.entrySet()) {
+            int count = entry.getValue() == null ? 0 : entry.getValue();
+            if (count <= 0) {
+                continue;
+            }
+            for (GoodsCategory cat : workplaces.tradeCategoriesFor(entry.getKey())) {
+                counts.merge(cat, count, Integer::sum);
+            }
+        }
+        return counts;
+    }
+
+    private static double professionCategoryWeight(
+            GoodsCategory category, Map<GoodsCategory, Integer> profCountByCategory) {
+        int matchingCount = profCountByCategory.getOrDefault(category, 0);
+        if (matchingCount <= 0) {
+            return 1.0;
+        }
+        return Math.min(MAX_PROFESSION_WEIGHT_MULT, 1.0 + PROFESSION_WEIGHT_STEP * matchingCount);
+    }
+
+    private static int rollQuantity(
+            TradeGood good,
+            double qtyScale,
+            boolean inSeasonDouble,
+            double empQtyMult,
+            double empRareQtyMult,
+            Random rng) {
         int min = good.baseMinQty();
         int max = good.baseMaxQty();
         int baseRoll = min == max ? min : (min + rng.nextInt(max - min + 1));
+        boolean rare = good.category() == GoodsCategory.ENCHANTED_BOOK
+                || good.category() == GoodsCategory.ENDGAME;
         // Rare single-unit items (Enchanted Books, Endgame relics) scale gently rather than x8 stacks
-        double effectiveScale = (good.category() == GoodsCategory.ENCHANTED_BOOK
-                || good.category() == GoodsCategory.ENDGAME)
+        double effectiveScale = rare
                 ? Math.min(2.0, 1.0 + (qtyScale - 1.0) * 0.15)
                 : qtyScale;
-        double scaled = baseRoll * effectiveScale * (inSeasonDouble ? 2.0 : 1.0);
+        double empMult = rare ? empRareQtyMult : empQtyMult;
+        double scaled = baseRoll * effectiveScale * (inSeasonDouble ? 2.0 : 1.0) * empMult;
         return Math.max(1, (int) Math.round(scaled));
     }
 

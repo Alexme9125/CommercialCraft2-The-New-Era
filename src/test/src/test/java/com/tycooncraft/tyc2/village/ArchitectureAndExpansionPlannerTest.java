@@ -19,7 +19,9 @@ import static org.junit.jupiter.api.Assertions.*;
 class ArchitectureAndExpansionPlannerTest {
 
     @Test
-    void all5BiomesAnd8ProjectTypesRotateCleanlyAndSortBottomUp() {
+    void all7BiomesAndAllProjectTypesRotateCleanlyAndSortBottomUp() {
+        assertEquals(7, BiomeStyle.values().length);
+        assertEquals(10, ProjectType.values().length);
         for (BiomeStyle style : BiomeStyle.values()) {
             for (ProjectType type : ProjectType.values()) {
                 StructureBlueprint base = VillageArchitectureCatalog.getBlueprint(style, type);

@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import javax.annotation.Nullable;
+import net.minecraft.client.gui.GuiComponent;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.network.chat.Component;
@@ -33,15 +34,19 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
     private static final ResourceLocation TEXTURE = TyC2Ids.id("textures/gui/comm_terminal.png");
     private static final int RAIL_VISIBLE = 8;
     private static final int ORDERS_PER_PAGE = 5;
+    private static final int MAX_AID_ROWS = 3;
 
     @Nullable
     private S2CTerminalSyncPacket sync;
 
     private int subTab = 0; // 0=Orders, 1=Stock, 2=CPI, 3=Growth
+    private boolean growthAidMode = false; // false=Expansion, true=Aid
     private int railOffset = 0;
     private boolean showBuyOrders = false;
     private int orderPage = 0;
     private int qtyPreset = 0; // 0=1, 1=8, 2=Max
+    private int selectedWorkplaceIdx = 0;
+    private boolean aidLargeSize = false;
 
     private final TyC2UiWidgets.CompactButton[] railBtns = new TyC2UiWidgets.CompactButton[RAIL_VISIBLE];
     private TyC2UiWidgets.CompactButton railPrevBtn;
@@ -58,11 +63,18 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
     private final TyC2UiWidgets.CompactButton[] orderActBtns = new TyC2UiWidgets.CompactButton[ORDERS_PER_PAGE];
     private final TyC2UiWidgets.CompactButton[] orderAutoBtns = new TyC2UiWidgets.CompactButton[ORDERS_PER_PAGE];
 
-    // Growth sub-tab
+    // Growth sub-tab mode switcher + Expansion & Aid controls
+    private TyC2UiWidgets.CompactButton growthExpModeBtn;
+    private TyC2UiWidgets.CompactButton growthAidModeBtn;
     private TyC2UiWidgets.CompactButton upgradeBtn;
     private TyC2UiWidgets.CompactButton expDeliverBtn;
     private TyC2UiWidgets.CompactButton expAutoBtn;
     private TyC2UiWidgets.CompactButton expPauseBtn;
+    private TyC2UiWidgets.CompactButton aidProfPrevBtn;
+    private TyC2UiWidgets.CompactButton aidProfNextBtn;
+    private TyC2UiWidgets.CompactButton aidSizeBtn;
+    private TyC2UiWidgets.CompactButton aidStartBtn;
+    private final TyC2UiWidgets.CompactButton[] aidCancelBtns = new TyC2UiWidgets.CompactButton[MAX_AID_ROWS];
 
     public CommTerminalScreen(CommTerminalMenu menu, Inventory inv, Component title) {
         super(menu, inv, title);
@@ -177,33 +189,76 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
             ));
         }
 
-        // Growth sub-tab controls
+        // Growth sub-tab controls (Expansion / Aid mode toggle)
+        growthExpModeBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
+                leftPos + 78, topPos + 52, 79, 11, Component.translatable("gui.tyc2.hub.tab.expansion"),
+                btn -> {
+                    growthAidMode = false;
+                    refreshWidgets();
+                }
+        ));
+        growthAidModeBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
+                leftPos + 159, topPos + 52, 79, 11, Component.translatable("gui.tyc2.hub.tab.aid"),
+                btn -> {
+                    growthAidMode = true;
+                    refreshWidgets();
+                }
+        ));
         upgradeBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 80, topPos + 80, 156, 14,
+                leftPos + 80, topPos + 85, 156, 13,
                 Component.translatable("gui.tyc2.terminal.upgrade_btn", TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU),
                 btn -> TyC2ForgeNetwork.sendToServer(C2STerminalActionPacket.simple(
                         C2STerminalActionPacket.Action.UPGRADE_VILLAGE
                 ))
         ));
         expDeliverBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 80, topPos + 132, 74, 14,
+                leftPos + 80, topPos + 129, 74, 13,
                 Component.translatable("gui.tyc2.terminal.deliver_cost_btn", TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU),
                 btn -> TyC2ForgeNetwork.sendToServer(C2STerminalActionPacket.simple(
                         C2STerminalActionPacket.Action.DELIVER_EXPANSION
                 ))
         ));
         expAutoBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 156, topPos + 132, 40, 14, Component.translatable("gui.tyc2.hub.auto_short.off"),
+                leftPos + 156, topPos + 129, 40, 13, Component.translatable("gui.tyc2.hub.auto_short.off"),
                 btn -> TyC2ForgeNetwork.sendToServer(C2STerminalActionPacket.simple(
                         C2STerminalActionPacket.Action.TOGGLE_EXPANSION_AUTO
                 ))
         ));
         expPauseBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 198, topPos + 132, 38, 14, Component.translatable("gui.tyc2.hub.pause_btn"),
+                leftPos + 198, topPos + 129, 38, 13, Component.translatable("gui.tyc2.hub.pause_btn"),
                 btn -> TyC2ForgeNetwork.sendToServer(C2STerminalActionPacket.simple(
                         C2STerminalActionPacket.Action.TOGGLE_EXPANSION_PAUSE
                 ))
         ));
+
+        // Remote Aid Construction controls inside Growth tab
+        aidProfPrevBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
+                leftPos + 80, topPos + 86, 14, 14, Component.translatable("gui.tyc2.prev"),
+                btn -> stepWorkplace(-1)
+        ));
+        aidProfNextBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
+                leftPos + 224, topPos + 86, 14, 14, Component.translatable("gui.tyc2.next"),
+                btn -> stepWorkplace(1)
+        ));
+        aidSizeBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
+                leftPos + 80, topPos + 103, 76, 13, Component.translatable("gui.tyc2.aid.size.small"),
+                btn -> {
+                    aidLargeSize = !aidLargeSize;
+                    refreshWidgets();
+                }
+        ));
+        aidStartBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
+                leftPos + 158, topPos + 103, 80, 13,
+                Component.translatable("gui.tyc2.aid.start_cost_btn", TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU),
+                btn -> sendRemoteStartAid()
+        ).setAccentColor(0xFF2E7D32));
+        for (int i = 0; i < MAX_AID_ROWS; i++) {
+            final int row = i;
+            aidCancelBtns[i] = addRenderableWidget(new TyC2UiWidgets.CompactButton(
+                    leftPos + 202, topPos + 137 + i * 15, 36, 13, Component.translatable("gui.tyc2.aid.cancel_btn"),
+                    btn -> sendRemoteCancelAid(row)
+            ).setAccentColor(0xFF992222));
+        }
 
         refreshWidgets();
         if (menu.getLatestSync() != null) {
@@ -257,6 +312,53 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         }
         TyC2ForgeNetwork.sendToServer(new C2STerminalActionPacket(
                 C2STerminalActionPacket.Action.TOGGLE_ORDER_AUTO, 0, list.get(idx).orderId()
+        ));
+    }
+
+    private void stepWorkplace(int delta) {
+        if (sync == null || sync.selectedVillage == null || sync.selectedVillage.availableWorkplaces.isEmpty()) {
+            return;
+        }
+        int n = sync.selectedVillage.availableWorkplaces.size();
+        selectedWorkplaceIdx = ((selectedWorkplaceIdx + delta) % n + n) % n;
+        refreshWidgets();
+    }
+
+    @Nullable
+    private S2CHubSyncPacket.WorkplaceDto currentWorkplace() {
+        if (sync == null || sync.selectedVillage == null || sync.selectedVillage.availableWorkplaces.isEmpty()) {
+            return null;
+        }
+        int idx = Math.max(0, Math.min(selectedWorkplaceIdx, sync.selectedVillage.availableWorkplaces.size() - 1));
+        selectedWorkplaceIdx = idx;
+        return sync.selectedVillage.availableWorkplaces.get(idx);
+    }
+
+    private void sendRemoteStartAid() {
+        S2CHubSyncPacket.WorkplaceDto wp = currentWorkplace();
+        if (wp == null) {
+            return;
+        }
+        TyC2ForgeNetwork.sendToServer(new C2STerminalActionPacket(
+                C2STerminalActionPacket.Action.START_AID,
+                aidLargeSize ? 1 : 0,
+                wp.professionId()
+        ));
+    }
+
+    private void sendRemoteCancelAid(int row) {
+        if (sync == null || sync.selectedVillage == null
+                || row < 0 || row >= sync.selectedVillage.aidProjects.size()) {
+            return;
+        }
+        S2CHubSyncPacket.AidProjectDto aid = sync.selectedVillage.aidProjects.get(row);
+        if (!aid.canCancel()) {
+            return;
+        }
+        TyC2ForgeNetwork.sendToServer(new C2STerminalActionPacket(
+                C2STerminalActionPacket.Action.CANCEL_AID,
+                0,
+                aid.projectId()
         ));
     }
 
@@ -318,24 +420,67 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         }
 
         boolean t3 = hasSel && subTab == 3;
+        boolean t3Exp = t3 && !growthAidMode;
+        boolean t3Aid = t3 && growthAidMode;
         boolean hasPowerUpg = sync != null && sync.batteryEu >= TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU;
-        upgradeBtn.visible = t3;
+
+        growthExpModeBtn.visible = t3;
+        growthExpModeBtn.setHighlighted(t3Exp);
+        growthAidModeBtn.visible = t3;
+        growthAidModeBtn.setHighlighted(t3Aid);
+
+        upgradeBtn.visible = t3Exp;
         upgradeBtn.active = hasSel && sync.selectedVillage.canUpgrade && hasPowerUpg;
-        expDeliverBtn.visible = t3;
+        expDeliverBtn.visible = t3Exp;
         expDeliverBtn.active = hasSel && hasPowerUpg;
-        expAutoBtn.visible = t3 && hasSel && sync.selectedVillage.hasExpansion;
+        expAutoBtn.visible = t3Exp && hasSel && sync.selectedVillage.hasExpansion;
         if (hasSel && sync.selectedVillage.hasExpansion) {
             expAutoBtn.setHighlighted(sync.selectedVillage.expAutoFulfill);
             expAutoBtn.setMessage(Component.translatable(
                     sync.selectedVillage.expAutoFulfill ? "gui.tyc2.hub.auto_short.on" : "gui.tyc2.hub.auto_short.off"
             ));
         }
-        expPauseBtn.visible = t3;
+        expPauseBtn.visible = t3Exp;
         if (hasSel) {
             expPauseBtn.setHighlighted(sync.selectedVillage.expansionPaused);
             expPauseBtn.setMessage(Component.translatable(
                     sync.selectedVillage.expansionPaused ? "gui.tyc2.hub.resume_btn" : "gui.tyc2.hub.pause_btn"
             ));
+        }
+
+        // Aid sub-mode widgets inside Growth tab
+        S2CHubSyncPacket.WorkplaceDto wp = currentWorkplace();
+        boolean hasWps = hasSel && !sync.selectedVillage.availableWorkplaces.isEmpty();
+        aidProfPrevBtn.visible = t3Aid;
+        aidProfPrevBtn.active = hasWps && sync.selectedVillage.availableWorkplaces.size() > 1;
+        aidProfNextBtn.visible = t3Aid;
+        aidProfNextBtn.active = hasWps && sync.selectedVillage.availableWorkplaces.size() > 1;
+        aidSizeBtn.visible = t3Aid;
+        if (wp != null) {
+            if (aidLargeSize) {
+                aidSizeBtn.setMessage(wp.largeUnlocked()
+                        ? Component.translatable("gui.tyc2.aid.size.large")
+                        : Component.translatable("gui.tyc2.aid.size.large_locked", wp.minLevelLarge()));
+            } else {
+                aidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.small"));
+            }
+            aidSizeBtn.setHighlighted(aidLargeSize && wp.largeUnlocked());
+        } else {
+            aidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.small"));
+            aidSizeBtn.setHighlighted(false);
+        }
+        boolean sizeUnlocked = wp != null && (aidLargeSize ? wp.largeUnlocked() : wp.smallUnlocked());
+        boolean queueOpen = hasSel && sync.selectedVillage.aidProjects.size() < sync.selectedVillage.maxQueuedAid;
+        aidStartBtn.visible = t3Aid;
+        aidStartBtn.active = t3Aid && wp != null && sizeUnlocked && queueOpen
+                && hasPowerUpg && !sync.selectedVillage.depopulatedPaused;
+        aidStartBtn.setHighlighted(aidStartBtn.active);
+
+        for (int i = 0; i < MAX_AID_ROWS; i++) {
+            boolean showCancel = t3Aid && hasSel && i < sync.selectedVillage.aidProjects.size()
+                    && sync.selectedVillage.aidProjects.get(i).canCancel();
+            aidCancelBtns[i].visible = showCancel;
+            aidCancelBtns[i].active = showCancel;
         }
     }
 
@@ -468,20 +613,24 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
     }
 
     private void renderRemoteGrowth(PoseStack poseStack, S2CHubSyncPacket v) {
+        if (growthAidMode) {
+            renderRemoteAid(poseStack, v);
+            return;
+        }
         if (v.level >= 10) {
             TyC2UiWidgets.drawFittedString(poseStack, font,
-                    Component.translatable("gui.tyc2.hub.max_level").getString(), 80, 56, 156, 0.75F, 0x66FF88);
+                    Component.translatable("gui.tyc2.hub.max_level").getString(), 80, 67, 156, 0.72F, 0x66FF88);
         } else {
             TyC2UiWidgets.drawFittedString(poseStack, font,
                     Component.translatable("gui.tyc2.hub.upgrade_cost", v.nextSinkCost).getString(),
-                    80, 56, 156, 0.72F, 0xFFDD55);
+                    80, 66, 156, 0.68F, 0xFFDD55);
             String req = Component.translatable(
                     "gui.tyc2.hub.upgrade_req",
                     v.population + "/" + v.nextMinPop,
                     TyC2UiWidgets.compactIc(v.cumulativeVolume) + "/" + TyC2UiWidgets.compactIc(v.nextMinVol),
                     TyC2UiWidgets.compactIc(v.villageBalance) + "/" + TyC2UiWidgets.compactIc(v.nextMinBal)
             ).getString();
-            TyC2UiWidgets.drawFittedString(poseStack, font, req, 80, 67, 156, 0.60F, 0xAADDEE);
+            TyC2UiWidgets.drawFittedString(poseStack, font, req, 80, 75, 156, 0.56F, 0xAADDEE);
         }
 
         if (v.hasJob) {
@@ -491,13 +640,13 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                     Component.translatable("project.tyc2." + v.jobProjectKey),
                     pct
             ).getString();
-            TyC2UiWidgets.drawFittedString(poseStack, font, msg, 80, 102, 156, 0.68F, 0x66FF88);
+            TyC2UiWidgets.drawFittedString(poseStack, font, msg, 80, 103, 156, 0.65F, 0x66FF88);
         } else if (v.hasExpansion) {
             String proj = Component.translatable(
                     "gui.tyc2.expansion.project",
                     Component.translatable("project.tyc2." + v.expProjectKey)
             ).getString() + " (" + v.expBudget + " IC)";
-            TyC2UiWidgets.drawFittedString(poseStack, font, proj, 80, 101, 156, 0.56F, 0xFFDD77);
+            TyC2UiWidgets.drawFittedString(poseStack, font, proj, 80, 101, 156, 0.55F, 0xFFDD77);
 
             int matCount = v.expMaterials.size();
             int splitIdx = matCount <= 2 ? matCount : (matCount + 1) / 2;
@@ -537,21 +686,95 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
             }
         } else {
             TyC2UiWidgets.drawFittedString(poseStack, font,
-                    Component.translatable("gui.tyc2.expansion.none").getString(), 80, 106, 156, 0.70F, 0x99AABB);
+                    Component.translatable("gui.tyc2.expansion.none").getString(), 80, 107, 156, 0.68F, 0x99AABB);
         }
+
+        // Unemployment & bonus summary line
+        String unempLine = Component.translatable(
+                "gui.tyc2.hub.unemployment", v.unemploymentPct, v.unemployedCount, v.workforceCount
+        ).getString();
+        if (v.employmentBonusActive) {
+            unempLine += "  " + Component.translatable(
+                    "gui.tyc2.hub.unemployment_bonus", v.restockBonusPct, v.qtyBonusPct
+            ).getString();
+        }
+        TyC2UiWidgets.drawFittedString(poseStack, font, unempLine, 80, 146, 156, 0.50F,
+                v.employmentBonusActive ? 0x66FF88 : 0xFFCC66);
 
         if (!v.nearbyLc2Stations.isEmpty()) {
             TyC2UiWidgets.drawFittedString(poseStack, font,
                     Component.translatable("gui.tyc2.terminal.lc2_nearby", v.nearbyLc2Stations.size()).getString(),
-                    80, 152, 156, 0.68F, 0x55FFFF);
+                    80, 157, 156, 0.62F, 0x55FFFF);
             for (int i = 0; i < Math.min(2, v.nearbyLc2Stations.size()); i++) {
                 String label = Lc2SoftBridge.formatStationLabel(v.nearbyLc2Stations.get(i));
-                TyC2UiWidgets.drawFittedString(poseStack, font, label, 82, 162 + i * 10, 154, 0.58F, 0xAADDEE);
+                TyC2UiWidgets.drawFittedString(poseStack, font, label, 82, 166 + i * 8, 154, 0.52F, 0xAADDEE);
             }
         } else {
             TyC2UiWidgets.drawFittedString(poseStack, font,
                     Component.translatable("gui.tyc2.terminal.no_lc2").getString(),
-                    80, 156, 156, 0.68F, 0x8899AA);
+                    80, 159, 156, 0.65F, 0x8899AA);
+        }
+    }
+
+    private void renderRemoteAid(PoseStack poseStack, S2CHubSyncPacket v) {
+        // Unemployment & bonus readout (y=66..83)
+        TyC2UiWidgets.drawFittedString(poseStack, font,
+                Component.translatable("gui.tyc2.hub.unemployment", v.unemploymentPct, v.unemployedCount, v.workforceCount).getString(),
+                80, 66, 156, 0.62F, v.employmentBonusActive ? 0x66FF88 : 0xFFCC66);
+        String bonusLine = v.employmentBonusActive
+                ? Component.translatable("gui.tyc2.aid.bonus_active", v.restockBonusPct, v.qtyBonusPct).getString()
+                : Component.translatable("gui.tyc2.aid.bonus_inactive", v.lowUnempThresholdPct).getString();
+        TyC2UiWidgets.drawFittedString(poseStack, font, bonusLine,
+                80, 75, 156, 0.50F, v.employmentBonusActive ? 0x66FF99 : 0x99AABB);
+
+        // Selected workplace name (icon rendered in render())
+        S2CHubSyncPacket.WorkplaceDto wp = currentWorkplace();
+        if (wp != null) {
+            String profName = TyC2UiWidgets.localizedProfessionName(
+                    wp.professionId(), wp.archetypeName(), wp.displayNameFallback()
+            );
+            TyC2UiWidgets.drawFittedString(poseStack, font, profName, 114, 89, 108, 0.68F, 0xFFE888);
+            long cost = aidLargeSize ? wp.costLargeIc() : wp.costSmallIc();
+            boolean unlocked = aidLargeSize ? wp.largeUnlocked() : wp.smallUnlocked();
+            String costGather = Component.translatable("gui.tyc2.aid.cost", cost).getString()
+                    + " · " + Component.translatable(
+                            "gui.tyc2.aid.gather_rate",
+                            String.format(Locale.ROOT, "%.2f", v.gatherSpeedMult),
+                            v.unemployedCount
+                    ).getString();
+            TyC2UiWidgets.drawFittedString(poseStack, font, costGather,
+                    80, 118, 156, 0.48F, unlocked ? 0x88EECC : 0xFF8866);
+        }
+
+        // Queue header & up to 3 aid rows (y=128..181)
+        TyC2UiWidgets.drawFittedString(poseStack, font,
+                Component.translatable("gui.tyc2.aid.queue_header", v.aidProjects.size(), v.maxQueuedAid).getString(),
+                80, 128, 156, 0.64F, 0x55FFFF);
+        if (v.aidProjects.isEmpty()) {
+            TyC2UiWidgets.drawFittedString(poseStack, font,
+                    Component.translatable("gui.tyc2.aid.queue_empty").getString(),
+                    80, 144, 156, 0.66F, 0x8899AA);
+            return;
+        }
+        int rows = Math.min(MAX_AID_ROWS, v.aidProjects.size());
+        for (int i = 0; i < rows; i++) {
+            S2CHubSyncPacket.AidProjectDto aid = v.aidProjects.get(i);
+            int ry = 137 + i * 15;
+            int rowW = aid.canCancel() ? 120 : 158;
+            GuiComponent.fill(poseStack, 80, ry, 80 + rowW, ry + 14, 0x88101822);
+            int fillW = Math.max(0, Math.min(rowW - 2, ((rowW - 2) * aid.progressPct()) / 100));
+            int barCol = "BUILDING".equals(aid.statusName())
+                    ? 0xFF44DD77
+                    : ("NO_SITE".equals(aid.statusName()) ? 0xFFEE6644 : 0xFF44AADD);
+            if (fillW > 0) {
+                GuiComponent.fill(poseStack, 81, ry + 12, 81 + fillW, ry + 14, barCol);
+            }
+            String profName = TyC2UiWidgets.localizedProfessionName(
+                    aid.professionId(), aid.archetypeName(), aid.displayNameFallback()
+            );
+            String line = profName + (aid.large() ? " [L] · " : " [S] · ") + TyC2UiWidgets.formatAidStatus(aid);
+            int col = "NO_SITE".equals(aid.statusName()) ? 0xFF9966 : 0xFFE888;
+            TyC2UiWidgets.drawFittedString(poseStack, font, line, 82, ry + 2, rowW - 4, 0.50F, col);
         }
     }
 
@@ -565,6 +788,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         super.render(poseStack, mouseX, mouseY, partialTick);
 
         ItemStack hovered = ItemStack.EMPTY;
+        List<Component> hoveredAidTooltip = null;
         if (sync != null && sync.selectedVillage != null && subTab == 0) {
             List<S2CHubSyncPacket.OrderDto> list = filteredOrders();
             int start = orderPage * ORDERS_PER_PAGE;
@@ -580,12 +804,39 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                     }
                 }
             }
+        } else if (sync != null && sync.selectedVillage != null && subTab == 3 && growthAidMode) {
+            S2CHubSyncPacket.WorkplaceDto wp = currentWorkplace();
+            if (wp != null) {
+                ItemStack wsIcon = TyC2Ids.createBlockOrItemIcon(wp.workstationBlockId());
+                int ix = leftPos + 96;
+                int iy = topPos + 85;
+                if (!wsIcon.isEmpty()) {
+                    itemRenderer.renderAndDecorateItem(wsIcon, ix, iy);
+                    if (mouseX >= ix && mouseX < ix + 16 && mouseY >= iy && mouseY < iy + 16) {
+                        hovered = wsIcon;
+                    }
+                }
+            }
+            int relXHover = mouseX - leftPos;
+            int relYHover = mouseY - topPos;
+            int rows = Math.min(MAX_AID_ROWS, sync.selectedVillage.aidProjects.size());
+            for (int i = 0; i < rows; i++) {
+                S2CHubSyncPacket.AidProjectDto aid = sync.selectedVillage.aidProjects.get(i);
+                int ry = 137 + i * 15;
+                int maxHoverX = aid.canCancel() ? 200 : 238;
+                if (relXHover >= 80 && relXHover <= maxHoverX && relYHover >= ry && relYHover <= ry + 14) {
+                    hoveredAidTooltip = TyC2UiWidgets.buildAidMaterialsTooltip(aid);
+                    break;
+                }
+            }
         }
 
         int relX = mouseX - leftPos;
         int relY = mouseY - topPos;
         if (!hovered.isEmpty()) {
             renderTooltip(poseStack, hovered, mouseX, mouseY);
+        } else if (hoveredAidTooltip != null && !hoveredAidTooltip.isEmpty()) {
+            renderComponentTooltip(poseStack, hoveredAidTooltip, mouseX, mouseY);
         } else if (sync != null && relX >= 178 && relX <= 236 && relY >= 6 && relY <= 18) {
             renderTooltip(
                     poseStack,

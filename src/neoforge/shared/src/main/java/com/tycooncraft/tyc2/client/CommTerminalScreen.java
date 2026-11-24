@@ -29,11 +29,16 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
 
     private int railPage = 0;
     private int subTab = 0;       // 0=Orders, 1=Stock, 2=CPI, 3=Growth
+    private int growthMode = 0;   // 0=Expansion, 1=Aid Construction
     private int orderPage = 0;
     private boolean stockOutbound = false;
+    private int aidProfIdx = 0;
+    private boolean aidLarge = false;
 
     private Button remoteAutoBtn;
     private Button remotePauseBtn;
+    private Button remoteAidSizeBtn;
+    private Button remoteAidStartBtn;
 
     public CommTerminalScreen(CommTerminalMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title, 248, 210);
@@ -56,6 +61,8 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         clearEditBoxes();
         remoteAutoBtn = null;
         remotePauseBtn = null;
+        remoteAidSizeBtn = null;
+        remoteAidStartBtn = null;
 
         // Left rail scroll buttons (bottom of left rail 8, 22, 64x178)
         addRenderableWidget(Button.builder(Component.translatable("gui.tyc2.prev"), b -> {
@@ -113,25 +120,83 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                     }
             ).bounds(leftPos + 80, topPos + 57, 64, 12).build());
         } else if (subTab == 3) {
+            // Sub-toggle inside Growth: Expansion (0) vs Aid Construction (1)
             addRenderableWidget(Button.builder(
-                    Component.translatable("gui.tyc2.terminal.upgrade_btn", TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU),
-                    b -> sendAction("UPGRADE_VILLAGE", Map.of())
-            ).bounds(leftPos + 80, topPos + 86, 156, 14).build());
+                    Component.translatable("gui.tyc2.hub.tab.expansion"),
+                    b -> {
+                        growthMode = 0;
+                        rebuildControls();
+                    }
+            ).bounds(leftPos + 80, topPos + 56, 77, 12).build());
 
             addRenderableWidget(Button.builder(
-                    Component.translatable("gui.tyc2.terminal.deliver_cost_btn", TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU),
-                    b -> sendAction("DELIVER_EXPANSION", Map.of())
-            ).bounds(leftPos + 80, topPos + 132, 68, 13).build());
+                    Component.translatable("gui.tyc2.hub.tab.aid"),
+                    b -> {
+                        growthMode = 1;
+                        rebuildControls();
+                        sendAction("REQUEST_SYNC", Map.of());
+                    }
+            ).bounds(leftPos + 159, topPos + 56, 77, 12).build());
 
-            remoteAutoBtn = addRenderableWidget(Button.builder(
-                    Component.translatable("gui.tyc2.hub.auto_short.off"),
-                    b -> sendAction("TOGGLE_EXPANSION_AUTO", Map.of())
-            ).bounds(leftPos + 150, topPos + 132, 44, 13).build());
+            if (growthMode == 0) {
+                addRenderableWidget(Button.builder(
+                        Component.translatable("gui.tyc2.terminal.upgrade_btn", TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU),
+                        b -> sendAction("UPGRADE_VILLAGE", Map.of())
+                ).bounds(leftPos + 80, topPos + 91, 156, 14).build());
 
-            remotePauseBtn = addRenderableWidget(Button.builder(
-                    Component.translatable("gui.tyc2.hub.pause_btn"),
-                    b -> sendAction("TOGGLE_PAUSE_EXPANSION", Map.of())
-            ).bounds(leftPos + 196, topPos + 132, 42, 13).build());
+                addRenderableWidget(Button.builder(
+                        Component.translatable("gui.tyc2.terminal.deliver_cost_btn", TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU),
+                        b -> sendAction("DELIVER_EXPANSION", Map.of())
+                ).bounds(leftPos + 80, topPos + 138, 68, 13).build());
+
+                remoteAutoBtn = addRenderableWidget(Button.builder(
+                        Component.translatable("gui.tyc2.hub.auto_short.off"),
+                        b -> sendAction("TOGGLE_EXPANSION_AUTO", Map.of())
+                ).bounds(leftPos + 150, topPos + 138, 44, 13).build());
+
+                remotePauseBtn = addRenderableWidget(Button.builder(
+                        Component.translatable("gui.tyc2.hub.pause_btn"),
+                        b -> sendAction("TOGGLE_PAUSE_EXPANSION", Map.of())
+                ).bounds(leftPos + 196, topPos + 138, 42, 13).build());
+            } else {
+                addRenderableWidget(Button.builder(Component.translatable("gui.tyc2.prev"), b -> {
+                    Map<String, Object> v = JsonLite.asObject(menu.snapshot().get("selectedVillage"));
+                    int total = CooperationHubScreen.availableWorkplaces(v).size();
+                    if (total > 0) {
+                        aidProfIdx = (aidProfIdx - 1 + total) % total;
+                    }
+                }).bounds(leftPos + 80, topPos + 89, 13, 14).build());
+
+                addRenderableWidget(Button.builder(Component.translatable("gui.tyc2.next"), b -> {
+                    Map<String, Object> v = JsonLite.asObject(menu.snapshot().get("selectedVillage"));
+                    int total = CooperationHubScreen.availableWorkplaces(v).size();
+                    if (total > 0) {
+                        aidProfIdx = (aidProfIdx + 1) % total;
+                    }
+                }).bounds(leftPos + 223, topPos + 89, 13, 14).build());
+
+                remoteAidSizeBtn = addRenderableWidget(Button.builder(
+                        Component.translatable(aidLarge ? "gui.tyc2.aid.size.large" : "gui.tyc2.aid.size.small"),
+                        b -> aidLarge = !aidLarge
+                ).bounds(leftPos + 80, topPos + 105, 76, 14).build());
+
+                remoteAidStartBtn = addRenderableWidget(Button.builder(
+                        Component.translatable(
+                                "gui.tyc2.aid.start_cost_btn",
+                                TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU
+                        ),
+                        b -> {
+                            Map<String, Object> v = JsonLite.asObject(menu.snapshot().get("selectedVillage"));
+                            Map<String, Object> spec = selectedWorkplace(v);
+                            if (spec != null) {
+                                Map<String, Object> args = new LinkedHashMap<>();
+                                args.put("professionId", JsonLite.getString(spec, "professionId", ""));
+                                args.put("size", aidLarge ? "large" : "small");
+                                sendAction("START_AID", args);
+                            }
+                        }
+                ).bounds(leftPos + 158, topPos + 105, 78, 14).build());
+            }
         }
     }
 
@@ -186,7 +251,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             case 0 -> paintRemoteOrders(canvas, village, pmx, pmy);
             case 1 -> paintRemoteStock(canvas, village);
             case 2 -> paintRemoteEconomy(canvas, village);
-            case 3 -> paintRemoteGrowth(canvas, village);
+            case 3 -> paintRemoteGrowth(canvas, village, pmx, pmy);
             default -> {
             }
         }
@@ -205,6 +270,28 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             remotePauseBtn.setMessage(Component.translatable(
                     paused ? "gui.tyc2.hub.resume_btn" : "gui.tyc2.hub.pause_btn"
             ));
+        }
+        if (remoteAidSizeBtn != null || remoteAidStartBtn != null) {
+            Map<String, Object> spec = selectedWorkplace(village);
+            boolean largeUnlocked = spec != null && JsonLite.getBoolean(spec, "largeUnlocked", false);
+            int minLvLarge = spec == null ? 3 : JsonLite.getInt(spec, "minLevelLarge", 3);
+            boolean smallUnlocked = spec == null || JsonLite.getBoolean(spec, "smallUnlocked", true);
+            if (remoteAidSizeBtn != null) {
+                if (!aidLarge) {
+                    remoteAidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.small"));
+                } else if (largeUnlocked) {
+                    remoteAidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.large"));
+                } else {
+                    remoteAidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.large_locked", minLvLarge));
+                }
+            }
+            if (remoteAidStartBtn != null) {
+                int queueSize = CooperationHubScreen.aidProjects(village).size();
+                int maxQueue = village == null ? 3 : Math.max(1, JsonLite.getInt(village, "maxAidQueue", 3));
+                boolean depop = village != null && JsonLite.getBoolean(village, "depopPaused", false);
+                boolean unlocked = aidLarge ? largeUnlocked : smallUnlocked;
+                remoteAidStartBtn.active = village != null && spec != null && !depop && queueSize < maxQueue && unlocked;
+            }
         }
     }
 
@@ -391,7 +478,14 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         CpiChartRenderer.drawChart(canvas, 80, 108, 156, 86, pts);
     }
 
-    private void paintRemoteGrowth(ScreenCanvas canvas, Map<String, Object> village) {
+    private void paintRemoteGrowth(ScreenCanvas canvas, Map<String, Object> village, int pmx, int pmy) {
+        canvas.outline(growthMode == 0 ? 80 : 159, 56, 77, 12, 0xFFFFD84D);
+
+        if (growthMode == 1) {
+            paintRemoteAid(canvas, village, pmx, pmy);
+            return;
+        }
+
         int level = JsonLite.getInt(village, "level", 1);
         int pop = JsonLite.getInt(village, "population", 0);
         long vol = JsonLite.getLong(village, "tradeVolume", 0L);
@@ -399,12 +493,17 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         int reqPop = JsonLite.getInt(village, "nextMinPop", 0);
         long reqVol = JsonLite.getLong(village, "nextMinVol", 0L);
         long reqBal = JsonLite.getLong(village, "nextMinBal", 0L);
+        int unempPct = JsonLite.getInt(village, "unemploymentPct", 0);
+        int unempCount = JsonLite.getInt(village, "unemployedCount", 0);
+        int workforce = JsonLite.getInt(village, "workforceCount", 0);
+        boolean bonusActive = JsonLite.getBoolean(village, "bonusActive", false);
 
-        drawFitString(
-                canvas,
-                Component.translatable("gui.tyc2.hub.level", level, Component.translatable("level.tyc2." + level)).getString(),
-                80, 58, 156, 0xFFFFE57F
-        );
+        String topLine = Component.translatable("gui.tyc2.hub.level", level, Component.translatable("level.tyc2." + level)).getString();
+        if (workforce > 0) {
+            topLine += " | " + Component.translatable("gui.tyc2.hub.unemployment", unempPct, unempCount, workforce).getString();
+        }
+        drawFitString(canvas, topLine, 80, 70, 156, 0.54F, bonusActive ? 0xFF72FFAA : 0xFFFFE57F);
+
         String reqStr = level >= 10
                 ? Component.translatable("gui.tyc2.hub.max_level").getString()
                 : Component.translatable(
@@ -413,7 +512,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                         vol + "/" + reqVol,
                         bal + "/" + reqBal
                 ).getString();
-        drawFitString(canvas, reqStr, 80, 70, 156, 0xFFCAE8FF);
+        drawFitString(canvas, reqStr, 80, 80, 156, 0.56F, 0xFFCAE8FF);
 
         Map<String, Object> build = JsonLite.asObject(village.get("activeBuild"));
         Map<String, Object> desire = JsonLite.asObject(village.get("expansionDesire"));
@@ -424,7 +523,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                     canvas,
                     Component.translatable("gui.tyc2.expansion.building",
                             Component.translatable("project.tyc2." + pType), pct).getString(),
-                    80, 108, 156, 0xFF64E8FF
+                    80, 114, 156, 0xFF64E8FF
             );
         } else if (desire != null) {
             String pType = JsonLite.getString(desire, "projectType", "SMALL_COTTAGE").toLowerCase(Locale.ROOT);
@@ -432,7 +531,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             drawFitString(
                     canvas,
                     Component.translatable("project.tyc2." + pType).getString() + " (" + budget + " IC)",
-                    80, 103, 156, 0xFFFFE066
+                    80, 108, 156, 0.56F, 0xFFFFE066
             );
             Map<String, Object> req = JsonLite.asObject(desire.get("required"));
             Map<String, Object> del = JsonLite.asObject(desire.get("delivered"));
@@ -458,7 +557,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                 drawFitString(
                         canvas,
                         line1.toString(),
-                        80, 113, 156, 0.46F,
+                        80, 118, 156, 0.46F,
                         line1Met ? 0xFF66FF99 : 0xFFFFCC66
                 );
                 if (split < parts.size()) {
@@ -474,7 +573,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                     drawFitString(
                             canvas,
                             line2.toString(),
-                            80, 122, 156, 0.46F,
+                            80, 127, 156, 0.46F,
                             line2Met ? 0xFF66FF99 : 0xFFFFCC66
                     );
                 }
@@ -483,7 +582,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             drawFitString(
                     canvas,
                     Component.translatable("gui.tyc2.expansion.none").getString(),
-                    80, 110, 156, 0xFF8AA0B8
+                    80, 114, 156, 0xFF8AA0B8
             );
         }
 
@@ -496,7 +595,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                             "gui.tyc2.terminal.lc2_nearby",
                             Component.translatable("gui.tyc2.terminal.no_lc2")
                     ).getString(),
-                    80, 152, 156, 0xFF7B8E9F
+                    80, 156, 156, 0xFF7B8E9F
             );
         } else {
             drawFitString(
@@ -505,9 +604,9 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                             "gui.tyc2.terminal.lc2_nearby",
                             Lc2SoftBridge.formatStationLabel(lc2.get(0).toString())
                     ).getString(),
-                    80, 152, 156, 0xFF64E8FF
+                    80, 156, 156, 0xFF64E8FF
             );
-            int y = 164;
+            int y = 168;
             for (int i = 1; i < Math.min(3, lc2.size()); i++) {
                 drawFitString(
                         canvas,
@@ -515,6 +614,129 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                         80, y, 156, 0xFF64E8FF
                 );
                 y += 10;
+            }
+        }
+    }
+
+    private void paintRemoteAid(ScreenCanvas canvas, Map<String, Object> village, int pmx, int pmy) {
+        int unempPct = JsonLite.getInt(village, "unemploymentPct", 0);
+        int unempCount = JsonLite.getInt(village, "unemployedCount", 0);
+        int workforce = JsonLite.getInt(village, "workforceCount", 0);
+        boolean bonusActive = JsonLite.getBoolean(village, "bonusActive", false);
+        int restockPct = JsonLite.getInt(village, "restockBonusPct", 0);
+        int qtyPct = JsonLite.getInt(village, "qtyBonusPct", 0);
+        int thresholdPct = JsonLite.getInt(village, "lowUnempThresholdPct", 25);
+
+        drawFitString(
+                canvas,
+                Component.translatable("gui.tyc2.hub.unemployment", unempPct, unempCount, workforce).getString(),
+                80, 70, 156, 0.56F, bonusActive ? 0xFF72FFAA : 0xFFE0ECF8
+        );
+        String bonusLine = bonusActive
+                ? Component.translatable("gui.tyc2.aid.bonus_active", restockPct, qtyPct).getString()
+                : Component.translatable("gui.tyc2.aid.bonus_inactive", thresholdPct).getString();
+        drawFitString(canvas, bonusLine, 80, 79, 156, 0.50F, bonusActive ? 0xFF56EC8B : 0xFF8AA0B8);
+
+        // Profession picker display (94..222, 89..103)
+        canvas.fill(94, 89, 222, 103, 0xFF132231);
+        canvas.outline(94, 89, 128, 14, 0xFF3E6F9E);
+        Map<String, Object> spec = selectedWorkplace(village);
+        if (spec != null) {
+            String wsBlockId = JsonLite.getString(spec, "workstationBlockId", "");
+            ItemStack wsStack = TyC2Native.stack(wsBlockId, 1);
+            if (!wsStack.isEmpty()) {
+                canvas.drawItem(wsStack, 95, 88);
+            }
+            String profLabel = CooperationHubScreen.localizedProfessionName(
+                    JsonLite.getString(spec, "archetype", "GENERIC"),
+                    JsonLite.getString(spec, "professionId", ""),
+                    JsonLite.getString(spec, "displayNameFallback", "")
+            );
+            drawFitString(canvas, profLabel, 113, 92, 106, 0.58F, 0xFFEAF6FF);
+
+            long cost = aidLarge
+                    ? JsonLite.getLong(spec, "costLargeIc", 0L)
+                    : JsonLite.getLong(spec, "costSmallIc", 0L);
+            boolean unlocked = aidLarge
+                    ? JsonLite.getBoolean(spec, "largeUnlocked", false)
+                    : JsonLite.getBoolean(spec, "smallUnlocked", true);
+            drawFitString(
+                    canvas,
+                    Component.translatable("gui.tyc2.aid.cost", cost).getString(),
+                    80, 122, 156, 0.56F, unlocked ? 0xFFFFD866 : 0xFFFF7766
+            );
+        }
+
+        double gatherMult = JsonLite.getDouble(village, "gatherSpeedMult", 1.0);
+        List<Map<String, Object>> queue = CooperationHubScreen.aidProjects(village);
+        int maxQueue = Math.max(1, JsonLite.getInt(village, "maxAidQueue", 3));
+        drawFitString(
+                canvas,
+                Component.translatable("gui.tyc2.aid.gather_rate", String.format("%.2f", gatherMult), unempCount).getString(),
+                80, 131, 98, 0.50F, 0xFF9BE8FF
+        );
+        drawFitString(
+                canvas,
+                Component.translatable("gui.tyc2.aid.queue_header", queue.size(), maxQueue).getString(),
+                180, 131, 56, 0.52F, 0xFFFFE57F
+        );
+
+        if (queue.isEmpty()) {
+            drawFitString(
+                    canvas,
+                    Component.translatable("gui.tyc2.aid.queue_empty").getString(),
+                    84, 158, 148, 0xFF8AA0B8
+            );
+            return;
+        }
+
+        int shown = Math.min(3, queue.size());
+        for (int i = 0; i < shown; i++) {
+            Map<String, Object> proj = queue.get(i);
+            int ry = 141 + i * 18;
+            String status = JsonLite.getString(proj, "status", "COLLECTING");
+            int pct = Math.max(0, Math.min(100, JsonLite.getInt(proj, "progressPct", 0)));
+            boolean canCancel = JsonLite.getBoolean(proj, "canCancel", false);
+            String sizeStr = JsonLite.getString(proj, "size", "SMALL");
+            String profName = CooperationHubScreen.localizedProfessionName(
+                    JsonLite.getString(proj, "archetype", "GENERIC"),
+                    JsonLite.getString(proj, "professionId", ""),
+                    JsonLite.getString(proj, "displayNameFallback", "")
+            );
+            String sizeShort = "LARGE".equalsIgnoreCase(sizeStr) ? "L" : "S";
+
+            int bg = "BUILDING".equals(status) ? 0xFF152936
+                    : ("NO_SITE".equals(status) ? 0xFF2D1E18 : 0xFF17222D);
+            int border = "BUILDING".equals(status) ? 0xFF4BE2FF
+                    : ("NO_SITE".equals(status) ? 0xFFFF8855 : 0xFF3E6F9E);
+            canvas.fill(80, ry, 236, ry + 17, bg);
+            canvas.outline(80, ry, 156, 17, border);
+
+            int barMaxW = canCancel ? 110 : 154;
+            int barW = (int) Math.round(barMaxW * pct / 100.0);
+            if (barW > 0) {
+                int barColor = "BUILDING".equals(status) ? 0xFF39D98A : 0xFF4CA8FF;
+                canvas.fill(81, ry + 15, 81 + barW, ry + 16, barColor);
+            }
+
+            int textMaxW = canCancel ? 108 : 150;
+            drawFitString(canvas, profName + " [" + sizeShort + "]", 82, ry + 1, textMaxW, 0.54F, 0xFFEAF6FF);
+            drawFitString(
+                    canvas,
+                    CooperationHubScreen.aidStatusText(status, pct),
+                    82, ry + 8, textMaxW, 0.52F,
+                    "NO_SITE".equals(status) ? 0xFFFFAA66 : ("BUILDING".equals(status) ? 0xFF66FF99 : 0xFFFFDF7F)
+            );
+
+            if (canCancel) {
+                boolean hoverCancel = pmx >= 193 && pmx < 234 && pmy >= ry + 2 && pmy < ry + 14;
+                canvas.fill(193, ry + 2, 234, ry + 14, hoverCancel ? 0xFF9E3B33 : 0xFF6E2924);
+                canvas.outline(193, ry + 2, 41, 12, 0xFFD87A72);
+                drawFitString(
+                        canvas,
+                        Component.translatable("gui.tyc2.aid.cancel_btn").getString(),
+                        195, ry + 4, 37, 0.50F, 0xFFFFFFFF
+                );
             }
         }
     }
@@ -573,6 +795,22 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                     }
                 }
             }
+        } else if (subTab == 3 && growthMode == 1) {
+            Map<String, Object> village = JsonLite.asObject(snap.get("selectedVillage"));
+            List<Map<String, Object>> queue = CooperationHubScreen.aidProjects(village);
+            int shown = Math.min(3, queue.size());
+            for (int i = 0; i < shown; i++) {
+                int ry = 141 + i * 18;
+                Map<String, Object> proj = queue.get(i);
+                if (JsonLite.getBoolean(proj, "canCancel", false)
+                        && pmx >= 193 && pmx < 234 && pmy >= ry + 2 && pmy < ry + 14) {
+                    String projId = JsonLite.getString(proj, "projectId", "");
+                    if (!projId.isEmpty()) {
+                        sendAction("CANCEL_AID", Map.of("projectId", projId));
+                        return true;
+                    }
+                }
+            }
         }
         return false;
     }
@@ -581,8 +819,8 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
     protected void paintOverlayTooltips(ScreenCanvas canvas, int mouseX, int mouseY) {
         int pmx = mouseX - leftPos;
         int pmy = mouseY - topPos;
+        Map<String, Object> snap = menu.snapshot();
         if (pmx >= 178 && pmx < 236 && pmy >= 6 && pmy < 18) {
-            Map<String, Object> snap = menu.snapshot();
             int eu = JsonLite.getInt(snap, "energyEu", 0);
             int maxEu = JsonLite.getInt(snap, "maxEu", TriModePowerMath.TERMINAL_MAX_CAPACITY_EU);
             canvas.drawTooltip(
@@ -590,7 +828,34 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                     mouseX,
                     mouseY
             );
+            return;
         }
+        if (subTab == 3 && growthMode == 1) {
+            Map<String, Object> village = JsonLite.asObject(snap.get("selectedVillage"));
+            List<Map<String, Object>> queue = CooperationHubScreen.aidProjects(village);
+            int shown = Math.min(3, queue.size());
+            for (int i = 0; i < shown; i++) {
+                int ry = 141 + i * 18;
+                if (pmx >= 80 && pmx < 193 && pmy >= ry && pmy < ry + 17) {
+                    List<Component> tip = CooperationHubScreen.buildAidMaterialsTooltip(queue.get(i));
+                    if (!tip.isEmpty()) {
+                        canvas.drawTooltip(tip, mouseX, mouseY);
+                    }
+                    return;
+                }
+            }
+        }
+    }
+
+    private Map<String, Object> selectedWorkplace(Map<String, Object> village) {
+        List<Map<String, Object>> list = CooperationHubScreen.availableWorkplaces(village);
+        if (list.isEmpty()) {
+            return null;
+        }
+        if (aidProfIdx < 0 || aidProfIdx >= list.size()) {
+            aidProfIdx = 0;
+        }
+        return list.get(aidProfIdx);
     }
 
     private static void drawFitString(ScreenCanvas canvas, String text, int x, int y, int maxWidth, int color) {

@@ -26,7 +26,7 @@ public final class ServerTerrainProbe implements TerrainProbe {
             "dirt_path", "lantern", "torch", "bricks", "stairs", "slab",
             "lectern", "composter", "smithing_table", "blast_furnace", "smoker",
             "barrel", "loom", "cartography_table", "fletching_table", "stonecutter",
-            "grindstone", "brewing_stand", "cauldron", "bookshelf", "chest", "hay_block",
+            "grindstone", "brewing_stand", "cauldron", "water_cauldron", "bookshelf", "chest", "hay_block",
             "smart_port", "cargo_station", "mint_machine", "atm_machine", "cable"
     );
 

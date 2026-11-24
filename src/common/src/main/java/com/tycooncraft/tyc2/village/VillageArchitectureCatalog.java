@@ -5,8 +5,8 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Procedural 3D architectural blueprint catalog covering all 5 {@link BiomeStyle}s and all 8
- * {@link ProjectType}s (40 cached canonical blueprints with on-demand 4-way {@link Facing2D} rotation).
+ * Procedural 3D architectural blueprint catalog covering all 7 {@link BiomeStyle}s and all
+ * {@link ProjectType}s (cached canonical blueprints with on-demand 4-way {@link Facing2D} rotation).
  */
 public final class VillageArchitectureCatalog {
 
@@ -67,6 +67,8 @@ public final class VillageArchitectureCatalog {
             case MULTI_STORY_TOWNHOUSE -> buildMultiStoryTownhouse(style, p);
             case LC2_WATERFRONT_PIER -> buildLc2WaterfrontPier(style, p);
             case LC2_HELIPAD_PLAZA -> buildLc2HelipadPlaza(style, p);
+            case AID_WORKPLACE_SMALL -> WorkplaceArchitectureCatalog.getGenericBlueprint(WorkplaceSize.SMALL, style);
+            case AID_WORKPLACE_LARGE -> WorkplaceArchitectureCatalog.getGenericBlueprint(WorkplaceSize.LARGE, style);
         };
     }
 

@@ -10,8 +10,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
@@ -36,13 +38,18 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
     private int whPage = 0;
     private String whSearch = "";
 
-    private int growthSubTab = 0;    // 0=Upgrade & Expansion, 1=Settings & Logistics
+    private int growthSubTab = 0;    // 0=Expansion, 1=Aid Construction, 2=Settings & Logistics
     private boolean terminateArmed = false;
+    private int aidProfIdx = 0;
+    private boolean aidLarge = false;
 
     private EditBox searchInput;
     private EditBox renameInput;
     private Button expAutoBtn;
     private Button expPauseBtn;
+    private Button aidCashBtn;
+    private Button aidSizeBtn;
+    private Button aidStartBtn;
 
     public CooperationHubScreen(CooperationHubMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title, 248, 222);
@@ -67,6 +74,9 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         renameInput = null;
         expAutoBtn = null;
         expPauseBtn = null;
+        aidCashBtn = null;
+        aidSizeBtn = null;
+        aidStartBtn = null;
         terminateArmed = false;
 
         // Top 4 Tabs inside (8, 5, 232x14)
@@ -173,28 +183,37 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             }).bounds(leftPos + 222, topPos + 50, 14, 12).build());
 
         } else if (activeTab == 3) {
-            // Sub-toggle: Growth vs Settings
+            // Sub-toggle: 0=Expansion, 1=Aid, 2=Settings (zero overlap across x=10..146)
             addRenderableWidget(Button.builder(
                     Component.translatable("gui.tyc2.hub.tab.expansion"),
                     b -> {
                         growthSubTab = 0;
                         rebuildControls();
                     }
-            ).bounds(leftPos + 10, topPos + 50, 62, 12).build());
+            ).bounds(leftPos + 10, topPos + 49, 44, 12).build());
+
+            addRenderableWidget(Button.builder(
+                    Component.translatable("gui.tyc2.hub.tab.aid"),
+                    b -> {
+                        growthSubTab = 1;
+                        rebuildControls();
+                        requestSync();
+                    }
+            ).bounds(leftPos + 56, topPos + 49, 44, 12).build());
 
             addRenderableWidget(Button.builder(
                     Component.translatable("gui.tyc2.hub.tab.settings"),
                     b -> {
-                        growthSubTab = 1;
+                        growthSubTab = 2;
                         rebuildControls();
                     }
-            ).bounds(leftPos + 74, topPos + 50, 62, 12).build());
+            ).bounds(leftPos + 102, topPos + 49, 44, 12).build());
 
             if (growthSubTab == 0) {
                 addRenderableWidget(Button.builder(
                         Component.translatable("gui.tyc2.hub.upgrade_btn"),
                         b -> sendAction("UPGRADE_VILLAGE", viewArgs())
-                ).bounds(leftPos + 152, topPos + 50, 84, 13).build());
+                ).bounds(leftPos + 152, topPos + 49, 84, 12).build());
 
                 addRenderableWidget(Button.builder(
                         Component.translatable("gui.tyc2.expansion.deliver"),
@@ -210,6 +229,49 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                         Component.translatable("gui.tyc2.hub.pause_btn"),
                         b -> sendAction("TOGGLE_PAUSE_EXPANSION", viewArgs())
                 ).bounds(leftPos + 162, topPos + 118, 74, 13).build());
+            } else if (growthSubTab == 1) {
+                aidCashBtn = addRenderableWidget(Button.builder(
+                        Component.translatable(cashMode ? "gui.tyc2.hub.cash_mode" : "gui.tyc2.hub.bank_mode"),
+                        b -> {
+                            cashMode = !cashMode;
+                            b.setMessage(Component.translatable(
+                                    cashMode ? "gui.tyc2.hub.cash_mode" : "gui.tyc2.hub.bank_mode"
+                            ));
+                        }
+                ).bounds(leftPos + 152, topPos + 49, 84, 12).build());
+
+                addRenderableWidget(Button.builder(Component.translatable("gui.tyc2.prev"), b -> {
+                    int total = availableWorkplaces(menu.snapshot()).size();
+                    if (total > 0) {
+                        aidProfIdx = (aidProfIdx - 1 + total) % total;
+                    }
+                }).bounds(leftPos + 10, topPos + 63, 13, 14).build());
+
+                addRenderableWidget(Button.builder(Component.translatable("gui.tyc2.next"), b -> {
+                    int total = availableWorkplaces(menu.snapshot()).size();
+                    if (total > 0) {
+                        aidProfIdx = (aidProfIdx + 1) % total;
+                    }
+                }).bounds(leftPos + 107, topPos + 63, 13, 14).build());
+
+                aidSizeBtn = addRenderableWidget(Button.builder(
+                        Component.translatable(aidLarge ? "gui.tyc2.aid.size.large" : "gui.tyc2.aid.size.small"),
+                        b -> aidLarge = !aidLarge
+                ).bounds(leftPos + 122, topPos + 63, 62, 14).build());
+
+                aidStartBtn = addRenderableWidget(Button.builder(
+                        Component.translatable("gui.tyc2.aid.start_btn"),
+                        b -> {
+                            Map<String, Object> spec = selectedWorkplace(menu.snapshot());
+                            if (spec != null) {
+                                Map<String, Object> args = viewArgs();
+                                args.put("professionId", JsonLite.getString(spec, "professionId", ""));
+                                args.put("size", aidLarge ? "large" : "small");
+                                args.put("cashMode", cashMode);
+                                sendAction("START_AID", args);
+                            }
+                        }
+                ).bounds(leftPos + 186, topPos + 63, 50, 14).build());
             } else {
                 renameInput = addTrackedEditBox(new EditBox(
                         font, leftPos + 10, topPos + 66, 112, 12,
@@ -269,7 +331,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             case 0 -> paintOrdersTab(canvas, snap, pmx, pmy);
             case 1 -> paintWarehouseTab(canvas, snap, pmx, pmy);
             case 2 -> paintEconomyTab(canvas, snap);
-            case 3 -> paintGrowthSettingsTab(canvas, snap);
+            case 3 -> paintGrowthSettingsTab(canvas, snap, pmx, pmy);
             default -> {
             }
         }
@@ -291,6 +353,33 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                     paused ? "gui.tyc2.hub.resume_btn" : "gui.tyc2.hub.pause_btn"
             ));
         }
+        if (aidCashBtn != null) {
+            aidCashBtn.setMessage(Component.translatable(
+                    cashMode ? "gui.tyc2.hub.cash_mode" : "gui.tyc2.hub.bank_mode"
+            ));
+        }
+        if (aidSizeBtn != null || aidStartBtn != null) {
+            Map<String, Object> spec = selectedWorkplace(snap);
+            boolean largeUnlocked = spec != null && JsonLite.getBoolean(spec, "largeUnlocked", false);
+            int minLvLarge = spec == null ? 3 : JsonLite.getInt(spec, "minLevelLarge", 3);
+            boolean smallUnlocked = spec == null || JsonLite.getBoolean(spec, "smallUnlocked", true);
+            if (aidSizeBtn != null) {
+                if (!aidLarge) {
+                    aidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.small"));
+                } else if (largeUnlocked) {
+                    aidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.large"));
+                } else {
+                    aidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.large_locked", minLvLarge));
+                }
+            }
+            if (aidStartBtn != null) {
+                int queueSize = aidProjects(snap).size();
+                int maxQueue = Math.max(1, JsonLite.getInt(snap, "maxAidQueue", 3));
+                boolean depop = JsonLite.getBoolean(snap, "depopPaused", false);
+                boolean unlocked = aidLarge ? largeUnlocked : smallUnlocked;
+                aidStartBtn.active = spec != null && !depop && queueSize < maxQueue && unlocked;
+            }
+        }
     }
 
     private void paintBanner(ScreenCanvas canvas, Map<String, Object> snap) {
@@ -302,6 +391,10 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         boolean chunkLoaded = JsonLite.getBoolean(snap, "chunkLoaderActive", false);
         String season = JsonLite.getString(snap, "season", "NONE");
         String infl = JsonLite.getString(snap, "inflationState", "STABLE");
+        int unempPct = JsonLite.getInt(snap, "unemploymentPct", 0);
+        int unempCount = JsonLite.getInt(snap, "unemployedCount", 0);
+        int workforce = JsonLite.getInt(snap, "workforceCount", 0);
+        boolean bonusActive = JsonLite.getBoolean(snap, "bonusActive", false);
 
         // Mayor crown icon (212, 226, 16x16)
         canvas.blit(GUI_TEX, 11, 25, 212, 226, 16, 16);
@@ -321,7 +414,15 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         } else {
             String stats = Component.translatable("gui.tyc2.hub.population", pop).getString()
                     + " | " + Component.translatable("gui.tyc2.hub.village_funds", funds).getString();
-            drawFitString(canvas, stats, 30, 34, 158, 0xFF9BE8FF);
+            if (workforce > 0) {
+                stats += " | " + Component.translatable(
+                        "gui.tyc2.hub.unemployment", unempPct, unempCount, workforce
+                ).getString();
+                if (bonusActive) {
+                    stats += " ★";
+                }
+            }
+            drawFitString(canvas, stats, 30, 34, 158, 0.54F, bonusActive ? 0xFF72FFAA : 0xFF9BE8FF);
         }
 
         // Season sprite (62/76/90/104, 226, 12x12)
@@ -450,24 +551,43 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
         String cpiLine = Component.translatable("gui.tyc2.hub.status.cpi", String.format("%.2f", cpi)).getString()
                 + " (" + inflText + ")";
-        drawFitString(canvas, cpiLine, 12, 52, 108, cpiColor);
-        drawFitString(canvas, Component.translatable("gui.tyc2.economy.money_supply", money).getString(), 12, 64, 108, 0xFFE2EFFA);
-        drawFitString(canvas, Component.translatable("gui.tyc2.economy.goods_circulation", goods).getString(), 12, 76, 108, 0xFFE2EFFA);
-        drawFitString(canvas, Component.translatable("gui.tyc2.economy.village_liquidity", String.format("%.2fx", liq)).getString(), 12, 88, 108, 0xFFFFDF7F);
+        drawFitString(canvas, cpiLine, 12, 50, 108, cpiColor);
+        drawFitString(canvas, Component.translatable("gui.tyc2.economy.money_supply", money).getString(), 12, 61, 108, 0xFFE2EFFA);
+        drawFitString(canvas, Component.translatable("gui.tyc2.economy.goods_circulation", goods).getString(), 12, 72, 108, 0xFFE2EFFA);
+        drawFitString(canvas, Component.translatable("gui.tyc2.economy.village_liquidity", String.format("%.2fx", liq)).getString(), 12, 83, 108, 0xFFFFDF7F);
         drawFitString(
                 canvas,
                 Component.translatable("gui.tyc2.economy.season",
                         Component.translatable("season.tyc2." + season.toLowerCase(Locale.ROOT))).getString(),
-                12, 100, 108, 0xFF9BE8FF
+                12, 94, 108, 0xFF9BE8FF
         );
-        drawFitString(canvas, Component.translatable("tier.tyc2." + tier).getString(), 12, 112, 108, 0xFFB8D4F0);
+        drawFitString(canvas, Component.translatable("tier.tyc2." + tier).getString(), 12, 105, 108, 0xFFB8D4F0);
+
+        int unempPct = JsonLite.getInt(snap, "unemploymentPct", 0);
+        int unempCount = JsonLite.getInt(snap, "unemployedCount", 0);
+        int workforce = JsonLite.getInt(snap, "workforceCount", 0);
+        boolean bonusActive = JsonLite.getBoolean(snap, "bonusActive", false);
+        int restockPct = JsonLite.getInt(snap, "restockBonusPct", 0);
+        int qtyPct = JsonLite.getInt(snap, "qtyBonusPct", 0);
+        int thresholdPct = JsonLite.getInt(snap, "lowUnempThresholdPct", 25);
+        drawFitString(
+                canvas,
+                Component.translatable("gui.tyc2.hub.unemployment", unempPct, unempCount, workforce).getString(),
+                12, 116, 108, 0.56F, bonusActive ? 0xFF66FF99 : 0xFFE0ECF8
+        );
+        String bonusLine = bonusActive
+                ? Component.translatable("gui.tyc2.hub.unemployment_bonus", restockPct, qtyPct).getString()
+                : Component.translatable("gui.tyc2.aid.bonus_inactive", thresholdPct).getString();
+        drawFitString(canvas, bonusLine, 12, 126, 108, 0.52F, bonusActive ? 0xFF56EC8B : 0xFF8AA0B8);
 
         String chartTitle = Component.translatable("gui.tyc2.economy.cpi_chart").getString();
         drawFitString(canvas, chartTitle, 122, 50, 114, 0xFFAEC8E0);
         CpiChartRenderer.drawChart(canvas, 122, 60, 114, 70, extractCpiHistory(snap));
     }
 
-    private void paintGrowthSettingsTab(ScreenCanvas canvas, Map<String, Object> snap) {
+    private void paintGrowthSettingsTab(ScreenCanvas canvas, Map<String, Object> snap, int pmx, int pmy) {
+        canvas.outline(10 + growthSubTab * 46, 49, 44, 12, 0xFF4BE2FF);
+
         if (growthSubTab == 0) {
             int level = JsonLite.getInt(snap, "level", 1);
             int pop = JsonLite.getInt(snap, "population", 0);
@@ -549,6 +669,8 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                     Component.translatable(paused ? "gui.tyc2.expansion.pause.on" : "gui.tyc2.expansion.pause.off").getString(),
                     12, 108, 224, paused ? 0xFFFF8866 : 0xFF7BE89A
             );
+        } else if (growthSubTab == 1) {
+            paintAidSubTab(canvas, snap, pmx, pmy);
         } else {
             // Settings & Nearby Logistics
             int minR = JsonLite.getInt(snap, "minRadius", 16);
@@ -576,6 +698,116 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                         canvas,
                         Component.translatable("status.tyc2.hub.not_owner").getString(),
                         12, 105, 224, 0xFFFF8866
+                );
+            }
+        }
+    }
+
+    private void paintAidSubTab(ScreenCanvas canvas, Map<String, Object> snap, int pmx, int pmy) {
+        Map<String, Object> spec = selectedWorkplace(snap);
+        // Profession display box (24..106, 63..77)
+        canvas.fill(24, 63, 106, 77, 0xFF132231);
+        canvas.outline(24, 63, 82, 14, 0xFF3E6F9E);
+        if (spec != null) {
+            String wsBlockId = JsonLite.getString(spec, "workstationBlockId", "");
+            String profId = JsonLite.getString(spec, "professionId", "");
+            String arch = JsonLite.getString(spec, "archetype", "GENERIC");
+            String fallback = JsonLite.getString(spec, "displayNameFallback", "");
+            ItemStack wsStack = TyC2Native.stack(wsBlockId, 1);
+            if (!wsStack.isEmpty()) {
+                canvas.drawItem(wsStack, 25, 62);
+            }
+            String profLabel = localizedProfessionName(arch, profId, fallback);
+            drawFitString(canvas, profLabel, 43, 66, 61, 0.56F, 0xFFEAF6FF);
+
+            long cost = aidLarge
+                    ? JsonLite.getLong(spec, "costLargeIc", 0L)
+                    : JsonLite.getLong(spec, "costSmallIc", 0L);
+            boolean unlocked = aidLarge
+                    ? JsonLite.getBoolean(spec, "largeUnlocked", false)
+                    : JsonLite.getBoolean(spec, "smallUnlocked", true);
+            String costLine = Component.translatable("gui.tyc2.aid.cost", cost).getString();
+            drawFitString(canvas, costLine, 10, 79, 102, 0.56F, unlocked ? 0xFFFFD866 : 0xFFFF7766);
+        }
+
+        double gatherMult = JsonLite.getDouble(snap, "gatherSpeedMult", 1.0);
+        int unemployed = JsonLite.getInt(snap, "unemployedCount", 0);
+        String rateLine = Component.translatable(
+                "gui.tyc2.aid.gather_rate",
+                String.format("%.2f", gatherMult),
+                unemployed
+        ).getString();
+        drawFitString(canvas, rateLine, 114, 79, 122, 0.56F, 0xFF9BE8FF);
+
+        boolean bonusActive = JsonLite.getBoolean(snap, "bonusActive", false);
+        int restockPct = JsonLite.getInt(snap, "restockBonusPct", 0);
+        int qtyPct = JsonLite.getInt(snap, "qtyBonusPct", 0);
+        int thresholdPct = JsonLite.getInt(snap, "lowUnempThresholdPct", 25);
+        String bonusLine = bonusActive
+                ? Component.translatable("gui.tyc2.aid.bonus_active", restockPct, qtyPct).getString()
+                : Component.translatable("gui.tyc2.aid.bonus_inactive", thresholdPct).getString();
+        drawFitString(canvas, bonusLine, 10, 88, 152, 0.52F, bonusActive ? 0xFF66FF99 : 0xFF9BB4CC);
+
+        List<Map<String, Object>> queue = aidProjects(snap);
+        int maxQueue = Math.max(1, JsonLite.getInt(snap, "maxAidQueue", 3));
+        String qHeader = Component.translatable("gui.tyc2.aid.queue_header", queue.size(), maxQueue).getString();
+        drawFitString(canvas, qHeader, 164, 88, 72, 0.56F, 0xFFFFE57F);
+
+        if (queue.isEmpty()) {
+            drawFitString(
+                    canvas,
+                    Component.translatable("gui.tyc2.aid.queue_empty").getString(),
+                    14, 108, 218, 0xFF8AA0B8
+            );
+            return;
+        }
+
+        int shown = Math.min(3, queue.size());
+        for (int i = 0; i < shown; i++) {
+            Map<String, Object> proj = queue.get(i);
+            int ry = 97 + i * 12;
+            String status = JsonLite.getString(proj, "status", "COLLECTING");
+            int pct = Math.max(0, Math.min(100, JsonLite.getInt(proj, "progressPct", 0)));
+            boolean canCancel = JsonLite.getBoolean(proj, "canCancel", false);
+            String sizeStr = JsonLite.getString(proj, "size", "SMALL");
+            String profName = localizedProfessionName(
+                    JsonLite.getString(proj, "archetype", "GENERIC"),
+                    JsonLite.getString(proj, "professionId", ""),
+                    JsonLite.getString(proj, "displayNameFallback", "")
+            );
+            String sizeShort = "LARGE".equalsIgnoreCase(sizeStr) ? "L" : "S";
+
+            int bg = "BUILDING".equals(status) ? 0xFF152936
+                    : ("NO_SITE".equals(status) ? 0xFF2D1E18 : 0xFF17222D);
+            int border = "BUILDING".equals(status) ? 0xFF4BE2FF
+                    : ("NO_SITE".equals(status) ? 0xFFFF8855 : 0xFF3E6F9E);
+            canvas.fill(10, ry, 236, ry + 11, bg);
+            canvas.outline(10, ry, 226, 11, border);
+
+            // Bottom 2px progress fill
+            int barMaxW = canCancel ? 180 : 224;
+            int barW = (int) Math.round(barMaxW * pct / 100.0);
+            if (barW > 0) {
+                int barColor = "BUILDING".equals(status) ? 0xFF39D98A : 0xFF4CA8FF;
+                canvas.fill(11, ry + 9, 11 + barW, ry + 10, barColor);
+            }
+
+            drawFitString(canvas, profName + " [" + sizeShort + "]", 13, ry + 1, 92, 0.54F, 0xFFEAF6FF);
+            drawFitString(
+                    canvas,
+                    aidStatusText(status, pct),
+                    107, ry + 1, canCancel ? 83 : 126, 0.54F,
+                    "NO_SITE".equals(status) ? 0xFFFFAA66 : ("BUILDING".equals(status) ? 0xFF66FF99 : 0xFFFFDF7F)
+            );
+
+            if (canCancel) {
+                boolean hoverCancel = pmx >= 192 && pmx < 235 && pmy >= ry + 1 && pmy < ry + 10;
+                canvas.fill(192, ry + 1, 235, ry + 10, hoverCancel ? 0xFF9E3B33 : 0xFF6E2924);
+                canvas.outline(192, ry + 1, 43, 9, 0xFFD87A72);
+                drawFitString(
+                        canvas,
+                        Component.translatable("gui.tyc2.aid.cancel_btn").getString(),
+                        194, ry + 1, 39, 0.50F, 0xFFFFFFFF
                 );
             }
         }
@@ -653,6 +885,23 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                     }
                 }
             }
+        } else if (activeTab == 3 && growthSubTab == 1) {
+            List<Map<String, Object>> queue = aidProjects(menu.snapshot());
+            int shown = Math.min(3, queue.size());
+            for (int i = 0; i < shown; i++) {
+                int ry = 97 + i * 12;
+                Map<String, Object> proj = queue.get(i);
+                if (JsonLite.getBoolean(proj, "canCancel", false)
+                        && pmx >= 192 && pmx < 235 && pmy >= ry + 1 && pmy < ry + 10) {
+                    String projId = JsonLite.getString(proj, "projectId", "");
+                    if (!projId.isEmpty()) {
+                        Map<String, Object> args = viewArgs();
+                        args.put("projectId", projId);
+                        sendAction("CANCEL_AID", args);
+                        return true;
+                    }
+                }
+            }
         }
         return false;
     }
@@ -713,6 +962,44 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                     }
                 }
             }
+        }
+
+        // Aid construction queue hover tooltips (gathered / required materials)
+        if (activeTab == 3 && growthSubTab == 1) {
+            List<Map<String, Object>> queue = aidProjects(snap);
+            int shown = Math.min(3, queue.size());
+            for (int i = 0; i < shown; i++) {
+                int ry = 97 + i * 12;
+                if (pmx >= 10 && pmx < 192 && pmy >= ry && pmy < ry + 11) {
+                    List<Component> tip = buildAidMaterialsTooltip(queue.get(i));
+                    if (!tip.isEmpty()) {
+                        canvas.drawTooltip(tip, mouseX, mouseY);
+                    }
+                    return;
+                }
+            }
+        }
+
+        // Banner unemployment / bonus hover tooltip
+        if (pmx >= 30 && pmx < 188 && pmy >= 32 && pmy < 44 && !JsonLite.getBoolean(snap, "depopPaused", false)) {
+            int unempPct = JsonLite.getInt(snap, "unemploymentPct", 0);
+            int unempCount = JsonLite.getInt(snap, "unemployedCount", 0);
+            int workforce = JsonLite.getInt(snap, "workforceCount", 0);
+            boolean bonusActive = JsonLite.getBoolean(snap, "bonusActive", false);
+            int restockPct = JsonLite.getInt(snap, "restockBonusPct", 0);
+            int qtyPct = JsonLite.getInt(snap, "qtyBonusPct", 0);
+            int thresholdPct = JsonLite.getInt(snap, "lowUnempThresholdPct", 25);
+            List<Component> lines = new ArrayList<>();
+            lines.add(Component.translatable("gui.tyc2.hub.unemployment", unempPct, unempCount, workforce));
+            if (bonusActive) {
+                lines.add(Component.translatable("gui.tyc2.aid.bonus_active", restockPct, qtyPct)
+                        .withStyle(ChatFormatting.GREEN));
+            } else {
+                lines.add(Component.translatable("gui.tyc2.aid.bonus_inactive", thresholdPct)
+                        .withStyle(ChatFormatting.GRAY));
+            }
+            canvas.drawTooltip(lines, mouseX, mouseY);
+            return;
         }
 
         // Banner chunk loader icon tooltip
@@ -844,6 +1131,113 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             float sc = Math.max(minScale, maxWidth / (float) w);
             canvas.drawScaledString(text, x, y, maxWidth, sc, color);
         }
+    }
+
+    static List<Map<String, Object>> availableWorkplaces(Map<String, Object> snap) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (snap == null) {
+            return out;
+        }
+        List<Object> raw = JsonLite.asArray(snap.get("workplaces"));
+        if (raw != null) {
+            for (Object obj : raw) {
+                Map<String, Object> m = JsonLite.asObject(obj);
+                if (m != null) {
+                    out.add(m);
+                }
+            }
+        }
+        return out;
+    }
+
+    static List<Map<String, Object>> aidProjects(Map<String, Object> snap) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (snap == null) {
+            return out;
+        }
+        List<Object> raw = JsonLite.asArray(snap.get("aidProjects"));
+        if (raw != null) {
+            for (Object obj : raw) {
+                Map<String, Object> m = JsonLite.asObject(obj);
+                if (m != null) {
+                    out.add(m);
+                }
+            }
+        }
+        return out;
+    }
+
+    private Map<String, Object> selectedWorkplace(Map<String, Object> snap) {
+        List<Map<String, Object>> list = availableWorkplaces(snap);
+        if (list.isEmpty()) {
+            return null;
+        }
+        if (aidProfIdx < 0 || aidProfIdx >= list.size()) {
+            aidProfIdx = 0;
+        }
+        return list.get(aidProfIdx);
+    }
+
+    static String localizedProfessionName(String archetypeName, String professionId, String fallback) {
+        if (archetypeName != null && !archetypeName.isBlank() && !"GENERIC".equalsIgnoreCase(archetypeName)) {
+            return Component.translatable("profession.tyc2." + archetypeName.toLowerCase(Locale.ROOT)).getString();
+        }
+        if (professionId != null && !professionId.isBlank()) {
+            int colon = professionId.indexOf(':');
+            if (colon > 0) {
+                String ns = professionId.substring(0, colon);
+                String path = professionId.substring(colon + 1);
+                Language lang = Language.getInstance();
+                String mcKey = "entity.minecraft.villager." + ns + "." + path;
+                if (lang.has(mcKey)) {
+                    return Component.translatable(mcKey).getString();
+                }
+                String altKey = "entity.minecraft.villager." + path;
+                if (lang.has(altKey)) {
+                    return Component.translatable(altKey).getString();
+                }
+            }
+        }
+        if (fallback != null && !fallback.isBlank()) {
+            return fallback;
+        }
+        return Component.translatable("profession.tyc2.generic").getString();
+    }
+
+    static String aidStatusText(String status, int pct) {
+        if ("BUILDING".equals(status)) {
+            return Component.translatable("gui.tyc2.aid.status.building", pct).getString();
+        }
+        if ("WAITING_SITE".equals(status)) {
+            return Component.translatable("gui.tyc2.aid.status.waiting_site").getString();
+        }
+        if ("NO_SITE".equals(status)) {
+            return Component.translatable("gui.tyc2.aid.status.no_site").getString();
+        }
+        return Component.translatable("gui.tyc2.aid.status.collecting", pct).getString();
+    }
+
+    static List<Component> buildAidMaterialsTooltip(Map<String, Object> proj) {
+        if (proj == null) {
+            return List.of();
+        }
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.translatable("gui.tyc2.aid.materials_tooltip").withStyle(ChatFormatting.GOLD));
+        Map<String, Object> req = JsonLite.asObject(proj.get("requiredMaterials"));
+        Map<String, Object> gathered = JsonLite.asObject(proj.get("gatheredMaterials"));
+        if (req != null) {
+            for (Map.Entry<String, Object> e : req.entrySet()) {
+                int need = JsonLite.getInt(req, e.getKey(), 0);
+                int have = gathered == null ? 0 : JsonLite.getInt(gathered, e.getKey(), 0);
+                ItemStack st = TyC2Native.stack(e.getKey(), 1);
+                Component itemComp = st.isEmpty() ? Component.literal(e.getKey()) : st.getHoverName();
+                lines.add(Component.literal("• ")
+                        .append(itemComp)
+                        .append(": " + have + " / " + need)
+                        .withStyle(have >= need ? ChatFormatting.GREEN : ChatFormatting.GRAY));
+            }
+        }
+        return lines;
     }
 
     private Map<String, Object> viewArgs() {

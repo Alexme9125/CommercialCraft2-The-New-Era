@@ -6,9 +6,13 @@ import com.tycooncraft.tyc2.blockentity.CooperationHubBlockEntity;
 import com.tycooncraft.tyc2.blockentity.MintMachineBlockEntity;
 import com.tycooncraft.tyc2.blockentity.PrimitiveMintMachineBlockEntity;
 import com.tycooncraft.tyc2.core.TriModePowerMath;
+import com.tycooncraft.tyc2.core.TyC2Config;
 import com.tycooncraft.tyc2.platform.TyC2Nbt;
+import com.tycooncraft.tyc2.village.AidConstructionProject;
 import com.tycooncraft.tyc2.village.OrderSide;
+import com.tycooncraft.tyc2.village.VillageEmploymentStats;
 import com.tycooncraft.tyc2.village.VillageRecord;
+import com.tycooncraft.tyc2.world.TyC2DataLoader;
 import com.tycooncraft.tyc2.world.TyC2WorldManager;
 import com.tycooncraft.tyc2.world.TycoonSavedData;
 import java.util.ArrayList;
@@ -66,6 +70,28 @@ public final class JadeSoftBridge {
                         String.format("%.2f", cpi),
                         Component.translatable(stateKey)
                 ));
+                VillageEmploymentStats es = v.getEmploymentStats();
+                TyC2Config cfg = TyC2DataLoader.config();
+                int unempPct = (int) Math.round(es.unemploymentRate() * 100.0);
+                lines.add(Component.translatable(
+                        "hud.tyc2.hub.unemployment",
+                        unempPct,
+                        es.unemployedCount(),
+                        es.workforceCount()
+                ));
+                if (es.isLowUnemploymentBonusActive(cfg)) {
+                    int restockPct = (int) Math.round((es.restockSpeedMultiplier(cfg) - 1.0) * 100.0);
+                    int qtyPct = (int) Math.round((es.tradeQuantityMultiplier(cfg) - 1.0) * 100.0);
+                    lines.add(Component.translatable("hud.tyc2.hub.employment_bonus", restockPct, qtyPct));
+                }
+                if (!v.getAidProjects().isEmpty()) {
+                    AidConstructionProject head = v.getAidProjects().get(0);
+                    lines.add(Component.translatable(
+                            "hud.tyc2.hub.aid_active",
+                            TyC2WorldManager.workplaceDisplayComponent(head),
+                            TyC2WorldManager.aidStatusComponent(v, head)
+                    ));
+                }
             }
         } else if (be instanceof PrimitiveMintMachineBlockEntity prim) {
             int burnSec = (prim.burnTimeRemaining() + 19) / 20;
@@ -110,8 +136,22 @@ public final class JadeSoftBridge {
         try {
             UUID vid = UUID.fromString(vidStr);
             VillageRecord v = TyC2WorldManager.getData(level).getVillage(vid).orElse(null);
-            if (v != null && v.isPartnered()) {
-                return List.of(Component.translatable("hud.tyc2.mayor.partnered", v.getLevel()));
+            if (v != null) {
+                List<Component> lines = new ArrayList<>(2);
+                if (v.isPartnered()) {
+                    lines.add(Component.translatable("hud.tyc2.mayor.partnered", v.getLevel()));
+                } else {
+                    lines.add(Component.translatable("hud.tyc2.mayor.unpartnered"));
+                }
+                VillageEmploymentStats es = v.getEmploymentStats();
+                int unempPct = (int) Math.round(es.unemploymentRate() * 100.0);
+                lines.add(Component.translatable(
+                        "hud.tyc2.mayor.unemployment",
+                        unempPct,
+                        es.unemployedCount(),
+                        es.workforceCount()
+                ));
+                return lines;
             }
         } catch (IllegalArgumentException ignored) {
             // Fall through
