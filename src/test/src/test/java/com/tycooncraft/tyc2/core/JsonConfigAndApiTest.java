@@ -75,10 +75,53 @@ class JsonConfigAndApiTest {
         assertEquals(250L, reloaded.negotiationCostIc());
 
         // Extreme out-of-range JSON values are safely clamped
-        TyC2Config clamped = TyC2Config.fromJson("{\"minPriceMultiplier\": -5, \"maxPriceMultiplier\": 999, \"demandRefreshTicks\": 1}");
+        TyC2Config clamped = TyC2Config.fromJson(
+                "{\"minPriceMultiplier\": -5, \"maxPriceMultiplier\": 999, \"demandRefreshTicks\": 1,"
+                        + "\"aidGatherTicksSmall\": 0, \"maxQueuedAidProjects\": 99,"
+                        + "\"lowUnemploymentThreshold\": 5.0, \"lowUnempRestockMinMult\": 0.5,"
+                        + "\"lowUnempRestockMaxMult\": 0.2, \"lowUnempQtyMinMult\": 0.1,"
+                        + "\"lowUnempQtyMaxMult\": 99.0}");
         assertEquals(0.05, clamped.minPriceMultiplier(), 1e-6);
         assertEquals(20.0, clamped.maxPriceMultiplier(), 1e-6);
         assertEquals(200, clamped.demandRefreshTicks());
+        assertEquals(20, clamped.aidGatherTicksSmall());
+        assertEquals(16, clamped.maxQueuedAidProjects());
+        assertEquals(1.0, clamped.lowUnemploymentThreshold(), 1e-6);
+        assertEquals(1.0, clamped.lowUnempRestockMinMult(), 1e-6);
+        assertEquals(1.0, clamped.lowUnempRestockMaxMult(), 1e-6);
+        assertEquals(1.0, clamped.lowUnempQtyMinMult(), 1e-6);
+        assertEquals(10.0, clamped.lowUnempQtyMaxMult(), 1e-6);
+
+        // Aid & employment config round-trip persistence
+        created.setAidGatherTicksSmall(2_400)
+                .setAidGatherTicksLarge(4_800)
+                .setAidLaborSpeedPerUnemployed(0.2)
+                .setAidMaxLaborSpeedBonus(1.5)
+                .setMaxQueuedAidProjects(5)
+                .setLowUnemploymentThreshold(0.20)
+                .setLowUnempRestockMinMult(1.30)
+                .setLowUnempRestockMaxMult(1.60)
+                .setLowUnempQtyMinMult(1.20)
+                .setLowUnempQtyMaxMult(1.45)
+                .setEnableModdedProfessions(false)
+                .setModdedProfessionBlacklist(List.of("modx:guard", "badmod:*"));
+        created.save(cfgPath);
+
+        TyC2Config reloadedAid = TyC2Config.loadOrCreate(cfgPath);
+        assertEquals(2_400, reloadedAid.aidGatherTicksSmall());
+        assertEquals(4_800, reloadedAid.aidGatherTicksLarge());
+        assertEquals(0.2, reloadedAid.aidLaborSpeedPerUnemployed(), 1e-6);
+        assertEquals(1.5, reloadedAid.aidMaxLaborSpeedBonus(), 1e-6);
+        assertEquals(5, reloadedAid.maxQueuedAidProjects());
+        assertEquals(0.20, reloadedAid.lowUnemploymentThreshold(), 1e-6);
+        assertEquals(1.30, reloadedAid.lowUnempRestockMinMult(), 1e-6);
+        assertEquals(1.60, reloadedAid.lowUnempRestockMaxMult(), 1e-6);
+        assertEquals(1.20, reloadedAid.lowUnempQtyMinMult(), 1e-6);
+        assertEquals(1.45, reloadedAid.lowUnempQtyMaxMult(), 1e-6);
+        assertFalse(reloadedAid.enableModdedProfessions());
+        assertTrue(reloadedAid.isModdedProfessionBlacklisted("modx:guard"));
+        assertTrue(reloadedAid.isModdedProfessionBlacklisted("badmod:anything"));
+        assertFalse(reloadedAid.isModdedProfessionBlacklisted("create:engineer"));
     }
 
     @Test

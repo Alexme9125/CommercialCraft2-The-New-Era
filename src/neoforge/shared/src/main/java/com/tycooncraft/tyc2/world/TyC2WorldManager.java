@@ -25,6 +25,7 @@ import com.tycooncraft.tyc2.platform.TyC2ChunkTickets;
 import com.tycooncraft.tyc2.platform.TyC2Native;
 import com.tycooncraft.tyc2.platform.TyC2Nbt;
 import com.tycooncraft.tyc2.village.Aabb3i;
+import com.tycooncraft.tyc2.village.AidConstructionProject;
 import com.tycooncraft.tyc2.village.BiomeStyle;
 import com.tycooncraft.tyc2.village.BlockPos3i;
 import com.tycooncraft.tyc2.village.ConstructionJob;
@@ -36,17 +37,26 @@ import com.tycooncraft.tyc2.village.OrderSide;
 import com.tycooncraft.tyc2.village.ProjectType;
 import com.tycooncraft.tyc2.village.SlotStack;
 import com.tycooncraft.tyc2.village.SpawnMarker;
+import com.tycooncraft.tyc2.village.StructureBlueprint;
+import com.tycooncraft.tyc2.village.VillageEmploymentStats;
 import com.tycooncraft.tyc2.village.VillageLevelTable;
 import com.tycooncraft.tyc2.village.VillageRecord;
 import com.tycooncraft.tyc2.village.VillageTradeOrder;
+import com.tycooncraft.tyc2.village.WorkplaceArchetype;
+import com.tycooncraft.tyc2.village.WorkplaceArchitectureCatalog;
+import com.tycooncraft.tyc2.village.WorkplaceCatalog;
+import com.tycooncraft.tyc2.village.WorkplaceSize;
+import com.tycooncraft.tyc2.village.WorkplaceSpec;
 import com.tycooncraft.tyc2.village.WorldBlockPlacement;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
@@ -427,6 +437,7 @@ public final class TyC2WorldManager {
 
         // 3. Per-village virtual timers (run even when Hub chunks are unloaded!)
         boolean runAutoFulfill = (gameTime % cfg.autoFulfillIntervalTicks()) == 0L;
+        boolean runAidTick = (gameTime % 20L) == 0L;
         boolean recordedCycleSnapshot = false;
 
         for (VillageRecord v : data.allVillages()) {
@@ -439,12 +450,13 @@ public final class TyC2WorldManager {
                 processAutoFulfill(overworld, data, v, gameTime);
             }
 
-            // 3b. Demand order refresh (periodic or when all active orders completed)
+            // 3b. Demand order refresh (periodic with low-unemployment speed boost, or when all orders completed)
             if (v.canGenerateOrders()) {
+                int effectiveRefreshTicks = v.getEmploymentStats().effectiveDemandRefreshTicks(cfg);
                 boolean allDone = !v.getActiveOrders().isEmpty()
                         && v.getActiveOrders().stream().allMatch(VillageTradeOrder::isCompleted);
                 boolean refreshDue = v.getActiveOrders().isEmpty()
-                        || (gameTime - v.getLastDemandRefreshTick()) >= cfg.demandRefreshTicks()
+                        || (gameTime - v.getLastDemandRefreshTick()) >= effectiveRefreshTicks
                         || allDone;
                 if (refreshDue) {
                     if (!recordedCycleSnapshot) {
@@ -455,7 +467,7 @@ public final class TyC2WorldManager {
                 }
             }
 
-            // 3c. Periodic Expansion Desire generation
+            // 3c. Periodic Expansion Desire generation (paused when expansionPaused == true)
             if (!v.isExpansionPaused()
                     && v.canGenerateOrders()
                     && v.getActiveExpansion() == null
@@ -472,6 +484,11 @@ public final class TyC2WorldManager {
                 v.setActiveExpansion(desire);
                 v.setLastExpansionTick(gameTime);
                 data.setDirty();
+            }
+
+            // 3d. Aid construction background gathering & site planning (NEVER paused by expansionPaused!)
+            if (runAidTick && !v.getAidProjects().isEmpty()) {
+                tickVillageAidProjects(overworld, data, cfg, v, gameTime);
             }
         }
 
@@ -536,6 +553,92 @@ public final class TyC2WorldManager {
         }
     }
 
+    private static void tickVillageAidProjects(
+            ServerLevel overworld,
+            TycoonSavedData data,
+            TyC2Config cfg,
+            VillageRecord v,
+            long gameTime
+    ) {
+        // 1. Advance the head COLLECTING aid project (works even while village chunks are unloaded)
+        double gatherSpeed = v.getEmploymentStats().gatherSpeedMultiplier(cfg);
+        double delta = 20.0 * gatherSpeed;
+        for (AidConstructionProject proj : v.getAidProjects()) {
+            if (proj.status() == AidConstructionProject.Status.COLLECTING) {
+                AidConstructionProject updated = proj.advanceGathering(delta);
+                if (!updated.equals(proj)) {
+                    v.updateAidProject(updated);
+                    data.setDirty();
+                }
+                break;
+            }
+        }
+
+        // 2. Plan & launch any WAITING_SITE or (every 400 ticks) NO_SITE project once Hub chunk is loaded
+        boolean retryNoSite = (gameTime % 400L) == 0L;
+        ServerLevel targetLevel = null;
+        boolean hubLoaded = false;
+        boolean checkedLoaded = false;
+
+        for (AidConstructionProject proj : new ArrayList<>(v.getAidProjects())) {
+            boolean shouldAttempt = proj.status() == AidConstructionProject.Status.WAITING_SITE
+                    || (proj.status() == AidConstructionProject.Status.NO_SITE && retryNoSite);
+            if (!shouldAttempt) {
+                continue;
+            }
+            if (!checkedLoaded) {
+                targetLevel = resolveDimensionLevel(overworld.getServer(), v.getDimensionId(), overworld);
+                BlockPos hubPos = new BlockPos(v.getHubPos().x(), v.getHubPos().y(), v.getHubPos().z());
+                hubLoaded = targetLevel.hasChunkAt(hubPos);
+                checkedLoaded = true;
+            }
+            if (!hubLoaded) {
+                break;
+            }
+
+            StructureBlueprint bp = WorkplaceArchitectureCatalog.getBlueprint(
+                    proj.toWorkplaceSpec(), proj.size(), v.getBiomeStyle()
+            );
+            String jobId = "aid_job_" + proj.projectId();
+            LevelTerrainProbe probe = new LevelTerrainProbe(targetLevel, data);
+            ExpansionPlanner.PlanResult plan = PLANNER.planBlueprintIgnoringZone(
+                    v, bp, probe, jobId, true, proj.reservedZone()
+            );
+            if (plan.success()) {
+                if (proj.reservedZone() != null && !proj.reservedZone().equals(plan.reservedZone())) {
+                    v.removeOccupiedZone(proj.reservedZone());
+                }
+                PLANNER.commitPlanWithPriority(v, plan, gameTime, true);
+                AidConstructionProject building = proj
+                        .withReservedZone(plan.reservedZone())
+                        .withBuilding(jobId);
+                v.updateAidProject(building);
+                data.setDirty();
+                notifyVillageOwnerOrNearby(
+                        targetLevel,
+                        v,
+                        Component.translatable(
+                                "status.tyc2.aid.building",
+                                v.getVillageName(),
+                                workplaceDisplayComponent(building)
+                        ).withStyle(ChatFormatting.AQUA)
+                );
+            } else if (proj.status() == AidConstructionProject.Status.WAITING_SITE) {
+                v.updateAidProject(proj.withStatus(AidConstructionProject.Status.NO_SITE));
+                data.setDirty();
+                notifyVillageOwnerOrNearby(
+                        targetLevel,
+                        v,
+                        Component.translatable(
+                                "status.tyc2.aid.no_site_waiting",
+                                v.getVillageName(),
+                                workplaceDisplayComponent(proj)
+                        ).withStyle(ChatFormatting.YELLOW)
+                );
+            }
+        }
+    }
+
     private static void tickVillageConstruction(ServerLevel level, TycoonSavedData data, VillageRecord v) {
         Optional<ConstructionJob> jobOpt = v.getActiveConstructionJob();
         if (jobOpt.isEmpty()) {
@@ -585,8 +688,32 @@ public final class TyC2WorldManager {
             ConstructionJob job,
             List<SpawnMarker.WorldSpawnMarker> markers
     ) {
+        BlockPos hub = new BlockPos(v.getHubPos().x(), v.getHubPos().y(), v.getHubPos().z());
         int popCap = TyC2DataLoader.levelTable().getSpecClamped(v.getLevel()).maxPopulationCap();
         int spawnedVillagers = 0;
+
+        // Collect unemployed non-nitwit non-mayor adult villagers for any WORKSTATION markers
+        boolean hasWorkstations = markers.stream().anyMatch(m -> m.kind() == SpawnMarker.MarkerKind.WORKSTATION);
+        List<Entity> unemployedCandidates = List.of();
+        Set<UUID> assignedVillagers = new HashSet<>();
+        if (hasWorkstations) {
+            UUID mayorUuid = v.getMayorState().getMayorEntityUuid();
+            List<Entity> allNearby = TyC2Native.findVillagersInRadius(level, hub, v.effectiveVillagerScanRadius());
+            List<Entity> eligible = new ArrayList<>();
+            for (Entity e : allNearby) {
+                if (mayorUuid != null && mayorUuid.equals(e.getUUID())) {
+                    continue;
+                }
+                if (!TyC2Native.isAdultVillager(e) || TyC2Native.isNitwitVillager(e)) {
+                    continue;
+                }
+                if (VillageEmploymentStats.isUnemployedProfession(TyC2Native.villagerProfessionId(e))) {
+                    eligible.add(e);
+                }
+            }
+            unemployedCandidates = eligible;
+        }
+
         for (SpawnMarker.WorldSpawnMarker marker : markers) {
             BlockPos pos = new BlockPos(marker.pos().x(), marker.pos().y(), marker.pos().z());
             if (marker.kind() == SpawnMarker.MarkerKind.VILLAGER) {
@@ -596,16 +723,59 @@ public final class TyC2WorldManager {
                 }
             } else if (marker.kind() == SpawnMarker.MarkerKind.ANIMAL) {
                 TyC2Native.spawnAnimal(level, pos, marker.hint());
+            } else if (marker.kind() == SpawnMarker.MarkerKind.WORKSTATION) {
+                Entity best = null;
+                double bestDistSq = Double.MAX_VALUE;
+                for (Entity candidate : unemployedCandidates) {
+                    if (assignedVillagers.contains(candidate.getUUID())) {
+                        continue;
+                    }
+                    double d2 = candidate.blockPosition().distSqr(pos);
+                    if (d2 < bestDistSq) {
+                        bestDistSq = d2;
+                        best = candidate;
+                    }
+                }
+                if (best != null
+                        && TyC2Native.assignVillagerToWorkstation(level, best, pos, marker.hint())) {
+                    assignedVillagers.add(best.getUUID());
+                }
             }
         }
+
         if (spawnedVillagers > 0) {
             v.setPopulation(v.getPopulation() + spawnedVillagers);
             int desiredGolems = v.getPopulation() / 10;
-            BlockPos hub = new BlockPos(v.getHubPos().x(), v.getHubPos().y(), v.getHubPos().z());
             TyC2Native.spawnIronGolemIfNeeded(level, hub, 36.0, desiredGolems);
         }
 
-        // Notify owner if online
+        // Aid construction completion: remove completed aid record, refresh employment stats immediately, notify
+        Optional<AidConstructionProject> completedAid = v.findAidProjectByJobId(job.getJobId());
+        if (completedAid.isPresent() || job.getProjectType().isAidWorkplace()) {
+            Component wpTitle;
+            if (completedAid.isPresent()) {
+                AidConstructionProject aidProj = completedAid.get();
+                v.removeAidProject(aidProj.projectId());
+                wpTitle = workplaceDisplayComponent(aidProj);
+            } else {
+                wpTitle = Component.translatable(
+                        "project.tyc2." + job.getProjectType().name().toLowerCase(Locale.ROOT)
+                );
+            }
+            if (level.hasChunkAt(hub)) {
+                evaluateVillageMayorAndPop(level, data, v, hub, level.getGameTime());
+            }
+            notifyVillageOwnerOrNearby(
+                    level,
+                    v,
+                    Component.translatable("status.tyc2.aid.completed", v.getVillageName(), wpTitle)
+                            .withStyle(ChatFormatting.GREEN)
+            );
+            data.setDirty();
+            return;
+        }
+
+        // Regular expansion completion: notify owner if online
         if (v.getOwnerPlayerUuid() != null) {
             ServerPlayer owner = level.getServer().getPlayerList().getPlayer(v.getOwnerPlayerUuid());
             if (owner != null) {
@@ -742,22 +912,32 @@ public final class TyC2WorldManager {
             BlockPos hubPos,
             long gameTime
     ) {
-        List<Entity> villagers = TyC2Native.findVillagersInRadius(level, hubPos, TyC2Constants.VILLAGE_SCAN_RADIUS);
+        List<Entity> villagers = TyC2Native.findVillagersInRadius(level, hubPos, v.effectiveVillagerScanRadius());
         int count = villagers.size();
         v.setPopulation(count);
 
         List<MayorElectionRules.MayorCandidate> candidates = new ArrayList<>(villagers.size());
+        List<VillageEmploymentStats.VillagerSnapshot> snapshots = new ArrayList<>(villagers.size());
         Map<UUID, Entity> entityById = new LinkedHashMap<>();
         for (Entity e : villagers) {
             entityById.put(e.getUUID(), e);
+            boolean adult = TyC2Native.isAdultVillager(e);
+            boolean nitwit = TyC2Native.isNitwitVillager(e);
+            String profId = TyC2Native.villagerProfessionId(e);
             candidates.add(new MayorElectionRules.MayorCandidate(
                     e.getUUID(),
                     v.getVillageName(),
-                    TyC2Native.isAdultVillager(e),
-                    TyC2Native.isNitwitVillager(e),
+                    adult,
+                    nitwit,
                     e.isAlive(),
                     TyC2Native.villagerXp(e),
                     e.tickCount
+            ));
+            snapshots.add(new VillageEmploymentStats.VillagerSnapshot(
+                    e.getUUID(),
+                    adult,
+                    nitwit,
+                    profId
             ));
         }
 
@@ -765,6 +945,18 @@ public final class TyC2WorldManager {
         MayorElectionRules.ElectionOutcome outcome = MayorElectionRules.evaluate(
                 v.getMayorState(), count, candidates, gameTime
         );
+        VillageEmploymentStats prevStats = v.getEmploymentStats();
+        VillageEmploymentStats nextStats = VillageEmploymentStats.computeFromSnapshots(
+                snapshots, outcome.mayorUuid(), gameTime
+        );
+        v.setEmploymentStats(nextStats);
+        if (prevStats.workforceCount() != nextStats.workforceCount()
+                || prevStats.employedCount() != nextStats.employedCount()
+                || prevStats.unemployedCount() != nextStats.unemployedCount()
+                || prevStats.mayorCountedEmployed() != nextStats.mayorCountedEmployed()
+                || !prevStats.activeProfessionCounts().equals(nextStats.activeProfessionCounts())) {
+            data.setDirty();
+        }
         // Strip legacy/disqualified Mayor tags (e.g. Nitwit Mayors from older saves) from any non-mayor villager
         for (Entity e : villagers) {
             if (outcome.mayorUuid() == null || !e.getUUID().equals(outcome.mayorUuid())) {
@@ -841,8 +1033,11 @@ public final class TyC2WorldManager {
             }
         }
         if (village == null) {
-            village = findNearestVillage(serverLevel, target.blockPosition(), TyC2Constants.VILLAGE_SCAN_RADIUS + 8)
-                    .orElse(null);
+            village = findNearestVillage(
+                    serverLevel,
+                    target.blockPosition(),
+                    Math.max(TyC2Constants.VILLAGE_SCAN_RADIUS + 8, VillageRecord.MAX_CONFIGURABLE_RADIUS + 12)
+            ).orElse(null);
         }
         if (village == null) {
             return;
@@ -927,21 +1122,30 @@ public final class TyC2WorldManager {
         BlockPos hubPos = new BlockPos(village.getHubPos().x(), village.getHubPos().y(), village.getHubPos().z());
         List<Entity> others = new ArrayList<>();
         List<MayorElectionRules.MayorCandidate> candidates = new ArrayList<>();
+        List<VillageEmploymentStats.VillagerSnapshot> snapshots = new ArrayList<>();
         Map<UUID, Entity> byId = new LinkedHashMap<>();
-        for (Entity e : TyC2Native.findVillagersInRadius(level, hubPos, TyC2Constants.VILLAGE_SCAN_RADIUS)) {
+        for (Entity e : TyC2Native.findVillagersInRadius(level, hubPos, village.effectiveVillagerScanRadius())) {
             if (e.getUUID().equals(entity.getUUID())) {
                 continue;
             }
             others.add(e);
             byId.put(e.getUUID(), e);
+            boolean adult = TyC2Native.isAdultVillager(e);
+            boolean nitwit = TyC2Native.isNitwitVillager(e);
             candidates.add(new MayorElectionRules.MayorCandidate(
                     e.getUUID(),
                     village.getVillageName(),
-                    TyC2Native.isAdultVillager(e),
-                    TyC2Native.isNitwitVillager(e),
+                    adult,
+                    nitwit,
                     e.isAlive(),
                     TyC2Native.villagerXp(e),
                     e.tickCount
+            ));
+            snapshots.add(new VillageEmploymentStats.VillagerSnapshot(
+                    e.getUUID(),
+                    adult,
+                    nitwit,
+                    TyC2Native.villagerProfessionId(e)
             ));
         }
 
@@ -958,6 +1162,9 @@ public final class TyC2WorldManager {
                 level.getGameTime()
         );
         village.setPopulation(others.size());
+        village.setEmploymentStats(VillageEmploymentStats.computeFromSnapshots(
+                snapshots, outcome.mayorUuid(), level.getGameTime()
+        ));
         if (outcome.mayorUuid() != null) {
             Entity newMayor = byId.get(outcome.mayorUuid());
             if (newMayor != null) {
@@ -1003,7 +1210,7 @@ public final class TyC2WorldManager {
     // Demand Generation & Expansion Launch Helpers
     // =========================================================================
 
-    /** Regenerates fresh Sell & Buy orders for {@code v} using DemandGenerator + Season + CPI + Tier. */
+    /** Regenerates fresh Sell & Buy orders for {@code v} using DemandGenerator + Season + CPI + Tier + Employment. */
     public static void refreshVillageOrders(
             ServerLevel level,
             TycoonSavedData data,
@@ -1012,6 +1219,7 @@ public final class TyC2WorldManager {
     ) {
         Season season = SeasonSoftBridge.currentSeason(level);
         IndustrialTier tier = resolveVillageIndustrialTier(data, v);
+        TyC2Config cfg = TyC2DataLoader.config();
         DemandGenerator.GeneratedDemand demand = TyC2DataLoader.demandGenerator().generate(
                 v.getLevel(),
                 v.getBiomeStyle().id(),
@@ -1020,10 +1228,12 @@ public final class TyC2WorldManager {
                 season,
                 data.economy(),
                 TyC2Native::itemExists,
+                v.getEmploymentStats(),
+                TyC2DataLoader.workplaceCatalog(),
                 RNG
         );
 
-        long expires = gameTime + TyC2DataLoader.config().demandRefreshTicks();
+        long expires = gameTime + v.getEmploymentStats().effectiveDemandRefreshTicks(cfg);
         List<VillageTradeOrder> fresh = new ArrayList<>();
         for (DemandGenerator.GeneratedOrder go : demand.allOrders()) {
             OrderSide side = go.side() == DemandGenerator.OrderSide.VILLAGE_SELLS
@@ -1776,9 +1986,371 @@ public final class TyC2WorldManager {
                     data.setDirty();
                 }
             }
+            case "START_AID" -> handleStartAid(
+                    player, level, data, village, hub, args, useCash, isTerminal, terminalStack, now, bank, activeRef
+            );
+            case "CANCEL_AID" -> handleCancelAid(
+                    player, data, village, args, isTerminal, now, bank, activeRef
+            );
             default -> {
             }
         }
+    }
+
+    private static void handleStartAid(
+            ServerPlayer player,
+            ServerLevel level,
+            TycoonSavedData data,
+            VillageRecord village,
+            CooperationHubBlockEntity hub,
+            Map<String, Object> args,
+            boolean useCash,
+            boolean isTerminal,
+            ItemStack terminalStack,
+            long now,
+            BankAccountManager bank,
+            BankAccountManager.AccountRef activeRef
+    ) {
+        if (!village.isPartnered()) {
+            return;
+        }
+        if (village.getMayorState().isPausedDueToDepopulation()) {
+            TyC2Native.sendActionBar(
+                    player,
+                    Component.translatable("gui.tyc2.hub.paused_depopulated").withStyle(ChatFormatting.RED)
+            );
+            return;
+        }
+        TyC2Config cfg = TyC2DataLoader.config();
+        if (village.getAidProjects().size() >= cfg.maxQueuedAidProjects()) {
+            TyC2Native.sendActionBar(
+                    player,
+                    Component.translatable("status.tyc2.aid.queue_full", cfg.maxQueuedAidProjects())
+                            .withStyle(ChatFormatting.RED)
+            );
+            return;
+        }
+
+        String professionId = JsonLite.getString(args, "professionId", "").trim();
+        Optional<WorkplaceSpec> specOpt = TyC2DataLoader.workplaceCatalog().getByProfessionId(professionId);
+        if (specOpt.isEmpty()
+                || !specOpt.get().enabled()
+                || !TyC2Native.blockExists(specOpt.get().workstationBlockId())) {
+            TyC2Native.sendActionBar(
+                    player,
+                    Component.translatable("status.tyc2.aid.unknown_profession", professionId)
+                            .withStyle(ChatFormatting.RED)
+            );
+            return;
+        }
+        WorkplaceSpec spec = specOpt.get();
+        WorkplaceSize size = WorkplaceSize.fromNameOrDefault(
+                JsonLite.getString(args, "size", "small"), WorkplaceSize.SMALL
+        );
+        if (!spec.isUnlockedAtLevel(village.getLevel(), size)) {
+            TyC2Native.sendActionBar(
+                    player,
+                    Component.translatable("status.tyc2.aid.level_locked", spec.minVillageLevel(size))
+                            .withStyle(ChatFormatting.RED)
+            );
+            return;
+        }
+
+        long costIc = WorkplaceCatalog.quoteCostIc(spec, size, data.economy().computeCpi(), cfg);
+        boolean payCash = useCash && hub != null && !isTerminal;
+
+        // Verify funds BEFORE site preview / Terminal 100 EU deduction
+        if (payCash) {
+            if (!canAffordCash(player, hub, costIc)) {
+                TyC2Native.sendActionBar(
+                        player,
+                        Component.translatable("status.tyc2.atm.insufficient_balance").withStyle(ChatFormatting.RED)
+                );
+                return;
+            }
+        } else if (bank.getBalance(activeRef) < costIc) {
+            TyC2Native.sendActionBar(
+                    player,
+                    Component.translatable("status.tyc2.atm.insufficient_balance").withStyle(ChatFormatting.RED)
+            );
+            return;
+        }
+
+        // If target village Hub chunk IS loaded, validate & pre-reserve site BEFORE charging IC or Terminal EU!
+        ServerLevel targetLevel = resolveDimensionLevel(level.getServer(), village.getDimensionId(), level);
+        BlockPos hubPos = new BlockPos(village.getHubPos().x(), village.getHubPos().y(), village.getHubPos().z());
+        Aabb3i reservedZone = null;
+        if (targetLevel.hasChunkAt(hubPos)) {
+            LevelTerrainProbe probe = new LevelTerrainProbe(targetLevel, data);
+            StructureBlueprint bp = WorkplaceArchitectureCatalog.getBlueprint(spec, size, village.getBiomeStyle());
+            ExpansionPlanner.PlanResult preview = PLANNER.planBlueprint(village, bp, probe, "aid_preview", true);
+            if (!preview.success()) {
+                TyC2Native.sendActionBar(
+                        player,
+                        Component.translatable("status.tyc2.aid.no_site").withStyle(ChatFormatting.RED)
+                );
+                return;
+            }
+            reservedZone = preview.reservedZone();
+        }
+
+        // Deduct Terminal 100 EU only after all preconditions & loaded-site check succeeded
+        if (isTerminal && !CommTerminalItem.consumeActionEu(
+                terminalStack, player, TriModePowerMath.TerminalAction.REMOTE_UPGRADE_OR_EXPANSION)) {
+            TyC2Native.sendActionBar(
+                    player,
+                    Component.translatable("status.tyc2.terminal.low_power").withStyle(ChatFormatting.RED)
+            );
+            return;
+        }
+
+        // Deduct IC and record matching bank vs cash deflationary money sink so M stays exact
+        if (payCash) {
+            if (!consumeCashPayment(player, hub, costIc)) {
+                TyC2Native.sendActionBar(
+                        player,
+                        Component.translatable("status.tyc2.atm.insufficient_balance").withStyle(ChatFormatting.RED)
+                );
+                return;
+            }
+            data.economy().recordMoneySink(costIc);
+        } else {
+            BankAccountManager.BankResult deb = bank.debitAccount(
+                    activeRef,
+                    costIc,
+                    BankAccountManager.TransactionType.TRADE_BUY,
+                    now,
+                    village.getVillageName(),
+                    "Aid " + spec.professionId()
+            );
+            if (!deb.success()) {
+                TyC2Native.sendActionBar(
+                        player,
+                        Component.translatable("status.tyc2.atm.insufficient_balance").withStyle(ChatFormatting.RED)
+                );
+                return;
+            }
+            data.economy().recordBankMoneySink(costIc);
+        }
+
+        if (reservedZone != null) {
+            village.addOccupiedZone(reservedZone);
+        }
+        String projectId = "aid_" + now + "_" + (village.getAidProjects().size() + 1) + "_" + Math.abs(RNG.nextInt(10000));
+        String payerCo = (!payCash && activeRef.scope() == BankAccountManager.AccountScope.COMPANY)
+                ? activeRef.accountId()
+                : null;
+        AidConstructionProject project = AidConstructionProject.create(
+                projectId,
+                spec,
+                size,
+                village.getBiomeStyle(),
+                costIc,
+                size.gatherTicks(cfg),
+                reservedZone,
+                player.getUUID(),
+                payerCo,
+                payCash
+        );
+        village.addAidProject(project);
+        data.setDirty();
+
+        TyC2Native.sendActionBar(
+                player,
+                Component.translatable(
+                        "status.tyc2.aid.started",
+                        village.getVillageName(),
+                        workplaceDisplayComponent(spec, size),
+                        costIc
+                ).withStyle(ChatFormatting.GREEN)
+        );
+    }
+
+    private static void handleCancelAid(
+            ServerPlayer player,
+            TycoonSavedData data,
+            VillageRecord village,
+            Map<String, Object> args,
+            boolean isTerminal,
+            long now,
+            BankAccountManager bank,
+            BankAccountManager.AccountRef activeRef
+    ) {
+        String projectId = JsonLite.getString(args, "projectId", "").trim();
+        Optional<AidConstructionProject> projOpt = village.findAidProject(projectId);
+        if (projOpt.isEmpty()) {
+            return;
+        }
+        AidConstructionProject proj = projOpt.get();
+        if (!proj.canCancel()) {
+            TyC2Native.sendActionBar(
+                    player,
+                    Component.translatable("status.tyc2.aid.cannot_cancel").withStyle(ChatFormatting.RED)
+            );
+            return;
+        }
+
+        if (proj.reservedZone() != null) {
+            village.removeOccupiedZone(proj.reservedZone());
+        }
+        village.removeAidProject(proj.projectId());
+
+        long refundIc = proj.paidIc();
+        if (refundIc > 0L) {
+            boolean refundToCash = proj.paidWithCash() && !isTerminal;
+            if (refundToCash) {
+                giveChangeCoins(player, refundIc);
+            } else {
+                BankAccountManager.AccountRef refundRef = resolveAidRefundAccount(bank, proj, activeRef);
+                bank.creditAccount(
+                        refundRef,
+                        refundIc,
+                        BankAccountManager.TransactionType.SYSTEM_ADJUST,
+                        now,
+                        village.getVillageName(),
+                        "Aid Refund " + proj.professionId()
+                );
+            }
+            data.economy().refundMoneySink(refundIc, refundToCash);
+        }
+        data.setDirty();
+
+        TyC2Native.sendActionBar(
+                player,
+                Component.translatable(
+                        "status.tyc2.aid.cancelled",
+                        workplaceDisplayComponent(proj),
+                        refundIc
+                ).withStyle(ChatFormatting.YELLOW)
+        );
+    }
+
+    private static BankAccountManager.AccountRef resolveAidRefundAccount(
+            BankAccountManager bank,
+            AidConstructionProject proj,
+            BankAccountManager.AccountRef fallbackRef
+    ) {
+        if (proj.payerCompanyId() != null && bank.getCompany(proj.payerCompanyId()).isPresent()) {
+            return BankAccountManager.AccountRef.company(proj.payerCompanyId());
+        }
+        if (proj.payerPlayerUuid() != null) {
+            bank.getOrCreatePersonal(proj.payerPlayerUuid(), null);
+            return BankAccountManager.AccountRef.personal(proj.payerPlayerUuid());
+        }
+        return fallbackRef;
+    }
+
+    /**
+     * OP command helper ({@code /tyc2 aid <profession> [small|large]}) that queues an aid workplace
+     * directly on {@code village} without charging player currency (money supply remains unchanged).
+     *
+     * @return empty on success, or localized/plain failure message
+     */
+    public static Optional<Component> forceStartAid(
+            ServerLevel level,
+            VillageRecord village,
+            String professionArg,
+            WorkplaceSize size,
+            UUID actorUuid
+    ) {
+        if (!village.isPartnered()) {
+            return Optional.of(Component.literal("Village " + village.getVillageName() + " is not partnered."));
+        }
+        TyC2Config cfg = TyC2DataLoader.config();
+        if (village.getAidProjects().size() >= cfg.maxQueuedAidProjects()) {
+            return Optional.of(Component.translatable("status.tyc2.aid.queue_full", cfg.maxQueuedAidProjects()));
+        }
+        WorkplaceCatalog catalog = TyC2DataLoader.workplaceCatalog();
+        String norm = professionArg == null ? "" : professionArg.trim().toLowerCase(Locale.ROOT);
+        Optional<WorkplaceSpec> specOpt = catalog.getByProfessionId(norm);
+        if (specOpt.isEmpty() && !norm.contains(":")) {
+            specOpt = catalog.getByProfessionId("minecraft:" + norm);
+        }
+        if (specOpt.isEmpty()
+                || !specOpt.get().enabled()
+                || !TyC2Native.blockExists(specOpt.get().workstationBlockId())) {
+            return Optional.of(Component.translatable("status.tyc2.aid.unknown_profession", professionArg));
+        }
+        WorkplaceSpec spec = specOpt.get();
+        TycoonSavedData data = getData(level);
+        ServerLevel targetLevel = resolveDimensionLevel(level.getServer(), village.getDimensionId(), level);
+        BlockPos hubPos = new BlockPos(village.getHubPos().x(), village.getHubPos().y(), village.getHubPos().z());
+        Aabb3i reservedZone = null;
+        if (targetLevel.hasChunkAt(hubPos)) {
+            LevelTerrainProbe probe = new LevelTerrainProbe(targetLevel, data);
+            StructureBlueprint bp = WorkplaceArchitectureCatalog.getBlueprint(spec, size, village.getBiomeStyle());
+            ExpansionPlanner.PlanResult preview = PLANNER.planBlueprint(village, bp, probe, "aid_cmd_preview", true);
+            if (!preview.success()) {
+                return Optional.of(Component.translatable("status.tyc2.aid.no_site"));
+            }
+            reservedZone = preview.reservedZone();
+        }
+        if (reservedZone != null) {
+            village.addOccupiedZone(reservedZone);
+        }
+        long now = level.getGameTime();
+        String projectId = "aid_cmd_" + now + "_" + (village.getAidProjects().size() + 1) + "_" + Math.abs(RNG.nextInt(10000));
+        AidConstructionProject project = AidConstructionProject.create(
+                projectId,
+                spec,
+                size,
+                village.getBiomeStyle(),
+                0L,
+                size.gatherTicks(cfg),
+                reservedZone,
+                actorUuid,
+                null,
+                false
+        );
+        village.addAidProject(project);
+        data.setDirty();
+        return Optional.empty();
+    }
+
+    /** Returns a localized display Component for a workplace spec and size. */
+    public static Component workplaceDisplayComponent(WorkplaceSpec spec, WorkplaceSize size) {
+        return workplaceDisplayComponent(spec.archetype(), spec.displayNameFallback(), size);
+    }
+
+    /** Returns a localized display Component for an active aid construction project. */
+    public static Component workplaceDisplayComponent(AidConstructionProject proj) {
+        return workplaceDisplayComponent(proj.archetype(), proj.displayNameFallback(), proj.size());
+    }
+
+    private static Component workplaceDisplayComponent(
+            WorkplaceArchetype archetype,
+            String displayNameFallback,
+            WorkplaceSize size
+    ) {
+        MutableComponent profComp = (archetype != null && archetype != WorkplaceArchetype.GENERIC)
+                ? Component.translatable(archetype.langKey())
+                : (displayNameFallback != null && !displayNameFallback.isBlank()
+                        ? Component.literal(displayNameFallback)
+                        : Component.translatable(WorkplaceArchetype.GENERIC.langKey()));
+        Component sizeComp = Component.translatable(
+                size == WorkplaceSize.LARGE ? "gui.tyc2.aid.size.large" : "gui.tyc2.aid.size.small"
+        );
+        return profComp.append(" ").append(sizeComp);
+    }
+
+    /** Returns a localized status Component for {@code proj} (shared by HUD bridges & commands). */
+    public static Component aidStatusComponent(VillageRecord v, AidConstructionProject proj) {
+        return switch (proj.status()) {
+            case COLLECTING -> Component.translatable(
+                    "gui.tyc2.aid.status.collecting",
+                    (int) Math.round(proj.completionRatio() * 100.0)
+            );
+            case WAITING_SITE -> Component.translatable("gui.tyc2.aid.status.waiting_site");
+            case NO_SITE -> Component.translatable("gui.tyc2.aid.status.no_site");
+            case BUILDING -> {
+                int pct = v.getConstructionQueue().stream()
+                        .filter(j -> proj.plannedJobId().equals(j.getJobId()))
+                        .findFirst()
+                        .map(j -> (int) Math.round(j.getProgressRatio() * 100.0))
+                        .orElse(0);
+                yield Component.translatable("gui.tyc2.aid.status.building", pct);
+            }
+        };
     }
 
     private static void handleMayorAction(
@@ -2320,6 +2892,77 @@ public final class TyC2WorldManager {
             jm.put("progressPct", (int) Math.round(job.getProgressRatio() * 100.0));
             root.put("activeBuild", jm);
         });
+
+        // Employment stats & low-unemployment bonus
+        VillageEmploymentStats es = v.getEmploymentStats();
+        TyC2Config cfg = TyC2DataLoader.config();
+        int unempPct = (int) Math.round(es.unemploymentRate() * 100.0);
+        boolean bonusActive = es.isLowUnemploymentBonusActive(cfg);
+        int restockBonusPct = bonusActive
+                ? (int) Math.round((es.restockSpeedMultiplier(cfg) - 1.0) * 100.0)
+                : 0;
+        int qtyBonusPct = bonusActive
+                ? (int) Math.round((es.tradeQuantityMultiplier(cfg) - 1.0) * 100.0)
+                : 0;
+        root.put("workforceCount", es.workforceCount());
+        root.put("employedCount", es.employedCount());
+        root.put("unemployedCount", es.unemployedCount());
+        root.put("unemploymentPct", unempPct);
+        root.put("bonusActive", bonusActive);
+        root.put("restockBonusPct", restockBonusPct);
+        root.put("qtyBonusPct", qtyBonusPct);
+        root.put("gatherSpeedMult", es.gatherSpeedMultiplier(cfg));
+        root.put("lowUnempThresholdPct", (int) Math.round(cfg.lowUnemploymentThreshold() * 100.0));
+        root.put("maxAidQueue", cfg.maxQueuedAidProjects());
+
+        // Available workplaces (with live CPI pricing)
+        double cpi = econ.computeCpi();
+        List<Map<String, Object>> workplaces = new ArrayList<>();
+        for (WorkplaceSpec spec : TyC2DataLoader.workplaceCatalog().getAvailableWorkplaces(TyC2Native::blockExists)) {
+            Map<String, Object> wm = new LinkedHashMap<>();
+            wm.put("professionId", spec.professionId());
+            wm.put("workstationBlockId", spec.workstationBlockId());
+            wm.put("archetype", spec.archetype().name());
+            wm.put("displayNameFallback", spec.displayNameFallback());
+            wm.put("costSmallIc", WorkplaceCatalog.quoteCostIc(spec, WorkplaceSize.SMALL, cpi, cfg));
+            wm.put("costLargeIc", WorkplaceCatalog.quoteCostIc(spec, WorkplaceSize.LARGE, cpi, cfg));
+            wm.put("smallUnlocked", spec.isUnlockedAtLevel(v.getLevel(), WorkplaceSize.SMALL));
+            wm.put("minLevelSmall", spec.minVillageLevelSmall());
+            wm.put("largeUnlocked", spec.isUnlockedAtLevel(v.getLevel(), WorkplaceSize.LARGE));
+            wm.put("minLevelLarge", spec.minVillageLevelLarge());
+            workplaces.add(wm);
+        }
+        root.put("workplaces", workplaces);
+
+        // Active & queued aid projects
+        List<Map<String, Object>> aidProjects = new ArrayList<>();
+        for (AidConstructionProject proj : v.getAidProjects()) {
+            Map<String, Object> am = new LinkedHashMap<>();
+            am.put("projectId", proj.projectId());
+            am.put("professionId", proj.professionId());
+            am.put("workstationBlockId", proj.workstationBlockId());
+            am.put("archetype", proj.archetype().name());
+            am.put("displayNameFallback", proj.displayNameFallback());
+            am.put("size", proj.size().name());
+            am.put("status", proj.status().name());
+            int pct;
+            if (proj.status() == AidConstructionProject.Status.BUILDING) {
+                pct = v.getConstructionQueue().stream()
+                        .filter(j -> proj.plannedJobId().equals(j.getJobId()))
+                        .findFirst()
+                        .map(j -> (int) Math.round(j.getProgressRatio() * 100.0))
+                        .orElse(0);
+            } else {
+                pct = (int) Math.round(proj.completionRatio() * 100.0);
+            }
+            am.put("progressPct", pct);
+            am.put("paidIc", proj.paidIc());
+            am.put("canCancel", proj.canCancel());
+            am.put("requiredMaterials", new LinkedHashMap<>(proj.requiredMaterials()));
+            am.put("gatheredMaterials", new LinkedHashMap<>(proj.displayedGatheredMaterials()));
+            aidProjects.add(am);
+        }
+        root.put("aidProjects", aidProjects);
 
         return root;
     }

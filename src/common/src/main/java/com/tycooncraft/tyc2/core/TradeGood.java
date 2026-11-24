@@ -247,8 +247,8 @@ public final class TradeGood {
     }
 
     /**
-     * Normalizes a Minecraft biome ID into one of the 5 village architectural biome keys
-     * ({@code plains, desert, savanna, taiga, snowy}) when recognizable.
+     * Normalizes a Minecraft biome ID into one of the 7 village architectural biome keys
+     * ({@code plains, desert, savanna, taiga, snowy, jungle, swamp}) when recognizable.
      *
      * @param biomeId biome ID string
      * @return normalized biome key or bare path
@@ -260,14 +260,21 @@ public final class TradeGood {
         String lower = biomeId.trim().toLowerCase(Locale.ROOT);
         int colon = lower.indexOf(':');
         String path = colon >= 0 ? lower.substring(colon + 1) : lower;
-        if (path.contains("desert") || path.contains("badlands")) {
+        if (path.contains("snow") || path.contains("ice") || path.contains("frozen") || path.equals("grove")) {
+            return "snowy";
+        }
+        if (path.contains("desert") || path.contains("badlands") || path.contains("mesa") || path.contains("dune")) {
             return "desert";
         }
         if (path.contains("savanna")) {
             return "savanna";
         }
-        if (path.contains("snow") || path.contains("ice") || path.contains("frozen") || path.contains("grove")) {
-            return "snowy";
+        if (path.contains("jungle") || path.contains("bamboo") || path.contains("rainforest")) {
+            return "jungle";
+        }
+        if (path.contains("swamp") || path.contains("mangrove") || path.contains("marsh")
+                || path.contains("bog") || path.contains("bayou")) {
+            return "swamp";
         }
         if (path.contains("taiga") || path.contains("spruce")) {
             return "taiga";

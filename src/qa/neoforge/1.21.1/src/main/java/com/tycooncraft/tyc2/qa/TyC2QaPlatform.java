@@ -125,6 +125,29 @@ public final class TyC2QaPlatform {
         return v;
     }
 
+    public static Entity spawnUnemployedAdultVillager(ServerLevel level, double x, double y, double z) {
+        Villager v = EntityType.VILLAGER.create(level);
+        if (v == null) {
+            throw new AssertionError("Failed to create Unemployed Villager on 1.21.1");
+        }
+        v.setAge(0);
+        v.setVillagerData(v.getVillagerData().setProfession(VillagerProfession.NONE));
+        v.setVillagerXp(0);
+        v.moveTo(x, y, z, 0.0F, 0.0F);
+        v.setNoAi(true);
+        if (!level.addFreshEntity(v)) {
+            throw new AssertionError("Failed to add Unemployed Villager to level");
+        }
+        return v;
+    }
+
+    public static String translationKeyOf(Component component) {
+        if (component == null) {
+            return "";
+        }
+        return component.getContents() instanceof TranslatableContents tc ? tc.getKey() : component.getString();
+    }
+
     public static Entity villagerTradingPlayer(Entity entity) {
         return entity instanceof Villager v ? v.getTradingPlayer() : null;
     }

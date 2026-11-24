@@ -4,7 +4,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -40,6 +44,19 @@ public final class TyC2Config {
     private int negotiationRequiredLogs = 32;
     private int negotiationRequiredIron = 16;
     private int negotiationRequiredFood = 32;
+
+    private int aidGatherTicksSmall = 3_600;
+    private int aidGatherTicksLarge = 6_000;
+    private double aidLaborSpeedPerUnemployed = 0.125;
+    private double aidMaxLaborSpeedBonus = 1.0;
+    private int maxQueuedAidProjects = 3;
+    private double lowUnemploymentThreshold = 0.25;
+    private double lowUnempRestockMinMult = 1.25;
+    private double lowUnempRestockMaxMult = 1.50;
+    private double lowUnempQtyMinMult = 1.25;
+    private double lowUnempQtyMaxMult = 1.50;
+    private boolean enableModdedProfessions = true;
+    private List<String> moddedProfessionBlacklist = List.of();
 
     /**
      * Creates a configuration instance populated with default values.
@@ -135,6 +152,18 @@ public final class TyC2Config {
         map.put("negotiationRequiredLogs", negotiationRequiredLogs);
         map.put("negotiationRequiredIron", negotiationRequiredIron);
         map.put("negotiationRequiredFood", negotiationRequiredFood);
+        map.put("aidGatherTicksSmall", aidGatherTicksSmall);
+        map.put("aidGatherTicksLarge", aidGatherTicksLarge);
+        map.put("aidLaborSpeedPerUnemployed", aidLaborSpeedPerUnemployed);
+        map.put("aidMaxLaborSpeedBonus", aidMaxLaborSpeedBonus);
+        map.put("maxQueuedAidProjects", maxQueuedAidProjects);
+        map.put("lowUnemploymentThreshold", lowUnemploymentThreshold);
+        map.put("lowUnempRestockMinMult", lowUnempRestockMinMult);
+        map.put("lowUnempRestockMaxMult", lowUnempRestockMaxMult);
+        map.put("lowUnempQtyMinMult", lowUnempQtyMinMult);
+        map.put("lowUnempQtyMaxMult", lowUnempQtyMaxMult);
+        map.put("enableModdedProfessions", enableModdedProfessions);
+        map.put("moddedProfessionBlacklist", new ArrayList<>(moddedProfessionBlacklist));
         return map;
     }
 
@@ -174,6 +203,29 @@ public final class TyC2Config {
         c.negotiationRequiredLogs = Math.max(0, JsonLite.getInt(map, "negotiationRequiredLogs", c.negotiationRequiredLogs));
         c.negotiationRequiredIron = Math.max(0, JsonLite.getInt(map, "negotiationRequiredIron", c.negotiationRequiredIron));
         c.negotiationRequiredFood = Math.max(0, JsonLite.getInt(map, "negotiationRequiredFood", c.negotiationRequiredFood));
+
+        c.aidGatherTicksSmall = Math.max(20, JsonLite.getInt(map, "aidGatherTicksSmall", c.aidGatherTicksSmall));
+        c.aidGatherTicksLarge = Math.max(20, JsonLite.getInt(map, "aidGatherTicksLarge", c.aidGatherTicksLarge));
+        c.aidLaborSpeedPerUnemployed = clamp(
+                JsonLite.getDouble(map, "aidLaborSpeedPerUnemployed", c.aidLaborSpeedPerUnemployed), 0.0, 1.0);
+        c.aidMaxLaborSpeedBonus = clamp(
+                JsonLite.getDouble(map, "aidMaxLaborSpeedBonus", c.aidMaxLaborSpeedBonus), 0.0, 5.0);
+        c.maxQueuedAidProjects = Math.max(1, Math.min(16,
+                JsonLite.getInt(map, "maxQueuedAidProjects", c.maxQueuedAidProjects)));
+        c.lowUnemploymentThreshold = clamp(
+                JsonLite.getDouble(map, "lowUnemploymentThreshold", c.lowUnemploymentThreshold), 0.0, 1.0);
+        c.lowUnempRestockMinMult = clamp(
+                JsonLite.getDouble(map, "lowUnempRestockMinMult", c.lowUnempRestockMinMult), 1.0, 5.0);
+        c.lowUnempRestockMaxMult = clamp(
+                JsonLite.getDouble(map, "lowUnempRestockMaxMult", c.lowUnempRestockMaxMult),
+                c.lowUnempRestockMinMult, 10.0);
+        c.lowUnempQtyMinMult = clamp(
+                JsonLite.getDouble(map, "lowUnempQtyMinMult", c.lowUnempQtyMinMult), 1.0, 5.0);
+        c.lowUnempQtyMaxMult = clamp(
+                JsonLite.getDouble(map, "lowUnempQtyMaxMult", c.lowUnempQtyMaxMult),
+                c.lowUnempQtyMinMult, 10.0);
+        c.enableModdedProfessions = JsonLite.getBoolean(map, "enableModdedProfessions", c.enableModdedProfessions);
+        c.setModdedProfessionBlacklist(JsonLite.getStringList(map, "moddedProfessionBlacklist"));
         return c;
     }
 
@@ -376,5 +428,176 @@ public final class TyC2Config {
     /** @return initial Mayor negotiation basic food requirement (default 32) */
     public int negotiationRequiredFood() {
         return negotiationRequiredFood;
+    }
+
+    /** @return base gathering duration in ticks for small aided workplaces (default 3,600) */
+    public int aidGatherTicksSmall() {
+        return aidGatherTicksSmall;
+    }
+
+    /** @param value base gathering ticks for small aided workplaces (>= 20) */
+    public TyC2Config setAidGatherTicksSmall(int value) {
+        this.aidGatherTicksSmall = Math.max(20, value);
+        return this;
+    }
+
+    /** @return base gathering duration in ticks for large aided workshops (default 6,000) */
+    public int aidGatherTicksLarge() {
+        return aidGatherTicksLarge;
+    }
+
+    /** @param value base gathering ticks for large aided workshops (>= 20) */
+    public TyC2Config setAidGatherTicksLarge(int value) {
+        this.aidGatherTicksLarge = Math.max(20, value);
+        return this;
+    }
+
+    /** @return labor gathering speed bonus per unemployed adult villager (default 0.125) */
+    public double aidLaborSpeedPerUnemployed() {
+        return aidLaborSpeedPerUnemployed;
+    }
+
+    /** @param value labor speed bonus per unemployed villager in [0.0, 1.0] */
+    public TyC2Config setAidLaborSpeedPerUnemployed(double value) {
+        this.aidLaborSpeedPerUnemployed = clamp(value, 0.0, 1.0);
+        return this;
+    }
+
+    /** @return maximum additive labor gathering speed bonus (default 1.0, i.e. up to 2.0x total) */
+    public double aidMaxLaborSpeedBonus() {
+        return aidMaxLaborSpeedBonus;
+    }
+
+    /** @param value maximum additive labor speed bonus in [0.0, 5.0] */
+    public TyC2Config setAidMaxLaborSpeedBonus(double value) {
+        this.aidMaxLaborSpeedBonus = clamp(value, 0.0, 5.0);
+        return this;
+    }
+
+    /** @return maximum simultaneously queued aid construction projects per village (default 3) */
+    public int maxQueuedAidProjects() {
+        return maxQueuedAidProjects;
+    }
+
+    /** @param value max queued aid projects in [1, 16] */
+    public TyC2Config setMaxQueuedAidProjects(int value) {
+        this.maxQueuedAidProjects = Math.max(1, Math.min(16, value));
+        return this;
+    }
+
+    /** @return unemployment rate threshold below which low-unemployment bonus activates (default 0.25) */
+    public double lowUnemploymentThreshold() {
+        return lowUnemploymentThreshold;
+    }
+
+    /** @param value threshold in [0.0, 1.0] (0.0 disables bonus) */
+    public TyC2Config setLowUnemploymentThreshold(double value) {
+        this.lowUnemploymentThreshold = clamp(value, 0.0, 1.0);
+        return this;
+    }
+
+    /** @return minimum restock speed multiplier when low-unemployment bonus activates (default 1.25) */
+    public double lowUnempRestockMinMult() {
+        return lowUnempRestockMinMult;
+    }
+
+    /** @param value minimum restock speed multiplier in [1.0, 5.0] */
+    public TyC2Config setLowUnempRestockMinMult(double value) {
+        this.lowUnempRestockMinMult = clamp(value, 1.0, 5.0);
+        if (this.lowUnempRestockMaxMult < this.lowUnempRestockMinMult) {
+            this.lowUnempRestockMaxMult = this.lowUnempRestockMinMult;
+        }
+        return this;
+    }
+
+    /** @return maximum restock speed multiplier at 0% unemployment (default 1.50) */
+    public double lowUnempRestockMaxMult() {
+        return lowUnempRestockMaxMult;
+    }
+
+    /** @param value maximum restock speed multiplier in [minMult, 10.0] */
+    public TyC2Config setLowUnempRestockMaxMult(double value) {
+        this.lowUnempRestockMaxMult = clamp(value, this.lowUnempRestockMinMult, 10.0);
+        return this;
+    }
+
+    /** @return minimum trade quantity multiplier when low-unemployment bonus activates (default 1.25) */
+    public double lowUnempQtyMinMult() {
+        return lowUnempQtyMinMult;
+    }
+
+    /** @param value minimum trade quantity multiplier in [1.0, 5.0] */
+    public TyC2Config setLowUnempQtyMinMult(double value) {
+        this.lowUnempQtyMinMult = clamp(value, 1.0, 5.0);
+        if (this.lowUnempQtyMaxMult < this.lowUnempQtyMinMult) {
+            this.lowUnempQtyMaxMult = this.lowUnempQtyMinMult;
+        }
+        return this;
+    }
+
+    /** @return maximum trade quantity multiplier at 0% unemployment (default 1.50) */
+    public double lowUnempQtyMaxMult() {
+        return lowUnempQtyMaxMult;
+    }
+
+    /** @param value maximum trade quantity multiplier in [minMult, 10.0] */
+    public TyC2Config setLowUnempQtyMaxMult(double value) {
+        this.lowUnempQtyMaxMult = clamp(value, this.lowUnempQtyMinMult, 10.0);
+        return this;
+    }
+
+    /** @return whether third-party mod villager professions are dynamically discovered (default true) */
+    public boolean enableModdedProfessions() {
+        return enableModdedProfessions;
+    }
+
+    /** @param value whether to enable dynamic modded profession discovery */
+    public TyC2Config setEnableModdedProfessions(boolean value) {
+        this.enableModdedProfessions = value;
+        return this;
+    }
+
+    /** @return unmodifiable list of blacklisted modded profession IDs (supports {@code "modid:*"}) */
+    public List<String> moddedProfessionBlacklist() {
+        return moddedProfessionBlacklist;
+    }
+
+    /** @param blacklist list of blacklisted profession IDs or namespace wildcards */
+    public TyC2Config setModdedProfessionBlacklist(List<String> blacklist) {
+        if (blacklist == null || blacklist.isEmpty()) {
+            this.moddedProfessionBlacklist = List.of();
+            return this;
+        }
+        List<String> normalized = new ArrayList<>(blacklist.size());
+        for (String entry : blacklist) {
+            if (entry != null && !entry.isBlank()) {
+                normalized.add(entry.trim().toLowerCase(Locale.ROOT));
+            }
+        }
+        this.moddedProfessionBlacklist = Collections.unmodifiableList(normalized);
+        return this;
+    }
+
+    /**
+     * Checks whether {@code professionId} is excluded by {@link #moddedProfessionBlacklist()}.
+     * Supports exact profession IDs (e.g. {@code "modx:guard"}) and namespace wildcards
+     * (e.g. {@code "modx:*"}).
+     *
+     * @param professionId namespaced profession ID
+     * @return {@code true} if blacklisted
+     */
+    public boolean isModdedProfessionBlacklisted(String professionId) {
+        if (professionId == null || professionId.isBlank() || moddedProfessionBlacklist.isEmpty()) {
+            return false;
+        }
+        String norm = professionId.trim().toLowerCase(Locale.ROOT);
+        int colon = norm.indexOf(':');
+        String nsWildcard = colon > 0 ? norm.substring(0, colon) + ":*" : null;
+        for (String blocked : moddedProfessionBlacklist) {
+            if (blocked.equals(norm) || (nsWildcard != null && blocked.equals(nsWildcard))) {
+                return true;
+            }
+        }
+        return false;
     }
 }

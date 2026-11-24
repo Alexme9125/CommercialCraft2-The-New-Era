@@ -117,7 +117,7 @@ CONDITIONAL_SHAPED_RECIPES: dict[str, tuple[str, str, list[str], dict[str, str],
 
 # =============================================================================
 # Built-in Datapack JSON Presets (aligned with MintRecipeRegistry, GoodsCatalog,
-# and VillageLevelTable in src/common)
+# VillageLevelTable, and WorkplaceCatalog in src/common)
 # =============================================================================
 
 def _mint_recipe(
@@ -258,7 +258,7 @@ GOODS_VANILLA = {
         _good("tyc2:bone", "minecraft:bone", "MONSTER_DROP", 3, 1, 5, True, False, 8, 24),
         _good("tyc2:spider_eye", "minecraft:spider_eye", "MONSTER_DROP", 4, 1, 5, True, False, 6, 18),
         _good("tyc2:gunpowder", "minecraft:gunpowder", "MONSTER_DROP", 7, 1, 6, True, False, 6, 16),
-        _good("tyc2:slime_ball", "minecraft:slime_ball", "MONSTER_DROP", 9, 2, 6, True, False, 4, 14),
+        _good("tyc2:slime_ball", "minecraft:slime_ball", "MONSTER_DROP", 9, 2, 6, True, False, 4, 14, biomes=["swamp"]),
         _good("tyc2:stick", "minecraft:stick", "FORESTRY", 1, 1, 3, True, False, 16, 48, biomes=["plains", "taiga", "savanna"]),
         _good("tyc2:oak_log", "minecraft:oak_log", "FORESTRY", 3, 1, 5, True, False, 8, 24, biomes=["plains"]),
         _good("tyc2:spruce_log", "minecraft:spruce_log", "FORESTRY", 3, 1, 5, True, False, 8, 24, biomes=["taiga", "snowy"]),
@@ -278,14 +278,14 @@ GOODS_VANILLA = {
         _good("tyc2:potato", "minecraft:potato", "AGRICULTURE", 3, 1, 6, True, False, 12, 32, seasons=["SPRING", "SUMMER", "AUTUMN"], biomes=["taiga", "plains"]),
         _good("tyc2:beetroot", "minecraft:beetroot", "AGRICULTURE", 3, 1, 5, True, False, 10, 28, seasons=["SPRING", "AUTUMN", "WINTER"], biomes=["snowy"]),
         _good("tyc2:pumpkin", "minecraft:pumpkin", "AGRICULTURE", 5, 1, 6, True, False, 6, 18, seasons=["AUTUMN"], biomes=["plains", "taiga"]),
-        _good("tyc2:melon_slice", "minecraft:melon_slice", "AGRICULTURE", 2, 1, 6, True, False, 12, 36, seasons=["SUMMER"], biomes=["savanna"]),
+        _good("tyc2:melon_slice", "minecraft:melon_slice", "AGRICULTURE", 2, 1, 6, True, False, 12, 36, seasons=["SUMMER"], biomes=["savanna", "jungle"]),
         _good("tyc2:sweet_berries", "minecraft:sweet_berries", "AGRICULTURE", 3, 1, 5, True, False, 10, 28, seasons=["SPRING", "SUMMER", "AUTUMN"], biomes=["taiga"]),
         _good("tyc2:apple", "minecraft:apple", "AGRICULTURE", 5, 1, 6, True, False, 6, 18, seasons=["AUTUMN"], biomes=["plains"]),
         _good("tyc2:sugar_cane", "minecraft:sugar_cane", "AGRICULTURE", 3, 2, 6, True, False, 12, 32, seasons=["SUMMER"]),
-        _good("tyc2:cocoa_beans", "minecraft:cocoa_beans", "AGRICULTURE", 5, 2, 6, True, False, 8, 24, seasons=["SUMMER"]),
-        _good("tyc2:bamboo", "minecraft:bamboo", "AGRICULTURE", 2, 2, 6, True, False, 16, 48, seasons=["SUMMER"]),
-        _good("tyc2:brown_mushroom", "minecraft:brown_mushroom", "AGRICULTURE", 4, 1, 6, True, False, 8, 20, seasons=ALL_SEASONS, biomes=["taiga"]),
-        _good("tyc2:red_mushroom", "minecraft:red_mushroom", "AGRICULTURE", 4, 1, 6, True, False, 8, 20, seasons=ALL_SEASONS, biomes=["taiga"]),
+        _good("tyc2:cocoa_beans", "minecraft:cocoa_beans", "AGRICULTURE", 5, 2, 6, True, False, 8, 24, seasons=["SUMMER"], biomes=["jungle"]),
+        _good("tyc2:bamboo", "minecraft:bamboo", "AGRICULTURE", 2, 2, 6, True, False, 16, 48, seasons=["SUMMER"], biomes=["jungle"]),
+        _good("tyc2:brown_mushroom", "minecraft:brown_mushroom", "AGRICULTURE", 4, 1, 6, True, False, 8, 20, seasons=ALL_SEASONS, biomes=["taiga", "swamp"]),
+        _good("tyc2:red_mushroom", "minecraft:red_mushroom", "AGRICULTURE", 4, 1, 6, True, False, 8, 20, seasons=ALL_SEASONS, biomes=["taiga", "swamp"]),
         _good("tyc2:kelp", "minecraft:kelp", "AGRICULTURE", 2, 1, 5, True, False, 16, 40, seasons=ALL_SEASONS),
         _good("tyc2:glow_berries", "minecraft:glow_berries", "AGRICULTURE", 5, 2, 6, True, False, 8, 20, seasons=ALL_SEASONS),
         # Lv 7-10 Metropolis staple crop demand
@@ -474,6 +474,51 @@ VILLAGE_LEVELS = {
         {"level": 8, "minPopulation": 25, "minTradeVolume": 65000, "minVillageBalance": 14000, "upgradeCostSink": 7500, "sellOrderCount": 8, "buyOrderCount": 7, "qtyScale": 5.0, "maxPopulationCap": 36, "expansionRadiusMax": 64},
         {"level": 9, "minPopulation": 30, "minTradeVolume": 130000, "minVillageBalance": 28000, "upgradeCostSink": 15000, "sellOrderCount": 9, "buyOrderCount": 8, "qtyScale": 6.5, "maxPopulationCap": 40, "expansionRadiusMax": 68},
         {"level": 10, "minPopulation": 36, "minTradeVolume": 250000, "minVillageBalance": 55000, "upgradeCostSink": 30000, "sellOrderCount": 10, "buyOrderCount": 9, "qtyScale": 8.0, "maxPopulationCap": 40, "expansionRadiusMax": 72},
+    ],
+}
+
+
+def _workplace(
+    profession_id: str,
+    workstation_block_id: str,
+    archetype: str,
+    base_cost_small_ic: int,
+    trade_categories: list[str],
+    large_cost_multiplier: float = 2.2,
+    min_level_small: int = 1,
+    min_level_large: int = 3,
+    enabled: bool = True,
+) -> dict:
+    return {
+        "professionId": profession_id,
+        "workstationBlockId": workstation_block_id,
+        "archetype": archetype,
+        "baseCostSmallIc": base_cost_small_ic,
+        "largeCostMultiplier": large_cost_multiplier,
+        "minVillageLevelSmall": min_level_small,
+        "minVillageLevelLarge": min_level_large,
+        "tradeCategories": trade_categories,
+        "enabled": enabled,
+    }
+
+
+WORKPLACES_VANILLA = {
+    "_comment": "Built-in Vanilla Minecraft villager workplace specs (13 professions) for TycoonCraft² Aid Construction.",
+    "replace": False,
+    "workplaces": [
+        _workplace("minecraft:farmer", "minecraft:composter", "FARMER", 250, ["AGRICULTURE", "FOOD_BASIC"]),
+        _workplace("minecraft:fisherman", "minecraft:barrel", "FISHERMAN", 260, ["FOOD_BASIC", "AGRICULTURE"]),
+        _workplace("minecraft:shepherd", "minecraft:loom", "SHEPHERD", 280, ["TEXTILE"]),
+        _workplace("minecraft:fletcher", "minecraft:fletching_table", "FLETCHER", 280, ["FORESTRY", "MONSTER_DROP"]),
+        _workplace("minecraft:butcher", "minecraft:smoker", "BUTCHER", 320, ["FOOD_BASIC", "FOOD_FINE"]),
+        _workplace("minecraft:leatherworker", "minecraft:cauldron", "LEATHERWORKER", 320, ["TEXTILE"]),
+        _workplace("minecraft:mason", "minecraft:stonecutter", "MASON", 360, ["BUILDING", "MINING"]),
+        _workplace("minecraft:cartographer", "minecraft:cartography_table", "CARTOGRAPHER", 400, ["BUILDING", "FORESTRY"]),
+        _workplace("minecraft:toolsmith", "minecraft:smithing_table", "TOOLSMITH", 450, ["METAL", "MINING", "INDUSTRIAL"]),
+        _workplace("minecraft:weaponsmith", "minecraft:grindstone", "WEAPONSMITH", 480, ["METAL", "RARE_ALLOY", "MONSTER_DROP"]),
+        _workplace("minecraft:armorer", "minecraft:blast_furnace", "ARMORER", 520, ["METAL", "RARE_ALLOY", "INDUSTRIAL"]),
+        _workplace("minecraft:cleric", "minecraft:brewing_stand", "CLERIC", 550, ["MONSTER_DROP", "ENDGAME"]),
+        _workplace("minecraft:librarian", "minecraft:lectern", "LIBRARIAN", 600, ["ENCHANTED_BOOK"]),
     ],
 }
 
@@ -813,6 +858,7 @@ def generate(target: str, destination: Path) -> int:
 
         data("seasons/harvest_seasons", HARVEST_SEASONS)
         data("levels/village_levels", VILLAGE_LEVELS)
+        data("workplaces/vanilla_workplaces", WORKPLACES_VANILLA)
 
         # ---------------------------------------------------------------------
         # 6. Forge 1.19.2 pack.mcmeta

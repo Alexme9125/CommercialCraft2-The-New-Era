@@ -12,14 +12,14 @@
 
 按当前 Minecraft 版本和加载器挑好对应的 JAR 文件，放进游戏实例的 `mods/` 目录即可。多人联机需要客户端和服务端同时安装。
 
-[v1.0.0-pre.3 预发布说明](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/tag/v1.0.0-pre.3) · [SHA-256 校验文件](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/SHA256SUMS.txt) · [四端实机联测报告](docs/FIELD_TEST_REPORT.md) · [设计规格文档](docs/DESIGN.md)
+[v1.0.0-pre.4 预发布说明](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/tag/v1.0.0-pre.4) · [SHA-256 校验文件](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.4/SHA256SUMS.txt) · [四端实机联测报告](docs/FIELD_TEST_REPORT.md) · [设计规格文档](docs/DESIGN.md)
 
 | Minecraft | 加载器 | Java | 下载 |
 | --- | --- | ---: | --- |
-| 1.19.2 | Forge 43.5.0 | 17 | [Forge 1.19.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/tyc2-forge-1.19.2-1.0.0-pre.3.jar) |
-| 1.21.1 | NeoForge 21.1.265 | 21 | [NeoForge 1.21.1 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/tyc2-neoforge-1.21.1-1.0.0-pre.3.jar) |
-| 26.1.2 | NeoForge 26.1.2.128 | 25 | [NeoForge 26.1.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/tyc2-neoforge-26.1.2-1.0.0-pre.3.jar) |
-| 26.2 | NeoForge 26.2.0.95 | 25 | [NeoForge 26.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.3/tyc2-neoforge-26.2-1.0.0-pre.3.jar) |
+| 1.19.2 | Forge 43.5.0 | 17 | [Forge 1.19.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.4/tyc2-forge-1.19.2-1.0.0-pre.4.jar) |
+| 1.21.1 | NeoForge 21.1.265 | 21 | [NeoForge 1.21.1 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.4/tyc2-neoforge-1.21.1-1.0.0-pre.4.jar) |
+| 26.1.2 | NeoForge 26.1.2.128 | 25 | [NeoForge 26.1.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.4/tyc2-neoforge-26.1.2-1.0.0-pre.4.jar) |
+| 26.2 | NeoForge 26.2.0.95 | 25 | [NeoForge 26.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0-pre.4/tyc2-neoforge-26.2-1.0.0-pre.4.jar) |
 
 所有联动模组都按需安装，未安装时自动跳过，不会影响启动。
 
@@ -91,25 +91,34 @@
 
 #### 村庄扩建与防误拆
 
-合作村庄会定期发布建材收购单。交齐木材、石头、沙子等建材后，村庄按自身生物群系风格（平原、沙漠、热带草原、针叶林、雪原）以每 `3 tick` 放 `2` 格的速度自底向上施工，逐步修建路面与路灯、农田、养殖场、民居和多层小楼；水边或高阶村庄还会留出适配 LC2 港口和无人机基站的广场。施工会避开所有玩家放过的方块、任意方块实体（箱子、机器、管道和 IC2/LC2 设备）以及已有建筑和道路，新房完工后会自动吸引新村民入住。如果想暂时停工或限制范围，在枢纽设置里可以随时暂停扩建，也能把扩建半径调在 `10` 到 `72` 格之间。
+合作村庄会定期发布建材收购单。交齐木材、石头、沙子等建材后，村庄按自身生物群系风格（平原、沙漠、热带草原、针叶林、雪原、丛林、沼泽共 7 套配色）以每 `3 tick` 放 `2` 格的速度自底向上施工，逐步修建路面与路灯、农田、养殖场、民居和多层小楼；水边或高阶村庄还会留出适配 LC2 港口和无人机基站的广场。施工会避开所有玩家放过的方块、任意方块实体（箱子、机器、管道和 IC2/LC2 设备）以及已有建筑和道路，新房完工后会自动吸引新村民入住。如果想暂时停工或限制范围，在枢纽设置里可以随时暂停扩建，也能把扩建半径调在 `10` 到 `72` 格之间。
+
+#### 村庄援建与低失业率增益
+
+人口增长后，如果村里出现大批无业成年村民，可以在合作枢纽的 **成长 → 援建** 子页签（支持现金或银行）或通过商业通讯终端远程出资（银行 + `100 EU`）为村庄援建职业工作场所。
+
+- **职业与规格**：覆盖全部 13 种原版村民职业，并自动扫描已安装模组注册的村民职业与工作方块；可选 **小型工作屋**（`7×6×7`，1 工位，1 级解锁）或 **大型工坊**（`9×7×9`，3 工位，3 级解锁），所有援建建筑均不放床、不额外刷人口。
+- **定价、筹料与优先施工**：报价按全服 CPI 实时浮动并作为基建货币回笼销毁；下单后村民在后台筹集建材（未加载区块也可推进，且不受「暂停扩建」影响，失业村民越多筹料越快，最高 `2.0` 倍）。进入施工前随时可以取消并全额退款；筹满后优先于常规扩建渐进施工，完工时自动引导附近无业村民就职。
+- **低失业率增益（`< 25%`）**：村内成年非傻子村民（村长计为已就业）失业率低于 `25%` 时自动生效，随失业率趋近 `0%` 平滑提升：**订单补货速度 `+25% ~ +50%`**、**单笔可交易货物总量 `+25% ~ +50%`**（附魔书和终局稀有品温和提升 `+10% ~ +20%`），同时在职职业会轻微提高对应品类的贸易权重。安装 Jade 或 The One Probe 时，指向合作枢纽与村长即可实时查看失业率、就业增益与援建进度。
 
 ## 常用指令与自定义扩展
 
-游戏内提供 7 条管理与查询指令，后四条需要 OP 权限。
+游戏内提供 8 条常用管理与查询指令，后五条需要 OP 权限。
 
-- `/tyc2 status`：查看全局 CPI、货币总量、季节与最近村庄状态
+- `/tyc2 status`：查看全局 CPI、货币总量、季节与最近村庄状态（含失业率、增益与援建队列）
 - `/tyc2 cpi`：查看当前物价指数与通胀状态
 - `/tyc2 season`：查看当前识别到的季节
 - `/tyc2 reload`：重载外部配置文件与数据表
 - `/tyc2 mint <数量>`：调试注入或扣减货币统计
 - `/tyc2 expand [项目类型]`：手动触发附近合作村庄扩建
+- `/tyc2 aid <职业> [small|large]`：为附近合作村庄立即发起指定职业的工作场所援建
 - `/tyc2 levelup`：手动测试附近合作村庄升级
 
 整合包作者和模组开发者可以通过数据包、外部配置和 Java API 三层接口扩展内容。
 
-1. **数据包 JSON（支持 `/reload` 热重载）**：在 `data/<命名空间>/tyc2/` 下放置 `goods/*.json`、`mint_recipes/*.json`、`seasons/*.json` 或 `levels/*.json`，分别扩展贸易目录、铸币配方（支持 `#ingots/*` 标签）、作物季节与升级门槛。
-2. **外部配置文件夹（首次启动自动生成）**：编辑 `config/tyc2/general.json`（开关 IC2 压币拦截、谈判门槛、CPI 护栏、刷新与扩建间隔等），或直接修改 `custom_goods.json`、`custom_mint_recipes.json` 后执行 `/tyc2 reload`。
-3. **公共 Java API**：调用 `com.tycooncraft.tyc2.api.TyC2RegistryApi`，在代码中注册自定义商品、铸币配方、季节提供器与工业等级判定器。
+1. **数据包 JSON（支持 `/reload` 热重载）**：在 `data/<命名空间>/tyc2/` 下放置 `goods/*.json`、`mint_recipes/*.json`、`seasons/*.json`、`levels/*.json` 或 `workplaces/*.json`，分别扩展贸易目录、铸币配方（支持 `#ingots/*` 标签）、作物季节、升级门槛与援建工作场所。
+2. **外部配置文件夹（首次启动自动生成）**：编辑 `config/tyc2/general.json`（开关 IC2 压币拦截、谈判门槛、CPI 护栏、刷新与扩建间隔、援建与低失业率参数及模组职业黑名单等），或直接修改 `custom_goods.json`、`custom_mint_recipes.json`、`custom_workplaces.json` 后执行 `/tyc2 reload`。
+3. **公共 Java API**：调用 `com.tycooncraft.tyc2.api.TyC2RegistryApi`，在代码中注册自定义商品、铸币配方、援建工作场所（`registerWorkplace`）、季节提供器与工业等级判定器。
 
 ## 从源码构建教程
 
@@ -141,7 +150,7 @@
 在仓库根目录执行下面两条命令（Windows 把 `./gradlew` 换成 `gradlew.bat`，把 `./forge-1.19.2/gradlew` 换成 `forge-1.19.2\gradlew.bat`）。
 
 ```sh
-# 1. 编译纯 Java 公共核心、运行 31 项单元测试，并打包 NeoForge 1.21.1 / 26.1.2 / 26.2
+# 1. 编译纯 Java 公共核心、运行 39 项单元测试，并打包 NeoForge 1.21.1 / 26.1.2 / 26.2
 ./gradlew :checkCommonImports :test:test :neoforge:1.21.1:jar :neoforge:26.1.2:jar :neoforge:26.2:jar
 
 # 2. 使用 JDK 17 编译并重混淆打包 Forge 1.19.2（按本机 JDK 17 路径设置 JAVA_HOME）
@@ -150,10 +159,10 @@ JAVA_HOME=/path/to/jdk-17 ./forge-1.19.2/gradlew -p forge-1.19.2 build reobfJar
 
 编译完成后，四个发行 JAR 分别落在各自模块的 `build/libs` 目录。
 
-- Forge 1.19.2：`forge-1.19.2/build/libs/tyc2-forge-1.19.2-1.0.0-pre.3.jar`
-- NeoForge 1.21.1：`src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-1.0.0-pre.3.jar`
-- NeoForge 26.1.2：`src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-1.0.0-pre.3.jar`
-- NeoForge 26.2：`src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-1.0.0-pre.3.jar`
+- Forge 1.19.2：`forge-1.19.2/build/libs/tyc2-forge-1.19.2-1.0.0-pre.4.jar`
+- NeoForge 1.21.1：`src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-1.0.0-pre.4.jar`
+- NeoForge 26.1.2：`src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-1.0.0-pre.4.jar`
+- NeoForge 26.2：`src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-1.0.0-pre.4.jar`
 
 ### 运行打包审计与实机测试（开发者可选）
 

@@ -6,8 +6,8 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * The eight village expansion project categories supported by the procedural architecture
- * catalog and collision-safe expansion planner.
+ * Village construction project categories supported by the procedural architecture
+ * catalog and collision-safe expansion planner, including player-funded aided workplaces.
  */
 public enum ProjectType {
     /** 3-wide paved road segment with curbs and biome-styled streetlamps. */
@@ -25,7 +25,11 @@ public enum ProjectType {
     /** 9x7 waterfront pier with open 5x5 deck and mooring posts sized for {@code lc2:smart_port}. */
     LC2_WATERFRONT_PIER(3, 0, 0, true, true, true, 360L),
     /** 9x9 open-sky stone plaza with corner beacons sized for {@code lc2:cargo_station} and drones. */
-    LC2_HELIPAD_PLAZA(4, 0, 0, true, false, true, 450L);
+    LC2_HELIPAD_PLAZA(4, 0, 0, true, false, true, 450L),
+    /** Player-funded 7x6x7 small aided workplace with 1 profession workstation and 0 beds. */
+    AID_WORKPLACE_SMALL(1, 0, 0, false, false, false, 0L),
+    /** Player-funded 9x7x9 large aided workshop with 3 profession workstations and 0 beds. */
+    AID_WORKPLACE_LARGE(3, 0, 0, false, false, false, 0L);
 
     private final int minVillageLevel;
     private final int villagerSpawnCount;
@@ -116,6 +120,15 @@ public enum ProjectType {
     }
 
     /**
+     * Returns whether this project is a player-funded aided workplace rather than automatic expansion.
+     *
+     * @return {@code true} for {@link #AID_WORKPLACE_SMALL} and {@link #AID_WORKPLACE_LARGE}
+     */
+    public boolean isAidWorkplace() {
+        return this == AID_WORKPLACE_SMALL || this == AID_WORKPLACE_LARGE;
+    }
+
+    /**
      * Returns the default municipal budget sink cost (IC) charged to {@code villageBalance}.
      *
      * @return budget cost in IC
@@ -183,6 +196,20 @@ public enum ProjectType {
                 addMat(mats, p.accentStone(), 48);
                 addMat(mats, p.helipadBlock(), 48);
                 addMat(mats, "minecraft:iron_ingot", 8);
+                addMat(mats, p.lampLight(), 4);
+            }
+            case AID_WORKPLACE_SMALL -> {
+                addMat(mats, p.log(), 16);
+                addMat(mats, p.planks(), 40);
+                addMat(mats, p.baseStone(), 24);
+                addMat(mats, p.glassPane(), 6);
+                addMat(mats, p.lampLight(), 2);
+            }
+            case AID_WORKPLACE_LARGE -> {
+                addMat(mats, p.log(), 28);
+                addMat(mats, p.planks(), 72);
+                addMat(mats, p.accentStone(), 40);
+                addMat(mats, p.glassPane(), 12);
                 addMat(mats, p.lampLight(), 4);
             }
         }

@@ -254,6 +254,68 @@ public final class MacroEconomyEngine {
     }
 
     /**
+     * Records a deflationary burn explicitly paid out of a player or guild bank account
+     * (such as bank-funded village aid construction) without altering unbanked cash {@code totalMintedNet}.
+     *
+     * @param amount positive IC burned from player/company bank balance
+     */
+    public void recordBankMoneySink(long amount) {
+        if (amount <= 0L) {
+            return;
+        }
+        cumulativeSinks = Math.addExact(cumulativeSinks, amount);
+        playerAndGuildBankTotal = Math.max(0L, playerAndGuildBankTotal - amount);
+    }
+
+    /**
+     * Reverses a previously recorded deflationary cash money sink (e.g. when a player cancels
+     * an aid construction project prior to block placement and receives a full refund),
+     * decrementing {@code cumulativeSinks} and restoring {@code totalMintedNet} so global money
+     * supply {@code M} remains conserved and never drops below 0.
+     *
+     * @param amount positive IC amount refunded (ignored if {@code <= 0})
+     */
+    public void refundMoneySink(long amount) {
+        if (amount <= 0L) {
+            return;
+        }
+        long reversed = Math.min(cumulativeSinks, amount);
+        cumulativeSinks = Math.max(0L, cumulativeSinks - reversed);
+        totalMintedNet = Math.addExact(totalMintedNet, reversed);
+    }
+
+    /**
+     * Reverses a previously recorded bank-funded deflationary money sink, restoring
+     * {@code playerAndGuildBankTotal} and decrementing {@code cumulativeSinks} without inflating
+     * unbanked cash {@code totalMintedNet}.
+     *
+     * @param amount positive IC amount refunded to a bank account (ignored if {@code <= 0})
+     */
+    public void refundBankMoneySink(long amount) {
+        if (amount <= 0L) {
+            return;
+        }
+        long reversed = Math.min(cumulativeSinks, amount);
+        cumulativeSinks = Math.max(0L, cumulativeSinks - reversed);
+        playerAndGuildBankTotal = Math.addExact(playerAndGuildBankTotal, reversed);
+    }
+
+    /**
+     * Reverses a previously recorded aid money sink into either unbanked cash ({@code refundedToCash = true})
+     * or tracked player/company bank balances ({@code refundedToCash = false}).
+     *
+     * @param amount positive IC amount refunded
+     * @param refundedToCash {@code true} for cash coin refund, {@code false} for bank deposit refund
+     */
+    public void refundMoneySink(long amount, boolean refundedToCash) {
+        if (refundedToCash) {
+            refundMoneySink(amount);
+        } else {
+            refundBankMoneySink(amount);
+        }
+    }
+
+    /**
      * Records a completed trade transaction, increasing rolling goods circulation {@code Q}
      * and shifting per-item {@code netSupplyFlow}.
      *

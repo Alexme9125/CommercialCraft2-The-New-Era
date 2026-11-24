@@ -6,6 +6,7 @@ import com.tycooncraft.tyc2.forge.world.TycoonForgeSavedData;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeWorldManager;
 import com.tycooncraft.tyc2.village.ExpansionDesire;
 import com.tycooncraft.tyc2.village.VillageRecord;
+import com.tycooncraft.tyc2.village.WorkplaceSize;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,7 +32,9 @@ public final class C2STerminalActionPacket {
         UPGRADE_VILLAGE,
         DELIVER_EXPANSION,
         TOGGLE_EXPANSION_AUTO,
-        TOGGLE_EXPANSION_PAUSE
+        TOGGLE_EXPANSION_PAUSE,
+        START_AID,
+        CANCEL_AID
     }
 
     public final Action action;
@@ -142,6 +145,21 @@ public final class C2STerminalActionPacket {
                         v.setExpansionPaused(!v.isExpansionPaused());
                         data.setDirty();
                     });
+                }
+            }
+            case START_AID -> {
+                if (activeVillageId != null) {
+                    WorkplaceSize size = pkt.intArg == 1 ? WorkplaceSize.LARGE : WorkplaceSize.SMALL;
+                    feedback = TycoonForgeWorldManager.startAidConstruction(
+                            player, activeVillageId, pkt.textArg, size, true, null, term
+                    ).toComponent();
+                }
+            }
+            case CANCEL_AID -> {
+                if (activeVillageId != null) {
+                    feedback = TycoonForgeWorldManager.cancelAidConstruction(
+                            player, activeVillageId, pkt.textArg, false
+                    ).toComponent();
                 }
             }
         }

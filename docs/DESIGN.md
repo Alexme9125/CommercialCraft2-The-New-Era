@@ -263,6 +263,8 @@ Tracks the highest unlocked tier for each player (and max across members for a C
   - **Savanna**: Acacia Wood, Copper, Melon, Leather, Red Dye, Chili/Tomatoes
   - **Taiga**: Spruce Wood, Sweet Berries, Fox/Wolf Pelt (Leather), Ferns, Iron/Coal, Potatoes/Mushrooms
   - **Snowy**: Snow/Packed Ice, Wool, Rabbit/Mutton, Beetroot, Spruce, Enchanting Books
+  - **Jungle**: Cocoa Beans, Bamboo, Melon Slice, Jungle Logs, Sugar Cane
+  - **Swamp**: Slimeball, Brown/Red Mushrooms, Clay Ball, Lily Pad
 
 ---
 
@@ -297,6 +299,7 @@ $$P_{\text{final}}(i, v, s) = \text{round}\!\Big(P_{\text{base}}(i) \cdot I_{\te
    - Village Level-Up Capital Cost (burned from `villageBalance` into infrastructure).
    - Village Expansion Construction Cost (village pays builders/materials from `villageBalance`).
    - Periodic Municipal Upkeep (`2%` of excess village reserve per day above target reserve).
+   - Player-Funded Village Aid Construction (cash `recordMoneySink` or bank `recordBankMoneySink` infrastructure burn; cancelling prior to block placement calls `refundMoneySink(amount, refundedToCash)` so global money supply `M` remains strictly conserved).
 6. **Price History Ring Buffer**:
    - Records last **48 snapshots** of `(timestamp, cpiIndex, moneySupply, goodsCirculation)` for rendering an interactive **CPI & Inflation Trend Line Chart** in the Cooperation Hub & Comm Terminal GUI!
 
@@ -376,13 +379,39 @@ $$P_{\text{final}}(i, v, s) = \text{round}\!\Big(P_{\text{base}}(i) \cdot I_{\te
 5. **Gradual Construction Ticker**: Places `2` blocks per `3` ticks layer-by-layer (bottom foundation → floor → walls → windows/doors/beds → roof → lights/decor) with block-place sounds and dust particles! Zero tick spikes!
 6. **Natural Population Growth**: Completing a Residential Cottage / Medium Residence / Multi-Story Townhouse spawns `1 / 2 / 3` villagers (up to `min(40, level * 4 + 4)`) near the new house's beds (and an Iron Golem every 10 villagers if none nearby), enabling natural progression up to Lv 10!
 
-### 9.3 5 Biome Architectural Templates (`BiomeStyle`)
-All 5 vanilla village biome styles have full bespoke palettes & multi-tier templates:
+### 9.3 7 Biome Architectural Templates (`BiomeStyle`)
+All 7 biome styles (`PLAINS`, `DESERT`, `SAVANNA`, `TAIGA`, `SNOWY`, `JUNGLE`, `SWAMP`) share cross-version-safe block palettes (1.19.2–26.2) across both regular expansion and aid workplace blueprints:
 - `PLAINS`: Oak logs/planks, cobblestone, stone bricks, white/yellow beds, stone-brick + path roads, oak lanterns
 - `DESERT`: Cut/smooth sandstone, terracotta trim, birch/acacia doors, orange/cyan beds, sandstone slab roads, sandstone post lanterns
 - `SAVANNA`: Acacia logs/planks, stripped acacia, red terracotta, cobblestone base, red/orange beds, dirt-path + acacia border roads
 - `TAIGA`: Spruce logs/planks, mossy/cobblestone, campfires/lanterns, green/brown beds, coarse-dirt/cobble roads, spruce post lanterns
 - `SNOWY`: Spruce logs/planks, packed ice/snow blocks/blue terracotta accents, stone bricks, blue/white beds, snow-brick/cobble roads, tall snow-capped lanterns
+- `JUNGLE` (`jungle` / `bamboo` / `rainforest`): Jungle logs/planks/doors, mossy cobblestone, chiseled stone bricks, lime stained glass panes & lime beds, dirt-path + mossy cobble roads
+- `SWAMP` (`swamp` / `mangrove` / `marsh` / `bog` / `bayou`): Dark oak logs/doors, spruce/oak planks, mossy cobblestone, mud bricks, purple stained glass panes & purple beds, coarse-dirt + mud-brick roads
+
+### 9.4 Village Aid Construction & Low-Unemployment Bonus (`< 25%`)
+- **Workplace Catalog (`WorkplaceCatalog` + `WorkplaceArchitectureCatalog`)**:
+  - Covers all **13 vanilla villager professions** (`farmer`, `fisherman`, `shepherd`, `fletcher`, `butcher`, `leatherworker`, `mason`, `cartographer`, `toolsmith`, `weaponsmith`, `armorer`, `cleric`, `librarian`) with dedicated architectural prototypes × 2 sizes × 7 biome palettes.
+  - **Dynamic Modded Professions**: At startup and reload, the platform adapter scans `VillagerProfession` + `PoiType` registries (skipping `none`/`nitwit` and configurable blacklist entries) and automatically registers modded professions using the `GENERIC` workshop prototype and their resolved workstation block (`enableModdedProfessions = true`, default `450 IC` small / `2.2×` large).
+  - **Two Sizes (`WorkplaceSize`)**:
+    - `SMALL` (`7×6×7`, 1 workstation, Lv 1+, base `250–600 IC`, `aidGatherTicksSmall = 3,600` base ticks).
+    - `LARGE` (`9×7×9`, 3 workstations, Lv 3+, `2.2×` small base cost, `aidGatherTicksLarge = 6,000` base ticks).
+  - All workplace blueprints contain **zero beds** (adding job sites without population inflation) and emit `SpawnMarker(MarkerKind.WORKSTATION, dx, dy, dz, professionId)`. `LevelTerrainProbe` explicitly protects workstation blocks (`blast_furnace`, `smoker`, `brewing_stand`, `cauldron`, `water_cauldron`, `bookshelf`, etc.) from future builds.
+- **Entry Points & Pricing**:
+  - Available on partnered villages via **Cooperation Hub** (Growth → Aid sub-tab; cash or bank), **Commerce Comm Terminal** (Growth → Aid view; bank + `100 EU`), or OP command `/tyc2 aid <profession> [small|large]`.
+  - Live CPI quote: `max(1, round(baseCost * clamp(CPI, minPriceMultiplier, maxPriceMultiplier)))`. Paid funds are burned as an infrastructure money sink (not added to `villageBalance`).
+- **Decoupled Upstream / Shared Downstream Pipeline (`AidConstructionProject`)**:
+  - Independent `aidQueue` (`maxQueuedAidProjects = 3`) never competes with `ExpansionDesire` and is **unaffected by `expansionPaused = true`**.
+  - On loaded-chunk orders, `ExpansionPlanner.planBlueprint(..., /*ignorePause=*/true)` pre-validates terrain and pre-locks `reservedZone` in `occupiedZones` before charging IC or Terminal `100 EU` (rejecting cleanly with zero charge if no safe site exists).
+  - **Virtual Background Gathering (`COLLECTING`)**: Runs every 20 ticks even while chunks are unloaded; accelerated by idle/unemployed adults via `v_gather = 1.0 + min(1.0, 0.125 * unemployedCount)` (`1.0×..2.0×`).
+  - **Priority Launch & Cancellation**: Once gathered (`WAITING_SITE`), plans terrain via `planBlueprintIgnoringZone` and inserts ahead of queued regular expansion via `commitPlanWithPriority(..., true)` (`NO_SITE` retries every 400 ticks). Projects in `COLLECTING` / `WAITING_SITE` / `NO_SITE` can be cancelled for a **100% refund** (releasing `reservedZone` and reversing the money sink to conserve `M`); cancellation is rejected once `BUILDING` starts.
+  - **Completion**: Removes the aid project, automatically assigns nearby unemployed adult non-nitwit non-mayor villagers to each `WORKSTATION` marker (`JOB_SITE` POI + `VillagerData`), and refreshes `VillageEmploymentStats` immediately.
+- **Employment Stats & Low-Unemployment Bonus (`VillageEmploymentStats`)**:
+  - Workforce denominator = living adult non-nitwit villagers within dynamic scan radius `max(48, maxExpansionRadius + 12)` (babies and nitwits excluded; living Mayor counts as employed public office; cached when unloaded).
+  - When `workforceCount > 0` and `unemploymentRate < lowUnemploymentThreshold` (default `0.25`), smooth intensity `t = clamp((0.25 - r) / 0.25, 0, 1)` activates:
+    - **Restock Speed**: `1.25×..1.50×` (`effectiveDemandRefreshTicks = max(200, floor(demandRefreshTicks / restockSpeedMultiplier))`, immediately accelerating live countdowns).
+    - **Trade Order Quantity**: `1.25×..1.50×` on standard goods and moderated `1.10×..1.20×` (`1 + 0.4 * (mult - 1)`) on rare `ENCHANTED_BOOK` / `ENDGAME` goods.
+    - **Active Profession Weighting**: Active village professions gently boost matching `GoodsCategory` weights up to `1.4×` in `DemandGenerator` while strictly preserving village level and `IndustrialTier` caps.
 
 ---
 
@@ -392,13 +421,14 @@ All 5 vanilla village biome styles have full bespoke palettes & multi-tier templ
 2. **LC2 (`lc2`)**: Soft registry/container integration: Hub 500/500 Inbound/Outbound aligns loop-free with LC2 Smart Port / Cargo Station 2-zone transfer; Hub accepts `lc2:chunk_loading_upgrade` for unattended 3×3 chunk loading; Expansion builds dedicated LC2-friendly waterfront piers & open-sky helipad plazas; Comm Terminal displays nearby linked LC2 station coordinates if detected!
 3. **Serene Seasons (`sereneseasons`) & Ecliptic Seasons (`eclipticseasons`)**: Pure reflection soft adapters under `SeasonBridge`.
 4. **Farmer's Delight (`farmersdelight`) & Kaleidoscope Cookery (`kaleidoscope_cookery`)**: Data-driven JSON goods & seasonal tables; items dynamically activated only when present in Minecraft's item registry.
-5. **The One Probe (`theoneprobe`) & Jade (`jade`)**: Soft IMC / plugin providers showing Hub village name/level/funds/active orders, Mint power/progress, ATM status, Mayor summary.
+5. **The One Probe (`theoneprobe`) & Jade (`jade`)**: Shared `JadeSoftBridge` providers showing Hub village name/level/funds/active orders/CPI, **unemployment rate, low-unemployment bonus readout, active aid construction status**, Mint power/progress, ATM status, and Mayor status + unemployment rate.
 6. **JEI (`jei`)**: Soft plugin registering `tyc2:minting` recipe category showing all active Minting Machine metal/alloy recipes.
 7. **Common Tags**: Mint recipes & trade goods match `#c:ingots/*` (NeoForge 1.21.1+) and `#forge:ingots/*` (Forge 1.19.2) automatically supporting Create, Mekanism, Thermal, etc.
 8. **3-Layer User/Modder Extensibility**:
-   - **Layer 1 — Datapack JSON**: `data/<ns>/tyc2/goods/*.json`, `data/<ns>/tyc2/mint_recipes/*.json`, `data/<ns>/tyc2/seasons/*.json`, `data/<ns>/tyc2/levels.json` (hot-reloaded on `/reload`!).
-   - **Layer 2 — External Config Folder**: `config/tyc2/general.json`, `config/tyc2/custom_goods.json`, `config/tyc2/custom_mint_recipes.json` (auto-generated with clean examples on first launch!).
-   - **Layer 3 — Public Java API**: `com.tycooncraft.tyc2.api.TyC2RegistryApi` allowing other mods to programmatically register trade goods, seasonal crops, minting recipes, custom season providers, and industrial tier detectors!
+   - **Layer 1 — Datapack JSON**: `data/<ns>/tyc2/goods/*.json`, `data/<ns>/tyc2/mint_recipes/*.json`, `data/<ns>/tyc2/seasons/*.json`, `data/<ns>/tyc2/levels/*.json`, and `data/<ns>/tyc2/workplaces/*.json` (hot-reloaded on `/reload`!).
+   - **Layer 2 — External Config Folder**: `config/tyc2/general.json`, `config/tyc2/custom_goods.json`, `config/tyc2/custom_mint_recipes.json`, and `config/tyc2/custom_workplaces.json` (auto-generated with clean examples on first launch!).
+   - **Layer 3 — Public Java API**: `com.tycooncraft.tyc2.api.TyC2RegistryApi` allowing other mods to programmatically register trade goods, seasonal crops, minting recipes, **aided workplaces (`registerWorkplace` / `unregisterWorkplace` / `getRegisteredWorkplaces`)**, custom season providers, and industrial tier detectors!
+9. **Commands**: `/tyc2 status` (includes village unemployment, bonus & aid queue), `/tyc2 cpi`, `/tyc2 season`, plus OP commands `/tyc2 reload`, `/tyc2 mint <amount>`, `/tyc2 expand [projectType]`, `/tyc2 aid <profession> [small|large]`, `/tyc2 levelup`, `/tyc2 refresh`, `/tyc2 bank give <amount>` (NeoForge) / `/tyc2 villages` (Forge).
 
 ---
 
@@ -406,9 +436,9 @@ All 5 vanilla village biome styles have full bespoke palettes & multi-tier templ
 
 | Package / Directory | Owner | Responsibility |
 |---|---|---|
-| `src/common/.../core/` & `.../api/` | `core-econ` | Pure-Java 17 currency, mint registry, banking/guild manager, macro economy CPI/inflation/deflation, goods catalog, seasonal arbitrage, industrial tier model, JSON lite parser, public `TyC2RegistryApi` + JUnit tests |
-| `src/common/.../village/` | `core-village` | Pure-Java 17 `VillageRecord`, Mayor election state, 1000-slot dual-zone `CooperationHubStorage`, `DemandGenerator`, `ExpansionPlanner` & collision-safe builder, 5-biome architectural templates (roads, lamps, farms, ranches, cottages, residences, townhouses, LC2 plazas) + JUnit tests |
-| `src/datagen/` & `assets/tyc2/` | `art-datagen` | Original 16×16 pixel art textures (9 coins, Mint, ATM, Hub, Terminal, Mayor badge, GUI panels), bilingual `zh_cn.json` / `en_us.json`, resource/model/recipe/datapack generator for all 4 targets |
-| `src/neoforge/` | `neoforge-impl` | NeoForge 1.21.1 / 26.1.2 / 26.2 implementation, blocks, items, BEs, Menus, Screens, Mayor/Village manager, networking, SavedData, gradual builder, optional IC2/LC2/Seasons/TOP/Jade/JEI bridges, MixinPlugin |
+| `src/common/.../core/` & `.../api/` | `core-econ` / `core-aid` | Pure-Java 17 currency, mint registry, banking/guild manager, macro economy CPI/inflation/deflation + sink refund conservation, goods catalog, seasonal arbitrage, industrial tier model, JSON lite parser, public `TyC2RegistryApi` + JUnit tests |
+| `src/common/.../village/` | `core-village` / `core-aid` | Pure-Java 17 `VillageRecord`, Mayor election state, 1000-slot dual-zone `CooperationHubStorage`, `DemandGenerator`, `ExpansionPlanner` & collision-safe builder, 7-biome architectural templates, 13+modded workplace blueprints, `AidConstructionProject` & `VillageEmploymentStats` + JUnit tests |
+| `src/datagen/` & `assets/tyc2/` | `art-datagen` / `assets-data` | Original 16×16 pixel art textures (9 coins, Mint, ATM, Hub, Terminal, Mayor badge, GUI panels), bilingual `zh_cn.json` / `en_us.json`, resource/model/recipe/datapack generator for all 4 targets |
+| `src/neoforge/` | `neoforge-impl` | NeoForge 1.21.1 / 26.1.2 / 26.2 implementation, blocks, items, BEs, Menus, Screens, Mayor/Village/Aid manager, networking, SavedData, gradual builder, optional IC2/LC2/Seasons/TOP/Jade/JEI bridges, MixinPlugin |
 | `forge-1.19.2/` | `forge-1192` | Forge 1.19.2 (Java 17) complete port sharing `src/common/` & `assets/` + `src/datagen/`, `reobfJar` |
-| `src/qa/`, `README.md`, `README.en.md` | `qa-verifier` | 4-target compilation, `:checkCommonImports`, `:test:test`, live dedicated-server integration tests (both Standalone AND IC2+LC2), visual asset verification, final bilingual docs |
+| `src/qa/`, `forge-1.19.2/src/qa/`, `docs/DESIGN.md`, `README.md`, `README.en.md` | `qa-verifier` | 4-target compilation, `:checkCommonImports`, `:test:test`, static JAR audit, live dedicated-server integration tests (Standalone & IC2+LC2 across all 4 targets), final bilingual docs |

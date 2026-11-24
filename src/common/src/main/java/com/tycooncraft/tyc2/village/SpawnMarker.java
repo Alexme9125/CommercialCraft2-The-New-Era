@@ -25,7 +25,9 @@ public record SpawnMarker(MarkerKind kind, int dx, int dy, int dz, String hint) 
         /** Open deck anchor reserved for an LC2 Smart Port on a waterfront pier. */
         LC2_PORT_PAD,
         /** Open-sky landing pad anchor reserved for an LC2 Cargo Station. */
-        LC2_HELIPAD_CENTER
+        LC2_HELIPAD_CENTER,
+        /** Workstation block position inside a completed aided workplace. */
+        WORKSTATION
     }
 
     /**

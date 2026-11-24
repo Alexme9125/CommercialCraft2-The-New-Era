@@ -2,15 +2,19 @@ package com.tycooncraft.tyc2.forge.compat;
 
 import com.tycooncraft.tyc2.core.MacroEconomyEngine;
 import com.tycooncraft.tyc2.core.TriModePowerMath;
+import com.tycooncraft.tyc2.core.TyC2Config;
 import com.tycooncraft.tyc2.forge.block.AtmMachineBlockEntity;
 import com.tycooncraft.tyc2.forge.block.CooperationHubBlockEntity;
 import com.tycooncraft.tyc2.forge.block.MintMachineBlockEntity;
 import com.tycooncraft.tyc2.forge.block.PrimitiveMintMachineBlockEntity;
+import com.tycooncraft.tyc2.forge.data.TyC2RuntimeData;
+import com.tycooncraft.tyc2.forge.util.TyC2VillagerHelpers;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeSavedData;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeWorldManager;
+import com.tycooncraft.tyc2.village.AidConstructionProject;
 import com.tycooncraft.tyc2.village.OrderSide;
+import com.tycooncraft.tyc2.village.VillageEmploymentStats;
 import com.tycooncraft.tyc2.village.VillageRecord;
-import com.tycooncraft.tyc2.village.VillageTradeOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -90,6 +94,34 @@ public final class JadeSoftBridge {
                         String.format(Locale.ROOT, "%.2f", econ.computeCpi()),
                         Component.translatable(regimeKey)
                 ));
+
+                // Employment & low-unemployment bonus HUD lines
+                TyC2Config cfg = TyC2RuntimeData.config();
+                VillageEmploymentStats emp = v.getEmploymentStats();
+                int unempPct = emp.workforceCount() <= 0 ? 0 : (int) Math.round(emp.unemploymentRate() * 100.0);
+                lines.add(Component.translatable(
+                        "hud.tyc2.hub.unemployment", unempPct, emp.unemployedCount(), emp.workforceCount()
+                ));
+                if (emp.isLowUnemploymentBonusActive(cfg)) {
+                    int restockPct = (int) Math.round((emp.restockSpeedMultiplier(cfg) - 1.0) * 100.0);
+                    int qtyPct = (int) Math.round((emp.tradeQuantityMultiplier(cfg) - 1.0) * 100.0);
+                    lines.add(Component.translatable("hud.tyc2.hub.employment_bonus", restockPct, qtyPct));
+                }
+                if (!v.getAidProjects().isEmpty()) {
+                    AidConstructionProject headAid = v.getAidProjects().get(0);
+                    for (AidConstructionProject candidate : v.getAidProjects()) {
+                        if (candidate.status() == AidConstructionProject.Status.BUILDING) {
+                            headAid = candidate;
+                            break;
+                        }
+                    }
+                    int progPct = TycoonForgeWorldManager.resolveAidProgressPct(v, headAid);
+                    Component wpName = TyC2VillagerHelpers.workplaceDisplayComponent(
+                            headAid.professionId(), headAid.archetype(), headAid.displayNameFallback(), headAid.size()
+                    );
+                    Component statusComp = TyC2VillagerHelpers.aidStatusComponent(headAid.status(), progPct);
+                    lines.add(Component.translatable("hud.tyc2.hub.aid_active", wpName, statusComp));
+                }
             }
         }
         return lines;
@@ -115,6 +147,11 @@ public final class JadeSoftBridge {
                 } else {
                     lines.add(Component.translatable("hud.tyc2.mayor.unpartnered"));
                 }
+                VillageEmploymentStats emp = v.getEmploymentStats();
+                int unempPct = emp.workforceCount() <= 0 ? 0 : (int) Math.round(emp.unemploymentRate() * 100.0);
+                lines.add(Component.translatable(
+                        "hud.tyc2.mayor.unemployment", unempPct, emp.unemployedCount(), emp.workforceCount()
+                ));
             });
         } catch (IllegalArgumentException ignored) {
             // Ignore invalid UUID

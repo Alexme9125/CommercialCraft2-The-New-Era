@@ -9,10 +9,14 @@ import com.tycooncraft.tyc2.core.BankAccountManager;
 import com.tycooncraft.tyc2.core.CurrencyDenomination;
 import com.tycooncraft.tyc2.core.MacroEconomyEngine;
 import com.tycooncraft.tyc2.core.Season;
+import com.tycooncraft.tyc2.core.TyC2Config;
 import com.tycooncraft.tyc2.platform.TyC2Native;
 import com.tycooncraft.tyc2.village.ExpansionPlanner;
 import com.tycooncraft.tyc2.village.ProjectType;
+import com.tycooncraft.tyc2.village.VillageEmploymentStats;
 import com.tycooncraft.tyc2.village.VillageRecord;
+import com.tycooncraft.tyc2.village.WorkplaceSize;
+import com.tycooncraft.tyc2.village.WorkplaceSpec;
 import com.tycooncraft.tyc2.world.TyC2DataLoader;
 import com.tycooncraft.tyc2.world.TyC2WorldManager;
 import com.tycooncraft.tyc2.world.TycoonSavedData;
@@ -20,6 +24,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -73,6 +78,20 @@ public final class TyC2Commands {
                                         ctx.getSource(),
                                         StringArgumentType.getString(ctx, "projectType")
                                 ))))
+                .then(Commands.literal("aid")
+                        .requires(TyC2Native::hasOpPermission)
+                        .then(Commands.argument("professionAndSize", StringArgumentType.greedyString())
+                                .suggests((ctx, builder) -> {
+                                    for (WorkplaceSpec spec : TyC2DataLoader.workplaceCatalog()
+                                            .getAvailableWorkplaces(TyC2Native::blockExists)) {
+                                        builder.suggest(spec.professionId());
+                                    }
+                                    return builder.buildFuture();
+                                })
+                                .executes(ctx -> cmdAid(
+                                        ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "professionAndSize")
+                                ))))
                 .then(Commands.literal("levelup")
                         .requires(TyC2Native::hasOpPermission)
                         .executes(ctx -> cmdLevelUp(ctx.getSource())))
@@ -104,17 +123,31 @@ public final class TyC2Commands {
         )).withStyle(ChatFormatting.GOLD), false);
 
         BlockPos pos = BlockPos.containing(src.getPosition());
-        TyC2WorldManager.findNearestVillage(level, pos, 96).ifPresent(v ->
-                src.sendSuccess(() -> Component.literal(String.format(
-                        "  Nearest: %s (Lv.%d, Pop=%d, Funds=%d IC, Orders=%d, Partnered=%s)",
-                        v.getVillageName(),
-                        v.getLevel(),
-                        v.getPopulation(),
-                        v.getVillageBalance(),
-                        v.getActiveOrders().size(),
-                        v.isPartnered()
-                )).withStyle(ChatFormatting.AQUA), false)
-        );
+        TyC2WorldManager.findNearestVillage(level, pos, 96).ifPresent(v -> {
+            VillageEmploymentStats es = v.getEmploymentStats();
+            TyC2Config cfg = TyC2DataLoader.config();
+            int unempPct = (int) Math.round(es.unemploymentRate() * 100.0);
+            String bonusTag = es.isLowUnemploymentBonusActive(cfg)
+                    ? String.format(" [Bonus +%d%% spd / +%d%% qty]",
+                            Math.round((es.restockSpeedMultiplier(cfg) - 1.0) * 100.0),
+                            Math.round((es.tradeQuantityMultiplier(cfg) - 1.0) * 100.0))
+                    : "";
+            src.sendSuccess(() -> Component.literal(String.format(
+                    "  Nearest: %s (Lv.%d, Pop=%d, Unemp=%d%% [%d/%d]%s, Aid=%d/%d, Funds=%d IC, Orders=%d, Partnered=%s)",
+                    v.getVillageName(),
+                    v.getLevel(),
+                    v.getPopulation(),
+                    unempPct,
+                    es.unemployedCount(),
+                    es.workforceCount(),
+                    bonusTag,
+                    v.getAidProjects().size(),
+                    cfg.maxQueuedAidProjects(),
+                    v.getVillageBalance(),
+                    v.getActiveOrders().size(),
+                    v.isPartnered()
+            )).withStyle(ChatFormatting.AQUA), false);
+        });
         return 1;
     }
 
@@ -255,12 +288,47 @@ public final class TyC2Commands {
         return 1;
     }
 
+    private static int cmdAid(CommandSourceStack src, String rawArgs) {
+        ServerLevel level = src.getLevel();
+        BlockPos pos = BlockPos.containing(src.getPosition());
+        Optional<VillageRecord> nearest = TyC2WorldManager.findNearestVillage(level, pos, 96);
+        if (nearest.isEmpty()) {
+            src.sendFailure(Component.literal("No TyC2 village within 96 blocks."));
+            return 0;
+        }
+        String trimmed = rawArgs == null ? "" : rawArgs.trim();
+        if (trimmed.isEmpty()) {
+            src.sendFailure(Component.literal("Usage: /tyc2 aid <profession> [small|large]"));
+            return 0;
+        }
+        String[] parts = trimmed.split("\\s+");
+        String profArg = parts[0].replace("\"", "").replace("'", "");
+        WorkplaceSize size = parts.length >= 2
+                ? WorkplaceSize.fromNameOrDefault(parts[1], WorkplaceSize.SMALL)
+                : WorkplaceSize.SMALL;
+        ServerPlayer player = src.getPlayer();
+        UUID actorUuid = player == null ? null : player.getUUID();
+        Optional<Component> err = TyC2WorldManager.forceStartAid(level, nearest.get(), profArg, size, actorUuid);
+        if (err.isPresent()) {
+            src.sendFailure(err.get());
+            return 0;
+        }
+        VillageRecord v = nearest.get();
+        src.sendSuccess(() -> Component.literal(
+                "[TyC2] Queued " + size.id() + " aid construction (" + profArg + ") for "
+                        + v.getVillageName() + " (queue=" + v.getAidProjects().size() + ")."
+        ).withStyle(ChatFormatting.GREEN), true);
+        return 1;
+    }
+
     private static int cmdReload(CommandSourceStack src) {
         TyC2DataLoader.reloadExternalConfigsOnly();
         src.sendSuccess(() -> Component.literal(
                 "[TyC2] Reloaded config/tyc2/*.json ("
                         + TyC2DataLoader.mintRecipes().allRecipes().size() + " mint recipes, "
-                        + TyC2DataLoader.goodsCatalog().allGoods().size() + " catalog goods)."
+                        + TyC2DataLoader.goodsCatalog().allGoods().size() + " catalog goods, "
+                        + TyC2DataLoader.workplaceCatalog().getAvailableWorkplaces(TyC2Native::blockExists).size()
+                        + " workplaces)."
         ).withStyle(ChatFormatting.GREEN), true);
         return 1;
     }

@@ -6,6 +6,7 @@ import com.tycooncraft.tyc2.core.JsonLite;
 import com.tycooncraft.tyc2.core.MacroEconomyEngine;
 import com.tycooncraft.tyc2.forge.data.TyC2RuntimeData;
 import com.tycooncraft.tyc2.village.Aabb3i;
+import com.tycooncraft.tyc2.village.AidConstructionProject;
 import com.tycooncraft.tyc2.village.BiomeStyle;
 import com.tycooncraft.tyc2.village.BlockPos3i;
 import com.tycooncraft.tyc2.village.ConstructionJob;
@@ -17,8 +18,13 @@ import com.tycooncraft.tyc2.village.OrderSide;
 import com.tycooncraft.tyc2.village.ProjectType;
 import com.tycooncraft.tyc2.village.SlotStack;
 import com.tycooncraft.tyc2.village.SpawnMarker;
+import com.tycooncraft.tyc2.village.VillageEmploymentStats;
 import com.tycooncraft.tyc2.village.VillageRecord;
 import com.tycooncraft.tyc2.village.VillageTradeOrder;
+import com.tycooncraft.tyc2.village.WorkplaceArchetype;
+import com.tycooncraft.tyc2.village.WorkplaceCatalog;
+import com.tycooncraft.tyc2.village.WorkplaceSize;
+import com.tycooncraft.tyc2.village.WorkplaceSpec;
 import com.tycooncraft.tyc2.village.WorldBlockPlacement;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -117,6 +123,8 @@ public final class TycoonForgeSavedData extends SavedData {
             case SAVANNA -> "Acacia";
             case TAIGA -> "Pine";
             case SNOWY -> "Frost";
+            case JUNGLE -> "Canopy";
+            case SWAMP -> "Willow";
             case PLAINS -> "Oakfield";
         };
         return prefix + " #" + num;
@@ -416,6 +424,58 @@ public final class TycoonForgeSavedData extends SavedData {
             jobsList.add(jTag);
         }
         t.put("Jobs", jobsList);
+
+        // Aid construction projects
+        ListTag aidList = new ListTag();
+        for (AidConstructionProject aid : v.getAidProjects()) {
+            CompoundTag aTag = new CompoundTag();
+            aTag.putString("Id", aid.projectId());
+            aTag.putString("Prof", aid.professionId());
+            aTag.putString("Ws", aid.workstationBlockId());
+            aTag.putString("Arch", aid.archetype().name());
+            aTag.putString("Fallback", aid.displayNameFallback());
+            aTag.putString("Size", aid.size().name());
+            aTag.putString("Status", aid.status().name());
+            aTag.putLong("Paid", aid.paidIc());
+            aTag.putDouble("Gathered", aid.gatheredProgressTicks());
+            aTag.putInt("ReqTicks", aid.requiredTicks());
+            CompoundTag reqMats = new CompoundTag();
+            for (Map.Entry<String, Integer> e : aid.requiredMaterials().entrySet()) {
+                reqMats.putInt(e.getKey(), e.getValue());
+            }
+            aTag.put("ReqMats", reqMats);
+            if (aid.reservedZone() != null) {
+                Aabb3i rz = aid.reservedZone();
+                aTag.putIntArray("ResZone", new int[]{rz.minX(), rz.minY(), rz.minZ(), rz.maxX(), rz.maxY(), rz.maxZ()});
+            }
+            if (!aid.plannedJobId().isEmpty()) {
+                aTag.putString("JobId", aid.plannedJobId());
+            }
+            if (aid.payerPlayerUuid() != null) {
+                aTag.putUUID("PayerUuid", aid.payerPlayerUuid());
+            }
+            if (aid.payerCompanyId() != null) {
+                aTag.putString("PayerCo", aid.payerCompanyId());
+            }
+            aTag.putBoolean("Cash", aid.paidWithCash());
+            aidList.add(aTag);
+        }
+        t.put("AidProjects", aidList);
+
+        // Cached village employment stats
+        VillageEmploymentStats es = v.getEmploymentStats();
+        CompoundTag esTag = new CompoundTag();
+        esTag.putInt("Workforce", es.workforceCount());
+        esTag.putInt("Employed", es.employedCount());
+        esTag.putInt("Unemployed", es.unemployedCount());
+        esTag.putBoolean("MayorEmp", es.mayorCountedEmployed());
+        esTag.putLong("LastScan", es.lastScanTick());
+        CompoundTag profCounts = new CompoundTag();
+        for (Map.Entry<String, Integer> e : es.activeProfessionCounts().entrySet()) {
+            profCounts.putInt(e.getKey(), e.getValue());
+        }
+        esTag.put("Profs", profCounts);
+        t.put("EmpStats", esTag);
         return t;
     }
 
@@ -599,10 +659,107 @@ public final class TycoonForgeSavedData extends SavedData {
             ));
         }
 
+        // Backwards-compatible AidProjects restore
+        List<AidConstructionProject> aidProjects = new ArrayList<>();
+        if (t.contains("AidProjects", Tag.TAG_LIST)) {
+            ListTag aidList = t.getList("AidProjects", Tag.TAG_COMPOUND);
+            for (int i = 0; i < aidList.size(); i++) {
+                try {
+                    CompoundTag aTag = aidList.getCompound(i);
+                    String projId = aTag.getString("Id");
+                    String profId = aTag.getString("Prof");
+                    String wsId = aTag.getString("Ws");
+                    if (projId.isBlank() || profId.isBlank() || wsId.isBlank()) {
+                        continue;
+                    }
+                    WorkplaceArchetype arch = WorkplaceArchetype.fromNameOrDefault(
+                            aTag.getString("Arch"), WorkplaceArchetype.GENERIC);
+                    String fallback = aTag.getString("Fallback");
+                    WorkplaceSize size = WorkplaceSize.fromNameOrDefault(
+                            aTag.getString("Size"), WorkplaceSize.SMALL);
+                    AidConstructionProject.Status status = AidConstructionProject.Status.COLLECTING;
+                    try {
+                        String rawStatus = aTag.getString("Status");
+                        if (!rawStatus.isBlank()) {
+                            status = AidConstructionProject.Status.valueOf(rawStatus);
+                        }
+                    } catch (IllegalArgumentException ignored) {
+                        status = AidConstructionProject.Status.COLLECTING;
+                    }
+                    long paid = Math.max(0L, aTag.getLong("Paid"));
+                    double gathered = Math.max(0.0, aTag.getDouble("Gathered"));
+                    int reqTicks = Math.max(1, aTag.contains("ReqTicks")
+                            ? aTag.getInt("ReqTicks") : size.defaultGatherTicks());
+
+                    Map<String, Integer> reqMats = new LinkedHashMap<>();
+                    if (aTag.contains("ReqMats", Tag.TAG_COMPOUND)) {
+                        CompoundTag rmTag = aTag.getCompound("ReqMats");
+                        for (String k : rmTag.getAllKeys()) {
+                            int qty = rmTag.getInt(k);
+                            if (qty > 0) {
+                                reqMats.put(k, qty);
+                            }
+                        }
+                    }
+                    if (reqMats.isEmpty()) {
+                        WorkplaceSpec fallbackSpec = new WorkplaceSpec(
+                                profId, wsId, arch, Math.max(1L, paid), size.defaultCostMultiplier(),
+                                1, 3, List.of(), true, arch == WorkplaceArchetype.GENERIC, fallback);
+                        reqMats = WorkplaceCatalog.requiredMaterials(fallbackSpec, size, biome);
+                    }
+
+                    Aabb3i reservedZone = null;
+                    if (aTag.contains("ResZone", Tag.TAG_INT_ARRAY)) {
+                        int[] rz = aTag.getIntArray("ResZone");
+                        if (rz.length >= 6) {
+                            reservedZone = Aabb3i.of(rz[0], rz[1], rz[2], rz[3], rz[4], rz[5]);
+                        }
+                    }
+                    String plannedJobId = aTag.getString("JobId");
+                    UUID payerUuid = aTag.hasUUID("PayerUuid") ? aTag.getUUID("PayerUuid") : null;
+                    String payerCo = aTag.contains("PayerCo", Tag.TAG_STRING) ? aTag.getString("PayerCo") : null;
+                    boolean paidWithCash = aTag.getBoolean("Cash");
+
+                    aidProjects.add(new AidConstructionProject(
+                            projId, profId, wsId, arch, fallback, size, status, paid,
+                            reqMats, gathered, reqTicks, reservedZone, plannedJobId,
+                            payerUuid, payerCo, paidWithCash
+                    ));
+                } catch (Exception e) {
+                    LOGGER.warn("Skipping corrupted TyC2 aid project entry #{}: {}", i, e.getMessage());
+                }
+            }
+        }
+
+        // Backwards-compatible EmploymentStats restore
+        VillageEmploymentStats empStats = VillageEmploymentStats.EMPTY;
+        if (t.contains("EmpStats", Tag.TAG_COMPOUND)) {
+            CompoundTag esTag = t.getCompound("EmpStats");
+            Map<String, Integer> profCounts = new LinkedHashMap<>();
+            if (esTag.contains("Profs", Tag.TAG_COMPOUND)) {
+                CompoundTag pTag = esTag.getCompound("Profs");
+                for (String k : pTag.getAllKeys()) {
+                    int cnt = pTag.getInt(k);
+                    if (cnt > 0) {
+                        profCounts.put(k, cnt);
+                    }
+                }
+            }
+            empStats = new VillageEmploymentStats(
+                    esTag.getInt("Workforce"),
+                    esTag.getInt("Employed"),
+                    esTag.getInt("Unemployed"),
+                    esTag.getBoolean("MayorEmp"),
+                    profCounts,
+                    esTag.getLong("LastScan")
+            );
+        }
+
         return new VillageRecord(
                 id, dim, name, hubPos, biome, partnered, owner, companyId,
                 level, pop, vol, balance, mayor, storage, orders, expansion,
-                zones, pads, expPaused, minRad, maxRad, lastDemandTick, lastExpTick, jobs
+                zones, pads, expPaused, minRad, maxRad, lastDemandTick, lastExpTick, jobs,
+                aidProjects, empStats
         );
     }
 

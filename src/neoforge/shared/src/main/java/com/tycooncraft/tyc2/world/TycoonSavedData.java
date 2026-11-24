@@ -7,6 +7,7 @@ import com.tycooncraft.tyc2.core.MacroEconomyEngine;
 import com.tycooncraft.tyc2.platform.TyC2Nbt;
 import com.tycooncraft.tyc2.platform.TyC2SavedDataBase;
 import com.tycooncraft.tyc2.village.Aabb3i;
+import com.tycooncraft.tyc2.village.AidConstructionProject;
 import com.tycooncraft.tyc2.village.BiomeStyle;
 import com.tycooncraft.tyc2.village.BlockPos3i;
 import com.tycooncraft.tyc2.village.ConstructionJob;
@@ -18,8 +19,13 @@ import com.tycooncraft.tyc2.village.OrderSide;
 import com.tycooncraft.tyc2.village.ProjectType;
 import com.tycooncraft.tyc2.village.SlotStack;
 import com.tycooncraft.tyc2.village.SpawnMarker;
+import com.tycooncraft.tyc2.village.VillageEmploymentStats;
 import com.tycooncraft.tyc2.village.VillageRecord;
 import com.tycooncraft.tyc2.village.VillageTradeOrder;
+import com.tycooncraft.tyc2.village.WorkplaceArchetype;
+import com.tycooncraft.tyc2.village.WorkplaceCatalog;
+import com.tycooncraft.tyc2.village.WorkplaceSize;
+import com.tycooncraft.tyc2.village.WorkplaceSpec;
 import com.tycooncraft.tyc2.village.WorldBlockPlacement;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -410,6 +416,58 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
             jobsTag.add(jt);
         }
         t.put("jobs", jobsTag);
+
+        // Aid construction projects
+        ListTag aidTag = new ListTag();
+        for (AidConstructionProject ap : v.getAidProjects()) {
+            CompoundTag at = new CompoundTag();
+            at.putString("id", ap.projectId());
+            at.putString("prof", ap.professionId());
+            at.putString("block", ap.workstationBlockId());
+            at.putString("arch", ap.archetype().name());
+            if (!ap.displayNameFallback().isEmpty()) {
+                at.putString("fallback", ap.displayNameFallback());
+            }
+            at.putString("size", ap.size().name());
+            at.putString("status", ap.status().name());
+            at.putLong("paid", ap.paidIc());
+            at.putString("req_json", JsonLite.toJson(new LinkedHashMap<>(ap.requiredMaterials())));
+            at.putDouble("gathered", ap.gatheredProgressTicks());
+            at.putInt("req_ticks", ap.requiredTicks());
+            if (ap.reservedZone() != null) {
+                Aabb3i rz = ap.reservedZone();
+                at.putBoolean("rz_has", true);
+                at.putInt("rz_x0", rz.minX());
+                at.putInt("rz_y0", rz.minY());
+                at.putInt("rz_z0", rz.minZ());
+                at.putInt("rz_x1", rz.maxX());
+                at.putInt("rz_y1", rz.maxY());
+                at.putInt("rz_z1", rz.maxZ());
+            }
+            if (!ap.plannedJobId().isEmpty()) {
+                at.putString("job_id", ap.plannedJobId());
+            }
+            if (ap.payerPlayerUuid() != null) {
+                at.putString("payer_uuid", ap.payerPlayerUuid().toString());
+            }
+            if (ap.payerCompanyId() != null) {
+                at.putString("payer_co", ap.payerCompanyId());
+            }
+            at.putBoolean("paid_cash", ap.paidWithCash());
+            aidTag.add(at);
+        }
+        t.put("aid_projects", aidTag);
+
+        // VillageEmploymentStats
+        VillageEmploymentStats es = v.getEmploymentStats();
+        CompoundTag empTag = new CompoundTag();
+        empTag.putInt("wf", es.workforceCount());
+        empTag.putInt("emp", es.employedCount());
+        empTag.putInt("unemp", es.unemployedCount());
+        empTag.putBoolean("mayor_emp", es.mayorCountedEmployed());
+        empTag.putString("profs_json", JsonLite.toJson(new LinkedHashMap<>(es.activeProfessionCounts())));
+        empTag.putLong("scan_tick", es.lastScanTick());
+        t.put("employment", empTag);
         return t;
     }
 
@@ -571,6 +629,93 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
             }
         }
 
+        List<AidConstructionProject> aidProjects = new ArrayList<>();
+        for (CompoundTag at : TyC2Nbt.getCompoundList(t, "aid_projects")) {
+            try {
+                String apId = TyC2Nbt.getString(at, "id", "");
+                String profId = TyC2Nbt.getString(at, "prof", "");
+                String blockId = TyC2Nbt.getString(at, "block", "");
+                if (apId.isBlank() || profId.isBlank() || blockId.isBlank()) {
+                    continue;
+                }
+                WorkplaceArchetype arch = WorkplaceArchetype.fromNameOrDefault(
+                        TyC2Nbt.getString(at, "arch", "GENERIC"), WorkplaceArchetype.GENERIC
+                );
+                String fallback = TyC2Nbt.getString(at, "fallback", "");
+                WorkplaceSize size = WorkplaceSize.fromNameOrDefault(
+                        TyC2Nbt.getString(at, "size", "SMALL"), WorkplaceSize.SMALL
+                );
+                AidConstructionProject.Status status;
+                try {
+                    status = AidConstructionProject.Status.valueOf(TyC2Nbt.getString(at, "status", "COLLECTING"));
+                } catch (IllegalArgumentException ex) {
+                    status = AidConstructionProject.Status.COLLECTING;
+                }
+                long paidIc = Math.max(0L, TyC2Nbt.getLong(at, "paid", 0L));
+                Map<String, Integer> reqMats = parseIntMap(TyC2Nbt.getString(at, "req_json", "{}"));
+                if (reqMats.isEmpty()) {
+                    WorkplaceSpec tmpSpec = new WorkplaceSpec(
+                            profId, blockId, arch, Math.max(1L, paidIc),
+                            size.defaultCostMultiplier(), 1, 3, List.of(), true, false, fallback
+                    );
+                    reqMats = WorkplaceCatalog.requiredMaterials(tmpSpec, size, biome);
+                }
+                double gathered = TyC2Nbt.getDouble(at, "gathered", 0.0);
+                int reqTicks = Math.max(1, TyC2Nbt.getInt(at, "req_ticks", size.defaultGatherTicks()));
+                Aabb3i reservedZone = null;
+                if (TyC2Nbt.getBoolean(at, "rz_has", false)) {
+                    reservedZone = Aabb3i.of(
+                            TyC2Nbt.getInt(at, "rz_x0", 0), TyC2Nbt.getInt(at, "rz_y0", 0), TyC2Nbt.getInt(at, "rz_z0", 0),
+                            TyC2Nbt.getInt(at, "rz_x1", 0), TyC2Nbt.getInt(at, "rz_y1", 0), TyC2Nbt.getInt(at, "rz_z1", 0)
+                    );
+                }
+                String jobId = TyC2Nbt.getString(at, "job_id", "");
+                String payerUuidStr = TyC2Nbt.getString(at, "payer_uuid", "");
+                UUID payerUuid = null;
+                if (!payerUuidStr.isBlank()) {
+                    try {
+                        payerUuid = UUID.fromString(payerUuidStr);
+                    } catch (IllegalArgumentException ignored) {
+                        payerUuid = null;
+                    }
+                }
+                String payerCo = TyC2Nbt.getString(at, "payer_co", "");
+                boolean paidCash = TyC2Nbt.getBoolean(at, "paid_cash", false);
+                aidProjects.add(new AidConstructionProject(
+                        apId,
+                        profId,
+                        blockId,
+                        arch,
+                        fallback,
+                        size,
+                        status,
+                        paidIc,
+                        reqMats,
+                        gathered,
+                        reqTicks,
+                        reservedZone,
+                        jobId,
+                        payerUuid,
+                        payerCo.isBlank() ? null : payerCo,
+                        paidCash
+                ));
+            } catch (Exception ignored) {
+                // Skip invalid aid project entry cleanly
+            }
+        }
+
+        VillageEmploymentStats employmentStats = VillageEmploymentStats.EMPTY;
+        if (t.contains("employment")) {
+            CompoundTag empTag = TyC2Nbt.getCompound(t, "employment");
+            int wf = Math.max(0, TyC2Nbt.getInt(empTag, "wf", 0));
+            int emp = Math.max(0, TyC2Nbt.getInt(empTag, "emp", 0));
+            int unemp = Math.max(0, TyC2Nbt.getInt(empTag, "unemp", Math.max(0, wf - emp)));
+            boolean mayorEmp = TyC2Nbt.getBoolean(empTag, "mayor_emp", false);
+            Map<String, Integer> profCounts = parseIntMap(TyC2Nbt.getString(empTag, "profs_json", "{}"));
+            long scanTick = Math.max(0L, TyC2Nbt.getLong(empTag, "scan_tick", 0L));
+            employmentStats = new VillageEmploymentStats(wf, emp, unemp, mayorEmp, profCounts, scanTick);
+        }
+
         return new VillageRecord(
                 id,
                 dim,
@@ -595,7 +740,9 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
                 TyC2Nbt.getInt(t, "max_rad", VillageRecord.MAX_CONFIGURABLE_RADIUS),
                 TyC2Nbt.getLong(t, "last_demand_tick", 0L),
                 TyC2Nbt.getLong(t, "last_exp_tick", 0L),
-                jobs
+                jobs,
+                aidProjects,
+                employmentStats
         );
     }
 

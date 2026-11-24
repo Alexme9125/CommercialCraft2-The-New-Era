@@ -6,6 +6,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.tycooncraft.tyc2.core.BankAccountManager;
 import com.tycooncraft.tyc2.core.MacroEconomyEngine;
 import com.tycooncraft.tyc2.core.Season;
+import com.tycooncraft.tyc2.core.TyC2Config;
 import com.tycooncraft.tyc2.forge.compat.Ic2Bridge;
 import com.tycooncraft.tyc2.forge.compat.Lc2SoftBridge;
 import com.tycooncraft.tyc2.forge.compat.SeasonSoftBridge;
@@ -14,12 +15,18 @@ import com.tycooncraft.tyc2.forge.util.TyC2Ids;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeSavedData;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeWorldManager;
 import com.tycooncraft.tyc2.village.ProjectType;
+import com.tycooncraft.tyc2.village.VillageEmploymentStats;
 import com.tycooncraft.tyc2.village.VillageRecord;
+import com.tycooncraft.tyc2.village.WorkplaceSize;
+import com.tycooncraft.tyc2.village.WorkplaceSpec;
 import java.util.Locale;
 import java.util.Optional;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.commands.arguments.ResourceLocationArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -59,6 +66,30 @@ public final class TyC2ForgeCommand {
                         .executes(ctx -> forceExpand(ctx.getSource(), null))
                         .then(Commands.argument("project", StringArgumentType.word())
                                 .executes(ctx -> forceExpand(ctx.getSource(), StringArgumentType.getString(ctx, "project")))))
+                .then(Commands.literal("aid")
+                        .requires(src -> src.hasPermission(2))
+                        .then(Commands.argument("profession", ResourceLocationArgument.id())
+                                .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
+                                        TyC2RuntimeData.workplaceCatalog()
+                                                .getAvailableWorkplaces(TyC2Ids::blockExists)
+                                                .stream()
+                                                .map(WorkplaceSpec::professionId),
+                                        builder
+                                ))
+                                .executes(ctx -> forceAid(
+                                        ctx.getSource(),
+                                        ResourceLocationArgument.getId(ctx, "profession"),
+                                        "small"
+                                ))
+                                .then(Commands.argument("size", StringArgumentType.word())
+                                        .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
+                                                new String[]{"small", "large"}, builder
+                                        ))
+                                        .executes(ctx -> forceAid(
+                                                ctx.getSource(),
+                                                ResourceLocationArgument.getId(ctx, "profession"),
+                                                StringArgumentType.getString(ctx, "size")
+                                        )))))
         );
     }
 
@@ -66,16 +97,24 @@ public final class TyC2ForgeCommand {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
         data.syncMacroAccountTotals();
         MacroEconomyEngine econ = data.economy();
+        TyC2Config cfg = TyC2RuntimeData.config();
         Season season = SeasonSoftBridge.currentSeason(src.getLevel());
         int partnered = 0;
+        int totalAidQueued = 0;
+        int bonusVillages = 0;
         for (VillageRecord v : data.allVillages()) {
             if (v.isPartnered()) {
                 partnered++;
+                totalAidQueued += v.getAidProjects().size();
+                if (v.getEmploymentStats().isLowUnemploymentBonusActive(cfg)) {
+                    bonusVillages++;
+                }
             }
         }
+        int workplaces = TyC2RuntimeData.workplaceCatalog().getAvailableWorkplaces(TyC2Ids::blockExists).size();
         src.sendSuccess(Component.literal(String.format(
                 Locale.ROOT,
-                "[TyC2] IC2=%s LC2=%s Season=%s | CPI=%.2f (%s) M=%d Q=%.0f | Villages=%d (%d partnered) | Recipes=%d Goods=%d",
+                "[TyC2] IC2=%s LC2=%s Season=%s | CPI=%.2f (%s) M=%d Q=%.0f | Villages=%d (%d partnered, %d bonus, %d aid) | Recipes=%d Goods=%d Workplaces=%d",
                 Ic2Bridge.isLoaded(),
                 Lc2SoftBridge.isLoaded(),
                 season.name(),
@@ -85,9 +124,39 @@ public final class TyC2ForgeCommand {
                 econ.rollingGoodsCirculation(),
                 data.allVillages().size(),
                 partnered,
+                bonusVillages,
+                totalAidQueued,
                 TyC2RuntimeData.mintRecipes().allRecipes().size(),
-                TyC2RuntimeData.goodsCatalog().allGoods().size()
+                TyC2RuntimeData.goodsCatalog().allGoods().size(),
+                workplaces
         )), false);
+
+        if (src.getEntity() instanceof ServerPlayer player) {
+            Optional<VillageRecord> nearest = data.findNearestVillage(
+                    player.getLevel().dimension().location().toString(), player.blockPosition(), 128
+            );
+            if (nearest.isPresent()) {
+                VillageRecord v = nearest.get();
+                VillageEmploymentStats emp = v.getEmploymentStats();
+                int unempPct = emp.workforceCount() <= 0 ? 0 : (int) Math.round(emp.unemploymentRate() * 100.0);
+                boolean bonus = emp.isLowUnemploymentBonusActive(cfg);
+                src.sendSuccess(Component.literal(String.format(
+                        Locale.ROOT,
+                        "[TyC2] Nearest Village %s (Lv.%d): Unemp=%d%% (%d/%d) Bonus=%s (Restock %.2fx, Qty %.2fx, Gather %.2fx) AidQueue=%d/%d",
+                        v.getVillageName(),
+                        v.getLevel(),
+                        unempPct,
+                        emp.unemployedCount(),
+                        emp.workforceCount(),
+                        bonus ? "ACTIVE" : "OFF",
+                        emp.restockSpeedMultiplier(cfg),
+                        emp.tradeQuantityMultiplier(cfg),
+                        emp.gatherSpeedMultiplier(cfg),
+                        v.getAidProjects().size(),
+                        cfg.maxQueuedAidProjects()
+                )), false);
+            }
+        }
         return 1;
     }
 
@@ -123,19 +192,27 @@ public final class TyC2ForgeCommand {
             src.sendSuccess(Component.literal("[TyC2] No tracked villages yet."), false);
             return 1;
         }
+        TyC2Config cfg = TyC2RuntimeData.config();
         for (VillageRecord v : data.allVillages()) {
+            VillageEmploymentStats emp = v.getEmploymentStats();
+            int unempPct = emp.workforceCount() <= 0 ? 0 : (int) Math.round(emp.unemploymentRate() * 100.0);
             src.sendSuccess(Component.literal(String.format(
                     Locale.ROOT,
-                    "- %s [%s] Lv.%d Pop=%d Funds=%d IC Partnered=%s Hub=(%d,%d,%d) Orders=%d Jobs=%d",
+                    "- %s [%s] Lv.%d Pop=%d Unemp=%d%%(%d/%d)%s Funds=%d IC Partnered=%s Hub=(%d,%d,%d) Orders=%d Jobs=%d Aid=%d",
                     v.getVillageName(),
                     v.getBiomeStyle().id(),
                     v.getLevel(),
                     v.getPopulation(),
+                    unempPct,
+                    emp.unemployedCount(),
+                    emp.workforceCount(),
+                    emp.isLowUnemploymentBonusActive(cfg) ? "[BONUS]" : "",
                     v.getVillageBalance(),
                     v.isPartnered(),
                     v.getHubPos().x(), v.getHubPos().y(), v.getHubPos().z(),
                     v.getActiveOrders().size(),
-                    v.getConstructionQueue().size()
+                    v.getConstructionQueue().size(),
+                    v.getAidProjects().size()
             )), false);
         }
         return data.allVillages().size();
@@ -246,6 +323,34 @@ public final class TyC2ForgeCommand {
             return 0;
         } catch (Exception e) {
             src.sendFailure(Component.literal("[TyC2] Expand failed: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int forceAid(CommandSourceStack src, ResourceLocation professionId, String sizeArg) {
+        try {
+            ServerPlayer player = src.getPlayerOrException();
+            ServerLevel level = player.getLevel();
+            TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
+            Optional<VillageRecord> vOpt = data.findNearestVillage(
+                    level.dimension().location().toString(), player.blockPosition(), 128
+            );
+            if (vOpt.isEmpty()) {
+                src.sendFailure(Component.literal("[TyC2] No tracked village within 128 blocks."));
+                return 0;
+            }
+            WorkplaceSize size = WorkplaceSize.fromNameOrDefault(sizeArg, WorkplaceSize.SMALL);
+            var res = TycoonForgeWorldManager.forcePlanAid(
+                    level, data, vOpt.get(), professionId.toString(), size
+            );
+            if (res.success()) {
+                src.sendSuccess(res.toComponent(), true);
+                return 1;
+            }
+            src.sendFailure(res.toComponent());
+            return 0;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("[TyC2] Aid command failed: " + e.getMessage()));
             return 0;
         }
     }
