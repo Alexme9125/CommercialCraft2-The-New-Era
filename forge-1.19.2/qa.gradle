@@ -112,6 +112,7 @@ def auditPackagedTyc2Jar = tasks.register('auditPackagedTyc2Jar') {
             def requiredEntries = [
                     'LICENSE',
                     'tyc2.mixins.json',
+                    'wthit_plugins.json',
                     'META-INF/mods.toml',
                     'assets/tyc2/lang/en_us.json',
                     'assets/tyc2/lang/zh_cn.json',
@@ -126,6 +127,7 @@ def auditPackagedTyc2Jar = tasks.register('auditPackagedTyc2Jar') {
                     'data/tyc2/mint_recipes/default_ic2.json',
                     'data/tyc2/goods/vanilla.json',
                     'data/tyc2/goods/ic2.json',
+                    'data/tyc2/goods/ecc2.json',
                     'data/tyc2/goods/farmers_delight.json',
                     'data/tyc2/goods/kaleidoscope_cookery.json',
                     'data/tyc2/seasons/harvest_seasons.json',

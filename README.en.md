@@ -12,20 +12,20 @@ If you also install [IndustrialCraft²: The New Era (`ic2`)](https://github.com/
 
 Pick the JAR that matches your Minecraft version and mod loader, then drop it into your instance's `mods/` folder. Multiplayer requires the mod on both client and server.
 
-[v1.0.0 Release Notes](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/tag/v1.0.0) · [SHA-256 Checksums](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0/SHA256SUMS.txt) · [Live Server & Client-Server Field Test Report](docs/FIELD_TEST_REPORT.md) · [Design Specification](docs/DESIGN.md)
+[v1.0.1 Release Notes](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/tag/v1.0.1) · [SHA-256 Checksums](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.1/SHA256SUMS.txt) · [Live Server & Client-Server Field Test Report](docs/FIELD_TEST_REPORT.md) · [Design Specification](docs/DESIGN.md)
 
 | Minecraft | Loader | Java | Download |
 | --- | --- | ---: | --- |
-| 1.19.2 | Forge 43.5.0 | 17 | [Forge 1.19.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0/tyc2-forge-1.19.2-1.0.0.jar) |
-| 1.21.1 | NeoForge 21.1.265 | 21 | [NeoForge 1.21.1 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0/tyc2-neoforge-1.21.1-1.0.0.jar) |
-| 26.1.2 | NeoForge 26.1.2.128 | 25 | [NeoForge 26.1.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0/tyc2-neoforge-26.1.2-1.0.0.jar) |
-| 26.2 | NeoForge 26.2.0.95 | 25 | [NeoForge 26.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.0/tyc2-neoforge-26.2-1.0.0.jar) |
+| 1.19.2 | Forge 43.5.0 | 17 | [Forge 1.19.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.1/tyc2-forge-1.19.2-1.0.1.jar) |
+| 1.21.1 | NeoForge 21.1.265 | 21 | [NeoForge 1.21.1 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.1/tyc2-neoforge-1.21.1-1.0.1.jar) |
+| 26.1.2 | NeoForge 26.1.2.128 | 25 | [NeoForge 26.1.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.1/tyc2-neoforge-26.1.2-1.0.1.jar) |
+| 26.2 | NeoForge 26.2.0.95 | 25 | [NeoForge 26.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.1/tyc2-neoforge-26.2-1.0.1.jar) |
 
 TyC2 detects optional companion mods at startup and ignores any you do not install.
 
-- Industry and logistics: [IndustrialCraft²: The New Era (`ic2` v1.0.5+)](https://github.com/spectrum527/IndustrialCraft2-The-New-Era), [LogisticsCraft²: The New Era (`lc2` v1.1.0+)](https://github.com/spectrum527/LogisticsCraft2-The-New-Era)
+- Industry and logistics: [IndustrialCraft²: The New Era (`ic2` v1.0.5+)](https://github.com/spectrum527/IndustrialCraft2-The-New-Era), [EcoCraft 2: The New Era (`ecc2`)](https://github.com/Alexme9125/EcoCraft2-The-New-Era), [LogisticsCraft²: The New Era (`lc2` v1.1.0+)](https://github.com/spectrum527/LogisticsCraft2-The-New-Era)
 - Seasons and farming: Serene Seasons, Ecliptic Seasons, Farmer's Delight, Kaleidoscope Cookery
-- HUD and recipe viewers: The One Probe, Jade, JEI
+- HUD and recipe viewers: The One Probe, Jade, WTHIT, JEI, EMI
 
 ## Gameplay tutorial
 
@@ -153,10 +153,10 @@ JAVA_HOME=/path/to/jdk-17 ./forge-1.19.2/gradlew -p forge-1.19.2 build reobfJar
 
 Built JARs appear at:
 
-- Forge 1.19.2: `forge-1.19.2/build/libs/tyc2-forge-1.19.2-1.0.0.jar`
-- NeoForge 1.21.1: `src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-1.0.0.jar`
-- NeoForge 26.1.2: `src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-1.0.0.jar`
-- NeoForge 26.2: `src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-1.0.0.jar`
+- Forge 1.19.2: `forge-1.19.2/build/libs/tyc2-forge-1.19.2-1.0.1.jar`
+- NeoForge 1.21.1: `src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-1.0.1.jar`
+- NeoForge 26.1.2: `src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-1.0.1.jar`
+- NeoForge 26.2: `src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-1.0.1.jar`
 
 ### Run static audits and live QA (optional)
 

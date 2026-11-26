@@ -37,7 +37,7 @@ public final class MintIngredient {
 
     static {
         Map<String, Set<String>> m = new LinkedHashMap<>();
-        m.put("ingots/copper", Set.of("minecraft:copper_ingot", "ic2:copper_ingot"));
+        m.put("ingots/copper", Set.of("minecraft:copper_ingot"));
         m.put("ingots/tin", Set.of("ic2:tin_ingot"));
         m.put("ingots/iron", Set.of("minecraft:iron_ingot"));
         m.put("ingots/bronze", Set.of("ic2:bronze_ingot"));

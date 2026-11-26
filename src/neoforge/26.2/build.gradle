@@ -5,3 +5,8 @@ ext.platformJava = 25
 ext.loaderMetadata = ''
 apply from: '../platform.gradle'
 sourceSets.main.java.srcDir('../26.x/src/main/java')
+
+dependencies {
+    compileOnly('maven.modrinth:wthit:6TB1L4QG') { transitive = false }
+    compileOnly('maven.modrinth:TfSvU3a3:jlaivqox') { transitive = false }
+}

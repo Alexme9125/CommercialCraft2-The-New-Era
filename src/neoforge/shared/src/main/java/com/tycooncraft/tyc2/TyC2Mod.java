@@ -12,6 +12,7 @@ import com.tycooncraft.tyc2.world.TyC2DataLoader;
 import com.tycooncraft.tyc2.world.TyC2WorldManager;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
@@ -43,8 +44,9 @@ public final class TyC2Mod {
         }
 
         LOGGER.info(
-                "TycoonCraft²: The New Era initialized (optional compat: ic2={}, lc2={})",
+                "TycoonCraft²: The New Era initialized (optional compat: ic2={}, ecc2={}, lc2={})",
                 Ic2SoftBridge.isIc2Loaded(),
+                ModList.get() != null && ModList.get().isLoaded(TyC2Constants.MOD_ECC2),
                 Lc2SoftBridge.isLc2Loaded()
         );
     }
