@@ -5,3 +5,8 @@ ext.platformJava = 21
 ext.loaderMetadata = 'modLoader="javafml"\nloaderVersion="[4,)"'
 apply from: '../platform.gradle'
 sourceSets.main.java.srcDir('../pre-26.2/src/main/java')
+
+dependencies {
+    compileOnly('maven.modrinth:wthit:xmRpwbgr') { transitive = false }
+    compileOnly('maven.modrinth:emi:5sIPA1To') { transitive = false }
+}

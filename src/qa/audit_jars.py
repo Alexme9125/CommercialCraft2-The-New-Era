@@ -103,8 +103,8 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
                 issues.append(f"[{name}] Unexpanded template vars in {mods_toml_path}: {unexpanded}")
             if 'modId="tyc2"' not in toml_text and 'modId = "tyc2"' not in toml_text:
                 issues.append(f"[{name}] modId=tyc2 not found in {mods_toml_path}")
-            # Verify ic2 / lc2 are NOT mandatory dependencies
-            for opt_mod in ("ic2", "lc2"):
+            # Verify ic2 / ecc2 / lc2 are NOT mandatory dependencies
+            for opt_mod in ("ic2", "ecc2", "lc2"):
                 pattern = re.compile(
                     rf'modId\s*=\s*"{opt_mod}".*?(?:mandatory\s*=\s*true|type\s*=\s*"required")',
                     re.DOTALL,
@@ -112,6 +112,8 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
                 for block in toml_text.split("[[dependencies"):
                     if pattern.search(block):
                         issues.append(f"[{name}] Optional mod '{opt_mod}' marked REQUIRED/mandatory in {mods_toml_path}!")
+            if 'modId="ecc2"' not in toml_text and 'modId = "ecc2"' not in toml_text:
+                issues.append(f"[{name}] Optional mod 'ecc2' missing from {mods_toml_path}")
 
         # Check mixins JSON
         if "tyc2.mixins.json" not in entries:
@@ -216,6 +218,7 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
             "data/tyc2/mint_recipes/default_ic2.json",
             "data/tyc2/goods/vanilla.json",
             "data/tyc2/goods/ic2.json",
+            "data/tyc2/goods/ecc2.json",
             "data/tyc2/goods/farmers_delight.json",
             "data/tyc2/goods/kaleidoscope_cookery.json",
             "data/tyc2/seasons/harvest_seasons.json",
@@ -225,6 +228,25 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
         for req in required_data:
             if req not in entries:
                 issues.append(f"[{name}] Missing datapack preset: {req}")
+
+        # WTHIT & EMI compat plugin checks
+        if "wthit_plugins.json" not in entries:
+            issues.append(f"[{name}] Missing wthit_plugins.json")
+        else:
+            wthit_cfg = json.loads(zf.read("wthit_plugins.json").decode("utf-8"))
+            for plugin_id, spec in wthit_cfg.items():
+                entrypoints = spec.get("entrypoints", {}) if isinstance(spec, dict) else {}
+                for side_key, fqcn in entrypoints.items():
+                    cls_path = fqcn.replace(".", "/") + ".class"
+                    if cls_path not in entries:
+                        issues.append(f"[{name}] WTHIT {side_key} entrypoint class missing from JAR: {cls_path}")
+        emi_cls = (
+            "com/tycooncraft/tyc2/forge/compat/TyC2EmiPlugin.class"
+            if is_forge
+            else "com/tycooncraft/tyc2/compat/TyC2EmiPlugin.class"
+        )
+        if emi_cls not in entries:
+            issues.append(f"[{name}] Missing EMI plugin class in JAR: {emi_cls}")
 
         # Verify vanilla_workplaces.json covers all 13 vanilla villager professions
         if "data/tyc2/workplaces/vanilla_workplaces.json" in entries:
@@ -281,16 +303,21 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
                 except Exception as exc:
                     issues.append(f"[{name}] Invalid JSON {e}: {exc}")
 
-        # Bytecode audit: ZERO com/industrialage or com.industrialage outside compat/ and mixin/
-        bad_ic2_refs = []
+        # Bytecode audit: ZERO com/industrialage, mcp/mobius/waila, or dev/emi/emi outside compat/ and mixin/
+        bad_opt_refs = []
         for cls in class_entries:
             if "/compat/" in cls or "/mixin/" in cls:
                 continue
             raw = zf.read(cls)
-            if b"com/industrialage" in raw or b"com.industrialage" in raw:
-                bad_ic2_refs.append(cls)
-        if bad_ic2_refs:
-            issues.append(f"[{name}] Non-compat/mixin classes reference com.industrialage: {bad_ic2_refs}")
+            if (
+                b"com/industrialage" in raw
+                or b"com.industrialage" in raw
+                or b"mcp/mobius/waila" in raw
+                or b"dev/emi/emi" in raw
+            ):
+                bad_opt_refs.append(cls)
+        if bad_opt_refs:
+            issues.append(f"[{name}] Non-compat/mixin classes reference optional mod APIs: {bad_opt_refs}")
 
         # Check Forge SRG reobfuscation on a known Minecraft call
         if is_forge:

@@ -11,6 +11,9 @@ public final class TyC2Constants {
     /** Optional mod ID for IndustrialCraft²: The New Era. */
     public static final String MOD_IC2 = "ic2";
 
+    /** Optional mod ID for EcoCraft²: The New Era. */
+    public static final String MOD_ECC2 = "ecc2";
+
     /** Optional mod ID for LogisticsCraft²: The New Era. */
     public static final String MOD_LC2 = "lc2";
 
@@ -26,8 +29,14 @@ public final class TyC2Constants {
     /** Optional mod ID for Jade. */
     public static final String MOD_JADE = "jade";
 
+    /** Optional mod ID for WTHIT. */
+    public static final String MOD_WTHIT = "wthit";
+
     /** Optional mod ID for JEI. */
     public static final String MOD_JEI = "jei";
+
+    /** Optional mod ID for EMI. */
+    public static final String MOD_EMI = "emi";
 
     /** LC2 Chunk Loading Upgrade canonical item ID. */
     public static final String ITEM_LC2_CHUNK_LOADER = "lc2:chunk_loading_upgrade";

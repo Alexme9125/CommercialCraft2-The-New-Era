@@ -18,8 +18,8 @@ import java.util.function.Predicate;
 
 /**
  * Complete built-in and extensible catalog of tradeable goods spanning Village Levels 1–10
- * across Vanilla Minecraft, IndustrialCraft² ({@code ic2}), Farmer's Delight ({@code farmersdelight}),
- * and Kaleidoscope Cookery ({@code kaleidoscope_cookery}).
+ * across Vanilla Minecraft, IndustrialCraft² ({@code ic2}), EcoCraft² ({@code ecc2}),
+ * Farmer's Delight ({@code farmersdelight}), and Kaleidoscope Cookery ({@code kaleidoscope_cookery}).
  *
  * <p>All runtime queries filter through {@code Predicate<String> itemExists} so items from
  * uninstalled mods never appear in village trade orders.
@@ -35,8 +35,8 @@ public final class GoodsCatalog {
     }
 
     /**
-     * Creates a catalog pre-populated with all built-in Vanilla, IC2, Farmer's Delight,
-     * and Kaleidoscope Cookery trade goods.
+     * Creates a catalog pre-populated with all built-in Vanilla, IC2, EcoCraft²,
+     * Farmer's Delight, and Kaleidoscope Cookery trade goods.
      *
      * @return populated default catalog
      */
@@ -56,6 +56,7 @@ public final class GoodsCatalog {
         registerVanillaMidTierSellsAndBuys();
         registerVanillaHighTierAndEndgame();
         registerIc2Goods();
+        registerEcc2Goods();
         registerFarmersDelightGoods();
         registerKaleidoscopeCookeryGoods();
     }
@@ -455,6 +456,33 @@ public final class GoodsCatalog {
         add(TradeGood.builder("tyc2:ic2_iridium_shard", "ic2:iridium_shard", GoodsCategory.ENDGAME, 900)
                 .requiredModId("ic2").levelRange(10, 10).industrialTier(IndustrialTier.TIER_5)
                 .sellable(true).buyable(false).quantityRange(1, 3).build());
+    }
+
+    private void registerEcc2Goods() {
+        // EcoCraft 2 (ecc2) clean-energy, gas & photonic goods — auto-filtered when ecc2 is absent
+        add(TradeGood.builder("tyc2:ecc2_culture_medium_cell", "ecc2:culture_medium_cell", GoodsCategory.INDUSTRIAL, 18)
+                .requiredModId("ecc2").levelRange(3, 7).industrialTier(IndustrialTier.TIER_1)
+                .sellable(false).buyable(true).quantityRange(4, 12).build());
+        add(TradeGood.builder("tyc2:ecc2_water_gas_cell", "ecc2:water_gas_cell", GoodsCategory.INDUSTRIAL, 24)
+                .requiredModId("ecc2").levelRange(4, 8).industrialTier(IndustrialTier.TIER_1)
+                .sellable(false).buyable(true).quantityRange(4, 14).build());
+        add(TradeGood.builder("tyc2:ecc2_methane_ice_cluster", "ecc2:methane_ice_cluster", GoodsCategory.MINING, 28)
+                .requiredModId("ecc2").levelRange(4, 8).industrialTier(IndustrialTier.TIER_1)
+                .sellable(true).buyable(false).quantityRange(4, 12)
+                .biomeAffinities("snowy").build());
+        add(TradeGood.builder("tyc2:ecc2_natural_gas_cell", "ecc2:natural_gas_cell", GoodsCategory.INDUSTRIAL, 64)
+                .requiredModId("ecc2").levelRange(5, 9).industrialTier(IndustrialTier.TIER_2)
+                .sellable(false).buyable(true).quantityRange(3, 10).build());
+        add(TradeGood.builder("tyc2:ecc2_sunnarium", "ecc2:sunnarium", GoodsCategory.RARE_ALLOY, 320)
+                .requiredModId("ecc2").levelRange(8, 10).industrialTier(IndustrialTier.TIER_3)
+                .sellable(false).buyable(true).quantityRange(1, 3).build());
+        add(TradeGood.builder("tyc2:ecc2_sunnarium_alloy", "ecc2:sunnarium_alloy", GoodsCategory.RARE_ALLOY, 560)
+                .requiredModId("ecc2").levelRange(9, 10).industrialTier(IndustrialTier.TIER_4)
+                .sellable(false).buyable(true).quantityRange(1, 2).build());
+        add(TradeGood.builder("tyc2:ecc2_iridium_ingot", "ecc2:iridium_ingot", GoodsCategory.ENDGAME, 1150)
+                .optionalTag("#ingots/iridium").requiredModId("ecc2")
+                .levelRange(10, 10).industrialTier(IndustrialTier.TIER_5)
+                .sellable(true).buyable(false).quantityRange(1, 2).build());
     }
 
     private void registerFarmersDelightGoods() {

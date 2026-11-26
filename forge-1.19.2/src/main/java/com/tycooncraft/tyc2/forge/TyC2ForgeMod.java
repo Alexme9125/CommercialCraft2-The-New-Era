@@ -16,6 +16,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.InterModEnqueueEvent;
@@ -51,8 +52,9 @@ public final class TyC2ForgeMod {
         }
 
         LOGGER.info(
-                "TycoonCraft² (Forge 1.19.2) initialized [ic2={}, lc2={}, seasons={}].",
+                "TycoonCraft² (Forge 1.19.2) initialized [ic2={}, ecc2={}, lc2={}, seasons={}].",
                 Ic2Bridge.isLoaded(),
+                ModList.get().isLoaded("ecc2"),
                 Lc2SoftBridge.isLoaded(),
                 SeasonSoftBridge.isAnySeasonModLoaded()
         );

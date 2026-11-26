@@ -373,6 +373,20 @@ GOODS_IC2 = {
     ],
 }
 
+GOODS_ECC2 = {
+    "_comment": "Built-in EcoCraft 2 (ecc2) clean-energy, gas & photonic trade goods — auto-filtered when ecc2 is absent.",
+    "replace": False,
+    "goods": [
+        _good("tyc2:ecc2_culture_medium_cell", "ecc2:culture_medium_cell", "INDUSTRIAL", 18, 3, 7, False, True, 4, 12, tier="TIER_1", required_mod="ecc2"),
+        _good("tyc2:ecc2_water_gas_cell", "ecc2:water_gas_cell", "INDUSTRIAL", 24, 4, 8, False, True, 4, 14, tier="TIER_1", required_mod="ecc2"),
+        _good("tyc2:ecc2_methane_ice_cluster", "ecc2:methane_ice_cluster", "MINING", 28, 4, 8, True, False, 4, 12, tier="TIER_1", biomes=["snowy"], required_mod="ecc2"),
+        _good("tyc2:ecc2_natural_gas_cell", "ecc2:natural_gas_cell", "INDUSTRIAL", 64, 5, 9, False, True, 3, 10, tier="TIER_2", required_mod="ecc2"),
+        _good("tyc2:ecc2_sunnarium", "ecc2:sunnarium", "RARE_ALLOY", 320, 8, 10, False, True, 1, 3, tier="TIER_3", required_mod="ecc2"),
+        _good("tyc2:ecc2_sunnarium_alloy", "ecc2:sunnarium_alloy", "RARE_ALLOY", 560, 9, 10, False, True, 1, 2, tier="TIER_4", required_mod="ecc2"),
+        _good("tyc2:ecc2_iridium_ingot", "ecc2:iridium_ingot", "ENDGAME", 1150, 10, 10, True, False, 1, 2, tier="TIER_5", optional_tag="#ingots/iridium", required_mod="ecc2"),
+    ],
+}
+
 GOODS_FARMERS_DELIGHT = {
     "_comment": "Built-in Farmer's Delight crops & Lv 7-10 fine meals — auto-filtered when farmersdelight is absent.",
     "replace": False,
@@ -874,6 +888,7 @@ def generate(target: str, destination: Path) -> int:
 
         data("goods/vanilla", GOODS_VANILLA)
         data("goods/ic2", GOODS_IC2)
+        data("goods/ecc2", GOODS_ECC2)
         data("goods/farmers_delight", GOODS_FARMERS_DELIGHT)
         data("goods/kaleidoscope_cookery", GOODS_KALEIDOSCOPE_COOKERY)
 

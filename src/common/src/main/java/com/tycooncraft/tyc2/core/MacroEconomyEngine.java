@@ -854,7 +854,7 @@ public final class MacroEconomyEngine {
             case "ic2:bronze_ingot", "ic2:refined_iron_ingot" -> 11L;
             case "ic2:steel_ingot", "ic2:silver_ingot" -> 22L;
             case "ic2:alloy", "ic2:iridium_shard" -> 120L;
-            case "ic2:iridium" -> 1_050L;
+            case "ic2:iridium", "ecc2:iridium_ingot" -> 1_050L;
             default -> 1L;
         };
     }

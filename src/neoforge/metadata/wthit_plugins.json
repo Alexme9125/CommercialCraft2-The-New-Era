@@ -1,0 +1,10 @@
+{
+  "tyc2:telemetry": {
+    "entrypoints": {
+      "common": "com.tycooncraft.tyc2.compat.TyC2WthitCommonPlugin",
+      "client": "com.tycooncraft.tyc2.compat.TyC2WthitClientPlugin"
+    },
+    "side": "*",
+    "required": []
+  }
+}
