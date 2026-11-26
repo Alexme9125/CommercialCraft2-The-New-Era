@@ -66,6 +66,7 @@ public final class CommTerminalItem extends CommTerminalItemBase {
     public static void setEnergyEu(ItemStack stack, int energyEu) {
         int clamped = Mth.clamp(energyEu, 0, TriModePowerMath.TERMINAL_MAX_CAPACITY_EU);
         TyC2Nbt.updateStackTag(stack, tag -> tag.putInt(KEY_ENERGY_EU, clamped));
+        TyC2Native.syncTerminalChargeVisual(stack, clamped > 0);
     }
 
     /** Charges this terminal by up to {@code offeredEu} EU, returning the accepted EU amount. */
@@ -237,6 +238,14 @@ public final class CommTerminalItem extends CommTerminalItemBase {
     ) {
         VillageRecord village = hub.resolveVillage(serverLevel);
         if (village == null) {
+            return;
+        }
+        if (player instanceof ServerPlayer sp
+                && !TyC2WorldManager.canAccessVillage(sp, TyC2WorldManager.getData(serverLevel), village)) {
+            TyC2Native.sendActionBar(
+                    player,
+                    Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED)
+            );
             return;
         }
         int result = toggleBindVillage(stack, village.getVillageId(), village.getVillageName());

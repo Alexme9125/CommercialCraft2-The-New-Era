@@ -87,15 +87,19 @@ public class MintMachineBlockEntity extends BlockEntity implements WorldlyContai
     public final ContainerData dataAccess = new ContainerData() {
         @Override
         public int get(int index) {
+            int stored = Math.max(0, (int) Math.round(storedEu));
+            int maxCap = Math.max(1, getMaxCapacityEu());
             return switch (index) {
-                case 0 -> (int) Math.round(storedEu);
-                case 1 -> getMaxCapacityEu();
+                case 0 -> stored & 0xFFFF;
+                case 1 -> maxCap & 0xFFFF;
                 case 2 -> progressTicks;
                 case 3 -> maxProgressTicks;
                 case 4 -> batteryDischarging ? 1 : 0;
                 case 5 -> 1;
                 case 6 -> getUpgradeStats().powerTier();
                 case 7 -> getUpgradeStats().maxInputEuPerTick();
+                case 8 -> (stored >>> 16) & 0xFFFF;
+                case 9 -> (maxCap >>> 16) & 0xFFFF;
                 default -> 0;
             };
         }
@@ -103,10 +107,17 @@ public class MintMachineBlockEntity extends BlockEntity implements WorldlyContai
         @Override
         public void set(int index, int value) {
             switch (index) {
-                case 0 -> storedEu = value;
+                case 0 -> {
+                    int hi = ((int) Math.round(storedEu)) & 0xFFFF0000;
+                    storedEu = hi | (value & 0xFFFF);
+                }
                 case 2 -> progressTicks = value;
                 case 3 -> maxProgressTicks = Math.max(1, value);
                 case 4 -> batteryDischarging = value != 0;
+                case 8 -> {
+                    int lo = ((int) Math.round(storedEu)) & 0xFFFF;
+                    storedEu = ((value & 0xFFFF) << 16) | lo;
+                }
                 default -> {
                 }
             }
@@ -114,7 +125,7 @@ public class MintMachineBlockEntity extends BlockEntity implements WorldlyContai
 
         @Override
         public int getCount() {
-            return 8;
+            return 10;
         }
     };
 
@@ -391,9 +402,21 @@ public class MintMachineBlockEntity extends BlockEntity implements WorldlyContai
                 && existing.getCount() + produced.getCount() <= existing.getMaxStackSize();
     }
 
+    private List<ItemStack> upgradeList() {
+        List<ItemStack> list = new ArrayList<>(UPGRADE_COUNT);
+        for (int i = 0; i < UPGRADE_COUNT; i++) {
+            list.add(items.get(SLOT_UPGRADE_START + i));
+        }
+        return list;
+    }
+
     private void ejectOutputSlot(ServerLevel level) {
         ItemStack out = items.get(SLOT_OUTPUT);
         if (out.isEmpty()) {
+            return;
+        }
+        if (!Ic2Bridge.matchesUpgradeFilter(
+                upgradeList(), "ic2:ejector_upgrade", "ic2:advanced_ejector_upgrade", out)) {
             return;
         }
         List<Direction> faces = collectUpgradeFaces(true);
@@ -417,6 +440,7 @@ public class MintMachineBlockEntity extends BlockEntity implements WorldlyContai
         Set<Direction> excluded = hasEjector
                 ? copyToDirSet(collectUpgradeFaces(true))
                 : Set.of();
+        List<ItemStack> upgs = upgradeList();
         int moved = TyC2ContainerIo.pullFromAdjacent(
                 level,
                 worldPosition,
@@ -425,6 +449,8 @@ public class MintMachineBlockEntity extends BlockEntity implements WorldlyContai
                 16,
                 s -> TyC2RuntimeData.mintRecipes().isValidInputItem(
                         TyC2Ids.itemId(s), TyC2Ids.ITEM_TAG_MATCHER, ModList.get()::isLoaded
+                ) && Ic2Bridge.matchesUpgradeFilter(
+                        upgs, "ic2:pulling_upgrade", "ic2:advanced_pulling_upgrade", s
                 ),
                 be -> be != this,
                 this::insertIntoMintInputs
@@ -647,7 +673,17 @@ public class MintMachineBlockEntity extends BlockEntity implements WorldlyContai
 
     @Override
     public boolean canTakeItemThroughFace(int slot, ItemStack stack, Direction dir) {
-        return slot == SLOT_OUTPUT;
+        if (slot == SLOT_OUTPUT) {
+            return true;
+        }
+        if (slot == SLOT_BATTERY && !stack.isEmpty()) {
+            IEnergyStorage itemEnergy = stack.getCapability(ForgeCapabilities.ENERGY).orElse(null);
+            if (itemEnergy != null) {
+                return itemEnergy.getEnergyStored() <= 0;
+            }
+            return !isValidBatteryItem(stack, getUpgradeStats().powerTier());
+        }
+        return false;
     }
 
     @Override

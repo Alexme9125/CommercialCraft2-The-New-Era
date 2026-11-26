@@ -83,6 +83,22 @@ public final class C2STerminalActionPacket {
         UUID activeVillageId = bound.isEmpty() ? null : bound.get(activeIdx);
         Component feedback = Component.empty();
 
+        if (activeVillageId != null
+                && pkt.action != Action.REQUEST_SYNC
+                && pkt.action != Action.SELECT_VILLAGE
+                && pkt.action != Action.UNBIND_VILLAGE) {
+            TycoonForgeSavedData authData = TycoonForgeSavedData.get(player.getServer());
+            Optional<VillageRecord> authOpt = authData.getVillage(activeVillageId);
+            if (authOpt.isPresent() && !TycoonForgeWorldManager.canAccessVillage(player, authData, authOpt.get())) {
+                TyC2ForgeNetwork.sendToPlayer(
+                        player,
+                        S2CTerminalSyncPacket.buildFor(player, term, Component.translatable("status.tyc2.hub.not_owner"))
+                );
+                ctx.setPacketHandled(true);
+                return;
+            }
+        }
+
         switch (pkt.action) {
             case REQUEST_SYNC -> feedback = Component.empty();
             case SELECT_VILLAGE -> {

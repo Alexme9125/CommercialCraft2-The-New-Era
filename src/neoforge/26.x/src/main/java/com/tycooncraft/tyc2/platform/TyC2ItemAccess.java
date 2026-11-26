@@ -71,17 +71,24 @@ public final class TyC2ItemAccess {
         var handler = level.getCapability(Capabilities.Item.BLOCK, sourcePos, sourceFace);
         if (handler != null) {
             try (var tx = Transaction.openRoot()) {
-                var extracted = ResourceHandlerUtil.extractFirst(
-                        handler,
-                        resource -> filter.test(resource.toStack(1)),
-                        maxCount,
-                        tx
-                );
-                if (extracted == null) {
-                    return ItemStack.EMPTY;
+                int slots = handler.size();
+                for (int slot = 0; slot < slots; slot++) {
+                    ItemResource res = handler.getResource(slot);
+                    if (res.isEmpty()) {
+                        continue;
+                    }
+                    ItemStack sample = res.toStack(1);
+                    if (!filter.test(sample)) {
+                        continue;
+                    }
+                    int limit = Math.min(maxCount, Math.max(1, sample.getMaxStackSize()));
+                    int taken = handler.extract(slot, res, limit, tx);
+                    if (taken > 0) {
+                        tx.commit();
+                        return res.toStack(taken);
+                    }
                 }
-                tx.commit();
-                return extracted.resource().toStack(extracted.amount());
+                return ItemStack.EMPTY;
             }
         }
         Container container = resolveContainer(level, sourcePos, be);
@@ -96,7 +103,12 @@ public final class TyC2ItemAccess {
         if (state.getBlock() instanceof ChestBlock chest) {
             return ChestBlock.getContainer(chest, state, level, pos, true);
         }
-        return be instanceof Container container ? container : null;
+        // Only fall back to raw Container for vanilla blocks so modded blocks with restricted side capabilities
+        // (e.g. null capability on a blocked face) are never bypassed via their internal Container implementation.
+        if (be instanceof Container container && TyC2Native.blockId(state).startsWith("minecraft:")) {
+            return container;
+        }
+        return null;
     }
 
     private static int pushIntoContainer(Container container, Direction face, ItemStack stack) {
@@ -117,6 +129,7 @@ public final class TyC2ItemAccess {
                 if (space > 0) {
                     int move = Math.min(space, remaining);
                     existing.grow(move);
+                    container.setItem(slot, existing);
                     remaining -= move;
                     container.setChanged();
                 }

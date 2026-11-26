@@ -111,18 +111,45 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
 
     // --- PlayerPlacedBlockTracker (chunk-indexed) ---
 
+    private static final int PLAYER_PLACED_VILLAGE_TRACK_RADIUS = 160;
+    private static final int MAX_NBT_STRING_CHUNK = 24_000;
+
     private static long packChunkKey(int cx, int cz) {
         return (((long) cx) & 0xFFFFFFFFL) | ((((long) cz) & 0xFFFFFFFFL) << 32);
     }
 
-    /** Marks {@code pos} in {@code dimensionId} as player-placed so expansion never overwrites it. */
+    /**
+     * Marks {@code pos} in {@code dimensionId} as player-placed if it lies within
+     * {@value #PLAYER_PLACED_VILLAGE_TRACK_RADIUS} blocks of any tracked village in the same
+     * dimension, bounding SavedData growth while protecting every village perimeter build.
+     */
     public void recordPlayerPlaced(String dimensionId, BlockPos pos) {
+        if (!isNearAnyTrackedVillage(dimensionId, pos.getX(), pos.getZ())) {
+            return;
+        }
         long chunkKey = packChunkKey(pos.getX() >> 4, pos.getZ() >> 4);
-        playerPlacedByDimension
+        boolean added = playerPlacedByDimension
                 .computeIfAbsent(dimensionId, ignored -> new HashMap<>())
                 .computeIfAbsent(chunkKey, ignored -> new HashSet<>())
                 .add(pos.asLong());
-        setDirty();
+        if (added) {
+            setDirty();
+        }
+    }
+
+    private boolean isNearAnyTrackedVillage(String dimensionId, int x, int z) {
+        long maxDistSq = (long) PLAYER_PLACED_VILLAGE_TRACK_RADIUS * PLAYER_PLACED_VILLAGE_TRACK_RADIUS;
+        for (VillageRecord v : villages.values()) {
+            if (!dimensionId.equals(v.getDimensionId())) {
+                continue;
+            }
+            long dx = (long) x - v.getHubPos().x();
+            long dz = (long) z - v.getHubPos().z();
+            if (dx * dx + dz * dz <= maxDistSq) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Clears {@code pos} from player-placed tracking when broken. */
@@ -156,9 +183,9 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
     @Override
     public CompoundTag saveToTag(HolderLookup.Provider registries) {
         CompoundTag root = new CompoundTag();
-        root.putString("bank_json", bank.toJson());
-        root.putString("economy_json", economy.toJson());
-        root.putString("tiers_json", JsonLite.toJson(industrialTiers.toDataMap()));
+        putLargeString(root, "bank_json", bank.toJson());
+        putLargeString(root, "economy_json", economy.toJson());
+        putLargeString(root, "tiers_json", JsonLite.toJson(industrialTiers.toDataMap()));
         root.putLong("last_upkeep_day", lastUpkeepDay);
 
         ListTag villageList = new ListTag();
@@ -196,7 +223,7 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
     /** Restores a {@link TycoonSavedData} instance from NBT. */
     public static TycoonSavedData loadFromTag(CompoundTag root, HolderLookup.Provider registries) {
         TycoonSavedData data = new TycoonSavedData();
-        String bankJson = TyC2Nbt.getString(root, "bank_json", "");
+        String bankJson = getLargeString(root, "bank_json");
         if (!bankJson.isBlank()) {
             try {
                 data.bank = BankAccountManager.fromJson(bankJson);
@@ -204,7 +231,7 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
                 LOGGER.warn("Failed to load TyC2 BankAccountManager: {}", ex.getMessage());
             }
         }
-        String econJson = TyC2Nbt.getString(root, "economy_json", "");
+        String econJson = getLargeString(root, "economy_json");
         if (!econJson.isBlank()) {
             try {
                 data.economy = MacroEconomyEngine.fromJson(econJson, TyC2DataLoader.config());
@@ -212,7 +239,7 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
                 LOGGER.warn("Failed to load TyC2 MacroEconomyEngine: {}", ex.getMessage());
             }
         }
-        String tiersJson = TyC2Nbt.getString(root, "tiers_json", "");
+        String tiersJson = getLargeString(root, "tiers_json");
         if (!tiersJson.isBlank()) {
             try {
                 data.industrialTiers = IndustrialTier.Tracker.fromDataMap(JsonLite.parseObject(tiersJson));
@@ -276,6 +303,7 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
         t.putInt("max_rad", v.getMaxExpansionRadius());
         t.putLong("last_demand_tick", v.getLastDemandRefreshTick());
         t.putLong("last_exp_tick", v.getLastExpansionTick());
+        t.putBoolean("chunk_loader", v.isChunkLoaderInstalled());
 
         // MayorState
         MayorState ms = v.getMayorState();
@@ -716,7 +744,7 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
             employmentStats = new VillageEmploymentStats(wf, emp, unemp, mayorEmp, profCounts, scanTick);
         }
 
-        return new VillageRecord(
+        VillageRecord record = new VillageRecord(
                 id,
                 dim,
                 name,
@@ -744,6 +772,42 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
                 aidProjects,
                 employmentStats
         );
+        record.setChunkLoaderInstalled(TyC2Nbt.getBoolean(t, "chunk_loader", false));
+        return record;
+    }
+
+    private static void putLargeString(CompoundTag root, String key, String value) {
+        if (value == null) {
+            value = "";
+        }
+        String chunksKey = key + "_chunks";
+        if (value.length() <= MAX_NBT_STRING_CHUNK) {
+            root.putString(key, value);
+            root.remove(chunksKey);
+            return;
+        }
+        ListTag chunks = new ListTag();
+        for (int start = 0; start < value.length(); start += MAX_NBT_STRING_CHUNK) {
+            int end = Math.min(value.length(), start + MAX_NBT_STRING_CHUNK);
+            CompoundTag part = new CompoundTag();
+            part.putString("v", value.substring(start, end));
+            chunks.add(part);
+        }
+        root.put(chunksKey, chunks);
+        root.remove(key);
+    }
+
+    private static String getLargeString(CompoundTag root, String key) {
+        String chunksKey = key + "_chunks";
+        List<CompoundTag> chunks = TyC2Nbt.getCompoundList(root, chunksKey);
+        if (!chunks.isEmpty()) {
+            StringBuilder sb = new StringBuilder(chunks.size() * MAX_NBT_STRING_CHUNK);
+            for (CompoundTag part : chunks) {
+                sb.append(TyC2Nbt.getString(part, "v", ""));
+            }
+            return sb.toString();
+        }
+        return TyC2Nbt.getString(root, key, "");
     }
 
     private static Map<String, Integer> parseIntMap(String json) {

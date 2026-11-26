@@ -14,7 +14,9 @@ import com.tycooncraft.tyc2.village.SlotStack;
 import com.tycooncraft.tyc2.village.VillageRecord;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -64,6 +66,8 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
     private UUID villageId = null;
     private final NonNullList<ItemStack> upgrades = NonNullList.withSize(UPGRADE_SLOTS, ItemStack.EMPTY);
     private boolean chunkTicketsHeld = false;
+    private final Map<Integer, ItemStack> liveSlotCache = new HashMap<>();
+    private long cachedStorageRevision = -1L;
 
     private LazyOptional<IItemHandler> itemHandler;
 
@@ -200,13 +204,19 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
 
     @Override
     public void setRemoved() {
-        releaseChunkTickets();
+        flushLiveSlotCache();
+        if (level instanceof ServerLevel sl
+                && sl.isLoaded(worldPosition)
+                && !sl.getBlockState(worldPosition).is(TyC2ForgeRegistries.COOPERATION_HUB_BLOCK.get())) {
+            releaseChunkTickets();
+        }
         super.setRemoved();
     }
 
     @Override
     public void onChunkUnloaded() {
-        releaseChunkTickets();
+        flushLiveSlotCache();
+        // Keep persistent ForgeChunkManager tickets active across chunk/server unloads when upgrade is installed
         super.onChunkUnloaded();
     }
 
@@ -230,6 +240,7 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
     }
 
     public void serverTick(ServerLevel level) {
+        flushLiveSlotCache();
         resolveVillageId();
 
         // 1. LC2 Chunk Loading Upgrade -> 3x3 forced chunks via ForgeChunkManager
@@ -295,7 +306,8 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
                 continue;
             }
             ItemStack sample = TyC2Ids.fromSlotStack(opt.get());
-            if (sample.isEmpty()) {
+            if (sample.isEmpty() || !Ic2Bridge.matchesUpgradeFilter(
+                    upgrades, "ic2:ejector_upgrade", "ic2:advanced_ejector_upgrade", sample)) {
                 continue;
             }
             int moveCount = Math.min(budget, sample.getCount());
@@ -327,7 +339,9 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
                 pullFaces,
                 excluded,
                 32,
-                s -> true,
+                s -> Ic2Bridge.matchesUpgradeFilter(
+                        upgrades, "ic2:pulling_upgrade", "ic2:advanced_pulling_upgrade", s
+                ),
                 be -> be != this && !(be instanceof CooperationHubBlockEntity),
                 stack -> {
                     int rem = storage.insertExternal(
@@ -382,6 +396,7 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
         @Override
         @Nonnull
         public ItemStack getStackInSlot(int slot) {
+            flushLiveSlotCache();
             CooperationHubStorage storage = resolveStorage();
             if (storage == null || slot < 0 || slot >= CooperationHubStorage.TOTAL_SLOTS) {
                 return ItemStack.EMPTY;
@@ -392,6 +407,7 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
         @Override
         @Nonnull
         public ItemStack insertItem(int slot, @Nonnull ItemStack stack, boolean simulate) {
+            flushLiveSlotCache();
             if (stack.isEmpty() || !CooperationHubStorage.Zone.INBOUND.containsSlot(slot)) {
                 return stack;
             }
@@ -420,6 +436,7 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
         @Override
         @Nonnull
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            flushLiveSlotCache();
             if (amount <= 0 || !CooperationHubStorage.Zone.OUTBOUND.containsSlot(slot)) {
                 return ItemStack.EMPTY;
             }
@@ -470,8 +487,49 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
         return CooperationHubStorage.TOTAL_SLOTS;
     }
 
+    private void flushLiveSlotCache() {
+        if (liveSlotCache.isEmpty()) {
+            return;
+        }
+        CooperationHubStorage storage = resolveStorage();
+        if (storage == null) {
+            liveSlotCache.clear();
+            cachedStorageRevision = -1L;
+            return;
+        }
+        if (cachedStorageRevision != storage.getRevision()) {
+            // Storage was modified directly (GUI / trade / IItemHandler); discard stale cached copies
+            liveSlotCache.clear();
+            cachedStorageRevision = storage.getRevision();
+            return;
+        }
+        boolean mutated = false;
+        for (Map.Entry<Integer, ItemStack> entry : liveSlotCache.entrySet()) {
+            int slot = entry.getKey();
+            ItemStack live = entry.getValue();
+            SlotStack desired = (live == null || live.isEmpty()) ? null : TyC2Ids.toSlotStack(live);
+            SlotStack current = storage.getSlot(slot).orElse(null);
+            if (!java.util.Objects.equals(current, desired)) {
+                storage.setSlotRaw(slot, desired);
+                mutated = true;
+            }
+        }
+        liveSlotCache.clear();
+        cachedStorageRevision = storage.getRevision();
+        if (mutated && level instanceof ServerLevel sl) {
+            TycoonForgeSavedData.get(sl).setDirty();
+        }
+    }
+
+    @Override
+    public void setChanged() {
+        flushLiveSlotCache();
+        super.setChanged();
+    }
+
     @Override
     public boolean isEmpty() {
+        flushLiveSlotCache();
         CooperationHubStorage s = resolveStorage();
         return s == null || (s.getUsedSlotCount(CooperationHubStorage.Zone.INBOUND) == 0
                 && s.getUsedSlotCount(CooperationHubStorage.Zone.OUTBOUND) == 0);
@@ -483,11 +541,24 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
         if (s == null || slot < 0 || slot >= CooperationHubStorage.TOTAL_SLOTS) {
             return ItemStack.EMPTY;
         }
-        return s.getSlot(slot).map(TyC2Ids::fromSlotStack).orElse(ItemStack.EMPTY);
+        if (cachedStorageRevision != s.getRevision()) {
+            liveSlotCache.clear();
+            cachedStorageRevision = s.getRevision();
+        }
+        ItemStack cached = liveSlotCache.get(slot);
+        if (cached != null) {
+            return cached;
+        }
+        ItemStack fresh = s.getSlot(slot).map(TyC2Ids::fromSlotStack).orElse(ItemStack.EMPTY);
+        if (!fresh.isEmpty()) {
+            liveSlotCache.put(slot, fresh);
+        }
+        return fresh;
     }
 
     @Override
     public ItemStack removeItem(int slot, int amount) {
+        flushLiveSlotCache();
         if (!CooperationHubStorage.Zone.OUTBOUND.containsSlot(slot)) {
             return ItemStack.EMPTY;
         }
@@ -496,6 +567,7 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
             return ItemStack.EMPTY;
         }
         Optional<SlotStack> ext = s.extractExternal(slot, amount, false);
+        cachedStorageRevision = s.getRevision();
         if (ext.isPresent() && level instanceof ServerLevel sl) {
             TycoonForgeSavedData.get(sl).setDirty();
         }
@@ -509,6 +581,8 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
 
     @Override
     public void setItem(int slot, ItemStack stack) {
+        liveSlotCache.remove(slot);
+        flushLiveSlotCache();
         CooperationHubStorage s = resolveStorage();
         if (s == null || slot < 0 || slot >= CooperationHubStorage.TOTAL_SLOTS) {
             return;
@@ -518,6 +592,7 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
         } else {
             s.setSlotRaw(slot, TyC2Ids.toSlotStack(stack));
         }
+        cachedStorageRevision = s.getRevision();
         if (level instanceof ServerLevel sl) {
             TycoonForgeSavedData.get(sl).setDirty();
         }

@@ -150,9 +150,10 @@ public final class S2CAtmSyncPacket {
             return "gui.tyc2.atm.tx.deposit";
         }
         return switch (type) {
-            case DEPOSIT, SYSTEM_ADJUST -> "gui.tyc2.atm.tx.deposit";
+            case DEPOSIT -> "gui.tyc2.atm.tx.deposit";
+            case SYSTEM_ADJUST, COMPANY_DISSOLVE -> "gui.tyc2.atm.tx.system_adjust";
             case WITHDRAW -> "gui.tyc2.atm.tx.withdraw";
-            case TRANSFER_IN, COMPANY_DISSOLVE -> "gui.tyc2.atm.tx.transfer_in";
+            case TRANSFER_IN -> "gui.tyc2.atm.tx.transfer_in";
             case TRANSFER_OUT -> "gui.tyc2.atm.tx.transfer_out";
             case TRADE_BUY, NEGOTIATION -> "gui.tyc2.atm.tx.trade_buy";
             case TRADE_SELL -> "gui.tyc2.atm.tx.trade_sell";
@@ -163,29 +164,40 @@ public final class S2CAtmSyncPacket {
         return companyMode ? activeCompanyBalance : personalBalance;
     }
 
+    private static String clip(String s, int maxLen) {
+        if (s == null || s.isEmpty()) {
+            return "";
+        }
+        return s.length() <= maxLen ? s : s.substring(0, maxLen);
+    }
+
     public static void encode(S2CAtmSyncPacket pkt, FriendlyByteBuf buf) {
         buf.writeVarLong(pkt.personalBalance);
         buf.writeBoolean(pkt.companyMode);
-        buf.writeUtf(pkt.activeCompanyId, 64);
-        buf.writeUtf(pkt.activeCompanyName, 64);
-        buf.writeUtf(pkt.activeCompanyInvite, 32);
+        buf.writeUtf(clip(pkt.activeCompanyId, 64), 64);
+        buf.writeUtf(clip(pkt.activeCompanyName, 64), 64);
+        buf.writeUtf(clip(pkt.activeCompanyInvite, 32), 32);
         buf.writeVarInt(pkt.activeCompanyMembers);
         buf.writeVarLong(pkt.activeCompanyBalance);
 
-        buf.writeVarInt(pkt.companies.size());
-        for (CompanyBrief c : pkt.companies) {
-            buf.writeUtf(c.id(), 64);
-            buf.writeUtf(c.name(), 64);
-            buf.writeUtf(c.inviteCode(), 32);
+        int coCount = Math.min(32, pkt.companies.size());
+        buf.writeVarInt(coCount);
+        for (int i = 0; i < coCount; i++) {
+            CompanyBrief c = pkt.companies.get(i);
+            buf.writeUtf(clip(c.id(), 64), 64);
+            buf.writeUtf(clip(c.name(), 64), 64);
+            buf.writeUtf(clip(c.inviteCode(), 32), 32);
             buf.writeVarLong(c.balance());
             buf.writeVarInt(c.memberCount());
         }
 
-        buf.writeVarInt(pkt.txLogs.size());
-        for (TxLogDto entry : pkt.txLogs) {
-            buf.writeUtf(entry.txTypeKey(), 64);
+        int logCount = Math.min(64, pkt.txLogs.size());
+        buf.writeVarInt(logCount);
+        for (int i = 0; i < logCount; i++) {
+            TxLogDto entry = pkt.txLogs.get(i);
+            buf.writeUtf(clip(entry.txTypeKey(), 64), 64);
             buf.writeVarLong(entry.delta());
-            buf.writeUtf(entry.counterparty(), 64);
+            buf.writeUtf(clip(entry.counterparty(), 64), 64);
         }
         buf.writeComponent(pkt.feedbackComponent);
     }

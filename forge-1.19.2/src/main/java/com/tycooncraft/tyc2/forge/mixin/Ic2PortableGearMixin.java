@@ -19,7 +19,7 @@ public class Ic2PortableGearMixin {
     @Inject(method = "acceptsCharge", at = @At("HEAD"), cancellable = true, remap = false)
     private static void tyc2$acceptsCharge(ItemStack stack, int tier, CallbackInfoReturnable<Boolean> cir) {
         if (stack != null && !stack.isEmpty() && stack.getItem() instanceof CommTerminalItem) {
-            cir.setReturnValue(tier >= 1);
+            cir.setReturnValue(tier >= 1 && CommTerminalItem.getStoredEu(stack) < TriModePowerMath.TERMINAL_MAX_CAPACITY_EU);
         }
     }
 
@@ -48,6 +48,20 @@ public class Ic2PortableGearMixin {
     private static void tyc2$capacity(ItemStack stack, CallbackInfoReturnable<Double> cir) {
         if (stack != null && !stack.isEmpty() && stack.getItem() instanceof CommTerminalItem) {
             cir.setReturnValue((double) TriModePowerMath.TERMINAL_MAX_CAPACITY_EU);
+        }
+    }
+
+    @Inject(method = "chargeComplete", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
+    private static void tyc2$chargeComplete(ItemStack stack, int tier, CallbackInfoReturnable<Boolean> cir) {
+        if (stack != null && !stack.isEmpty() && stack.getItem() instanceof CommTerminalItem) {
+            cir.setReturnValue(tier >= 1 && CommTerminalItem.getStoredEu(stack) >= TriModePowerMath.TERMINAL_MAX_CAPACITY_EU);
+        }
+    }
+
+    @Inject(method = "powerSlotLimit", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
+    private static void tyc2$powerSlotLimit(ItemStack stack, CallbackInfoReturnable<Integer> cir) {
+        if (stack != null && !stack.isEmpty() && stack.getItem() instanceof CommTerminalItem) {
+            cir.setReturnValue(1);
         }
     }
 }

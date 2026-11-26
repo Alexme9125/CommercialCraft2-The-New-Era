@@ -13,6 +13,8 @@ import com.tycooncraft.tyc2.forge.block.AtmMachineBlock;
 import com.tycooncraft.tyc2.forge.block.AtmMachineBlockEntity;
 import com.tycooncraft.tyc2.forge.block.MintMachineBlock;
 import com.tycooncraft.tyc2.forge.block.MintMachineBlockEntity;
+import com.tycooncraft.tyc2.forge.util.TyC2Ids;
+import java.lang.reflect.Method;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -74,8 +76,75 @@ public final class Ic2LoadedBridge {
         return ForgeGear.discharge(stack, freeSpaceEu, maxCapacityEu, tier);
     }
 
+    private static volatile Method automationMatchesFilterMethod;
+    private static volatile boolean automationMatchesFilterResolved;
+    private static volatile Method automationSettingsMethod;
+    private static volatile Method settingsMatchesMethod;
+
     public static List<Direction> resolveUpgradeFaces(ItemStack stack) {
         return MachineAutomation.faces(stack);
+    }
+
+    public static boolean matchesUpgradeFilter(
+            List<ItemStack> upgrades,
+            String basicUpgradeId,
+            String advancedUpgradeId,
+            ItemStack candidate
+    ) {
+        boolean hasAdvanced = false;
+        for (ItemStack s : upgrades) {
+            if (s == null || s.isEmpty()) {
+                continue;
+            }
+            String id = TyC2Ids.itemId(s);
+            if (basicUpgradeId.equals(id)) {
+                return true;
+            }
+            if (advancedUpgradeId.equals(id)) {
+                hasAdvanced = true;
+                if (matchesAdvancedUpgrade(s, candidate)) {
+                    return true;
+                }
+            }
+        }
+        return !hasAdvanced;
+    }
+
+    private static boolean matchesAdvancedUpgrade(ItemStack upgrade, ItemStack candidate) {
+        try {
+            if (!automationMatchesFilterResolved) {
+                try {
+                    automationMatchesFilterMethod = MachineAutomation.class.getMethod(
+                            "matchesFilter", ItemStack.class, ItemStack.class
+                    );
+                } catch (NoSuchMethodException ignored) {
+                    automationMatchesFilterMethod = null;
+                }
+                automationMatchesFilterResolved = true;
+            }
+            if (automationMatchesFilterMethod != null) {
+                Object res = automationMatchesFilterMethod.invoke(null, upgrade, candidate);
+                return !(res instanceof Boolean b) || b;
+            }
+            if (automationSettingsMethod == null) {
+                Method m = MachineAutomation.class.getDeclaredMethod("settings", ItemStack.class);
+                m.setAccessible(true);
+                automationSettingsMethod = m;
+            }
+            Object settings = automationSettingsMethod.invoke(null, upgrade);
+            if (settings == null) {
+                return true;
+            }
+            if (settingsMatchesMethod == null) {
+                Method m = settings.getClass().getDeclaredMethod("matches", ItemStack.class);
+                m.setAccessible(true);
+                settingsMatchesMethod = m;
+            }
+            Object res = settingsMatchesMethod.invoke(settings, candidate);
+            return !(res instanceof Boolean b) || b;
+        } catch (Throwable ignored) {
+            return true;
+        }
     }
 
     /** IC2 Wrench-enabled Minting Machine block subclass (instantiated only when IC2 is loaded). */

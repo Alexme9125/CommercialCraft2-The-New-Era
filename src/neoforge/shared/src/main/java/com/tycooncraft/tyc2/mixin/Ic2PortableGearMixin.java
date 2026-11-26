@@ -33,6 +33,14 @@ public abstract class Ic2PortableGearMixin {
         }
     }
 
+    @Inject(method = "chargeComplete", at = @At("HEAD"), cancellable = true, require = 0)
+    private static void tyc2$chargeComplete(ItemStack stack, int tier, CallbackInfoReturnable<Boolean> cir) {
+        if (stack != null && stack.getItem() instanceof CommTerminalItem) {
+            boolean full = CommTerminalItem.getEnergyEu(stack) >= TriModePowerMath.TERMINAL_MAX_CAPACITY_EU;
+            cir.setReturnValue(full);
+        }
+    }
+
     @Inject(method = "charge", at = @At("HEAD"), cancellable = true)
     private static void tyc2$charge(
             ItemStack stack,

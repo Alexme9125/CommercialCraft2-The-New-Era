@@ -5,9 +5,11 @@ import com.tycooncraft.tyc2.forge.block.CooperationHubBlockEntity;
 import com.tycooncraft.tyc2.forge.data.TyC2RuntimeData;
 import com.tycooncraft.tyc2.forge.gui.CommTerminalMenu;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeSavedData;
+import com.tycooncraft.tyc2.forge.world.TycoonForgeWorldManager;
 import com.tycooncraft.tyc2.village.VillageRecord;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.ChatFormatting;
@@ -214,7 +216,15 @@ public class CommTerminalItem extends Item {
             return;
         }
         TycoonForgeSavedData data = TycoonForgeSavedData.get(serverPlayer.getServer());
-        String vName = data.getVillage(vid).map(VillageRecord::getVillageName).orElse(vid.toString());
+        Optional<VillageRecord> vOpt = data.getVillage(vid);
+        if (vOpt.isPresent() && !TycoonForgeWorldManager.canAccessVillage(serverPlayer, data, vOpt.get())) {
+            serverPlayer.displayClientMessage(
+                    Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED),
+                    true
+            );
+            return;
+        }
+        String vName = vOpt.map(VillageRecord::getVillageName).orElse(vid.toString());
         int res = toggleBindVillage(stack, vid);
         if (res > 0) {
             serverPlayer.displayClientMessage(

@@ -157,15 +157,40 @@ public class AtmMachineBlockEntity extends BlockEntity implements Container, Men
                     }
                     setChanged();
                 }
-            } else if (fuelRemainingEu <= 0) {
-                int yield = TriModePowerMath.getFuelEnergyEu(TyC2Ids.itemId(fuelStack));
-                if (yield > 0) {
-                    fuelStack.shrink(1);
-                    if (fuelStack.isEmpty()) {
-                        items.set(SLOT_FUEL, ItemStack.EMPTY);
+            } else {
+                boolean dischargedFe = false;
+                if (!(fuelStack.getItem() instanceof CommTerminalItem)) {
+                    IEnergyStorage itemEnergy = fuelStack.getCapability(ForgeCapabilities.ENERGY).orElse(null);
+                    if (itemEnergy != null && itemEnergy.canExtract() && itemEnergy.getEnergyStored() > 0) {
+                        long availEu = TriModePowerMath.feToEuFloor(itemEnergy.getEnergyStored());
+                        long wantEu = TriModePowerMath.computeBatteryDischargeTransferEu(
+                                availEu,
+                                (long) Math.floor(storedEu),
+                                maxCap,
+                                TriModePowerMath.ATM_BASE_MAX_INPUT_EU_PER_TICK
+                        );
+                        if (wantEu > 0L) {
+                            int reqFe = (int) Math.min(Integer.MAX_VALUE, TriModePowerMath.euToFe(wantEu));
+                            int extractedFe = itemEnergy.extractEnergy(reqFe, false);
+                            long gainedEu = TriModePowerMath.feToEuFloor(extractedFe);
+                            if (gainedEu > 0L) {
+                                storedEu = Math.min(maxCap, storedEu + gainedEu);
+                                dischargedFe = true;
+                                setChanged();
+                            }
+                        }
                     }
-                    fuelRemainingEu = yield;
-                    setChanged();
+                }
+                if (!dischargedFe && fuelRemainingEu <= 0) {
+                    int yield = TriModePowerMath.getFuelEnergyEu(TyC2Ids.itemId(fuelStack));
+                    if (yield > 0) {
+                        fuelStack.shrink(1);
+                        if (fuelStack.isEmpty()) {
+                            items.set(SLOT_FUEL, ItemStack.EMPTY);
+                        }
+                        fuelRemainingEu = yield;
+                        setChanged();
+                    }
                 }
             }
         }
@@ -212,15 +237,15 @@ public class AtmMachineBlockEntity extends BlockEntity implements Container, Men
         long depVal = TyC2Ids.coinStackValue(dep);
         if (depVal > 0L) {
             total += depVal;
-            items.set(SLOT_DEPOSIT, ItemStack.EMPTY);
         }
         Inventory inv = player.getInventory();
+        List<Integer> coinSlots = new java.util.ArrayList<>();
         for (int i = 0; i < inv.getContainerSize(); i++) {
             ItemStack st = inv.getItem(i);
             long v = TyC2Ids.coinStackValue(st);
             if (v > 0L) {
                 total += v;
-                inv.setItem(i, ItemStack.EMPTY);
+                coinSlots.add(i);
             }
         }
         if (total <= 0L) {
@@ -229,7 +254,16 @@ public class AtmMachineBlockEntity extends BlockEntity implements Container, Men
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         data.bank().getOrCreatePersonal(player.getUUID(), player.getGameProfile().getName());
         long tick = player.getServer().overworld().getGameTime();
-        data.bank().deposit(player.getUUID(), total, tick, "ATM Deposit All");
+        BankAccountManager.BankResult res = data.bank().deposit(player.getUUID(), total, tick, "ATM Deposit All");
+        if (!res.success()) {
+            return Component.translatable(res.errorKey());
+        }
+        if (depVal > 0L) {
+            items.set(SLOT_DEPOSIT, ItemStack.EMPTY);
+        }
+        for (int idx : coinSlots) {
+            inv.setItem(idx, ItemStack.EMPTY);
+        }
         data.economy().recordCashDepositedToBank(total);
         data.syncMacroAccountTotals();
         data.setDirty();
@@ -241,6 +275,11 @@ public class AtmMachineBlockEntity extends BlockEntity implements Container, Men
     public Component handleWithdrawAmount(ServerPlayer player, long amount) {
         if (amount <= 0L) {
             return Component.translatable("status.tyc2.atm.invalid_amount");
+        }
+        if (!CurrencyDenomination.isWithinSingleWithdrawalLimit(amount)) {
+            return Component.translatable(
+                    "status.tyc2.atm.withdraw_limit", CurrencyDenomination.MAX_SINGLE_WITHDRAWAL_IC
+            );
         }
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         data.bank().getOrCreatePersonal(player.getUUID(), player.getGameProfile().getName());

@@ -118,7 +118,7 @@ public final class TyC2ContainerIo {
         if (handler != null) {
             return ItemHandlerHelper.insertItemStacked(handler, stack, false);
         }
-        if (be instanceof Container container) {
+        if (be instanceof Container container && TyC2Ids.blockId(state.getBlock()).startsWith("minecraft:")) {
             return insertIntoVanillaContainer(container, accessSide, stack);
         }
         return stack;
@@ -166,7 +166,7 @@ public final class TyC2ContainerIo {
             }
             return moved;
         }
-        if (be instanceof Container container) {
+        if (be instanceof Container container && TyC2Ids.blockId(state.getBlock()).startsWith("minecraft:")) {
             return extractFromVanillaContainer(container, accessSide, maxItems, itemFilter, receiver);
         }
         return 0;
@@ -195,6 +195,7 @@ public final class TyC2ContainerIo {
                     int moved = Math.min(limit - existing.getCount(), remaining.getCount());
                     if (moved > 0) {
                         existing.grow(moved);
+                        container.setItem(slot, existing);
                         remaining.shrink(moved);
                         container.setChanged();
                     }
@@ -247,6 +248,7 @@ public final class TyC2ContainerIo {
                     source.setItem(slot, leftover);
                 } else {
                     cur.grow(leftover.getCount());
+                    source.setItem(slot, cur);
                 }
                 source.setChanged();
             }

@@ -10,14 +10,18 @@ import com.tycooncraft.tyc2.village.VillageRecord;
 import com.tycooncraft.tyc2.world.TyC2WorldManager;
 import java.util.Optional;
 import java.util.UUID;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
@@ -35,6 +39,11 @@ public final class CooperationHubBlock extends TyC2BlockBase {
 
     public CooperationHubBlock(Properties properties) {
         super(properties);
+    }
+
+    @Override
+    protected boolean allowEntityDestroy(BlockState state, BlockGetter level, BlockPos pos, Entity entity) {
+        return false;
     }
 
     @Override
@@ -74,12 +83,32 @@ public final class CooperationHubBlock extends TyC2BlockBase {
         Optional<UUID> boundId = CooperationHubBlockItem.getBoundVillageId(stack);
         if (boundId.isPresent()) {
             UUID villageId = boundId.get();
-            be.setVillageId(villageId);
-            TyC2WorldManager.getVillage(serverLevel, villageId).ifPresent(v -> {
+            Optional<VillageRecord> existingOpt = TyC2WorldManager.getVillage(serverLevel, villageId);
+            if (existingOpt.isPresent()) {
+                VillageRecord v = existingOpt.get();
+                BlockPos oldPos = new BlockPos(v.getHubPos().x(), v.getHubPos().y(), v.getHubPos().z());
+                String curDim = TyC2Native.dimensionId(serverLevel);
+                if (curDim.equals(v.getDimensionId())
+                        && !oldPos.equals(pos)
+                        && serverLevel.hasChunkAt(oldPos)
+                        && serverLevel.getBlockState(oldPos).is(TyC2Registries.COOPERATION_HUB_BLOCK.get())) {
+                    // Refuse aliasing a second Hub onto a village whose live Hub already exists
+                    serverLevel.removeBlock(pos, false);
+                    if (placer instanceof Player p) {
+                        TyC2Native.sendActionBar(
+                                p,
+                                Component.translatable("status.tyc2.hub.protected").withStyle(ChatFormatting.RED)
+                        );
+                    }
+                    return;
+                }
+                be.setVillageId(villageId);
                 v.setHubPos(new BlockPos3i(pos.getX(), pos.getY(), pos.getZ()));
-                v.setDimensionId(TyC2Native.dimensionId(serverLevel));
+                v.setDimensionId(curDim);
                 TyC2WorldManager.markDirty(serverLevel);
-            });
+            } else {
+                be.setVillageId(villageId);
+            }
         } else if (be.getVillageId() == null) {
             // Creative-placed hub: create/attach a partnered village immediately so it works out of the box
             UUID ownerUuid = placer instanceof Player p ? p.getUUID() : null;

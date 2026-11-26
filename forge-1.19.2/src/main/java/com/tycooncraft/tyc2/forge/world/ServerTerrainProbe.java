@@ -128,6 +128,34 @@ public final class ServerTerrainProbe implements TerrainProbe {
     }
 
     @Override
+    public boolean isProtectedUnderwater(int x, int y, int z) {
+        BlockPos pos = new BlockPos(x, y, z);
+        if (!level.hasChunkAt(pos)) {
+            return true;
+        }
+        if (placedBlocks.isPlayerPlaced(dimensionId, x, y, z) || level.getBlockEntity(pos) != null) {
+            return true;
+        }
+        BlockState state = level.getBlockState(pos);
+        if (state.isAir() || state.is(Blocks.WATER) || state.getMaterial() == Material.WATER) {
+            return false;
+        }
+        if (isNaturalClutterOnly(state)) {
+            return false;
+        }
+        String id = TyC2Ids.blockId(state.getBlock());
+        if (!id.startsWith("minecraft:")) {
+            return true;
+        }
+        for (String sub : PROTECTED_VILLAGE_BLOCK_SUBSTRINGS) {
+            if (id.contains(sub)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public boolean isWaterSurface(int x, int z) {
         BlockPos pos = new BlockPos(x, level.getSeaLevel(), z);
         if (!level.hasChunkAt(pos)) {

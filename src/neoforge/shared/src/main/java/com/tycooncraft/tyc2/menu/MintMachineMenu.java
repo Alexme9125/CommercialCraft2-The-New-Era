@@ -109,11 +109,12 @@ public final class MintMachineMenu extends AbstractContainerMenu {
     }
 
     public int storedEu() {
-        return data.get(0);
+        return (data.get(0) & 0xFFFF) | ((data.get(8) & 0xFFFF) << 16);
     }
 
     public int maxEu() {
-        return Math.max(1, data.get(1));
+        int raw = (data.get(1) & 0xFFFF) | ((data.get(9) & 0xFFFF) << 16);
+        return Math.max(1, raw);
     }
 
     public int progressTicks() {

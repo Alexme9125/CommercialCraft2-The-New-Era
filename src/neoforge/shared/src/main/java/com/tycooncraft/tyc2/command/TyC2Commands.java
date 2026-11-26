@@ -98,6 +98,9 @@ public final class TyC2Commands {
                 .then(Commands.literal("refresh")
                         .requires(TyC2Native::hasOpPermission)
                         .executes(ctx -> cmdRefresh(ctx.getSource())))
+                .then(Commands.literal("restore_hub")
+                        .requires(TyC2Native::hasOpPermission)
+                        .executes(ctx -> cmdRestoreHub(ctx.getSource())))
                 .then(Commands.literal("reload")
                         .requires(TyC2Native::hasOpPermission)
                         .executes(ctx -> cmdReload(ctx.getSource())))
@@ -184,7 +187,6 @@ public final class TyC2Commands {
         bank.getOrCreatePersonal(player.getUUID(), player.getName().getString());
         BankAccountManager.AccountRef ref = bank.resolveSettlementAccount(player.getUUID());
         bank.creditAccount(ref, amount, BankAccountManager.TransactionType.DEPOSIT, level.getGameTime(), "OP Grant", "/tyc2 bank give");
-        data.economy().recordMinting(amount);
         data.setDirty();
         src.sendSuccess(() -> Component.literal("[TyC2] Credited " + amount + " IC to active bank account.")
                 .withStyle(ChatFormatting.GREEN), true);
@@ -285,6 +287,28 @@ public final class TyC2Commands {
                 "[TyC2] Refreshed trade orders for " + nearest.get().getVillageName()
                         + " (" + nearest.get().getActiveOrders().size() + " active orders)."
         ).withStyle(ChatFormatting.AQUA), true);
+        return 1;
+    }
+
+    private static int cmdRestoreHub(CommandSourceStack src) {
+        ServerLevel level = src.getLevel();
+        BlockPos pos = BlockPos.containing(src.getPosition());
+        Optional<VillageRecord> nearest = TyC2WorldManager.findNearestVillage(level, pos, 128);
+        if (nearest.isEmpty()) {
+            src.sendFailure(Component.literal("No TyC2 village within 128 blocks."));
+            return 0;
+        }
+        VillageRecord v = nearest.get();
+        if (!v.isPartnered()) {
+            src.sendFailure(Component.literal(v.getVillageName() + " is not currently partnered."));
+            return 0;
+        }
+        BlockPos hubPos = TyC2WorldManager.restoreHubBlock(level, v);
+        src.sendSuccess(() -> Component.translatable(
+                "status.tyc2.hub.restored",
+                v.getVillageName(),
+                hubPos.getX() + "," + hubPos.getY() + "," + hubPos.getZ()
+        ).withStyle(ChatFormatting.GREEN), true);
         return 1;
     }
 

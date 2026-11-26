@@ -61,6 +61,21 @@ public interface TerrainProbe {
     boolean isWaterSurface(int x, int z);
 
     /**
+     * Checks whether an underwater coordinate {@code (x, y, z)} contains a protected/occupied
+     * block (player-placed block, BlockEntity, non-vanilla mod block, or non-water solid structure)
+     * that waterfront pier pilings must NEVER overwrite. Unlike {@link #isProtectedOrOccupied},
+     * plain natural water and aquatic plants return {@code false}.
+     *
+     * @param x world X coordinate
+     * @param y world Y coordinate
+     * @param z world Z coordinate
+     * @return {@code true} if the underwater coordinate is protected
+     */
+    default boolean isProtectedUnderwater(int x, int y, int z) {
+        return false;
+    }
+
+    /**
      * Checks whether the sky above {@code (x, fromY, z)} is clear and unobstructed for
      * open-sky LC2 logistics pads (helipads and piers). Platform adapters may override this
      * with {@code ServerLevel.canSeeSky} for O(1) heightmap checks.

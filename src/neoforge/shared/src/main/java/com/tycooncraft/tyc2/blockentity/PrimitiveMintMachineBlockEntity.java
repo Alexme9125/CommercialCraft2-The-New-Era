@@ -59,7 +59,7 @@ public final class PrimitiveMintMachineBlockEntity extends TyC2BlockEntityBase
 
     private static final int[] SLOTS_TOP = {SLOT_INPUT_0, SLOT_INPUT_1};
     private static final int[] SLOTS_SIDES = {SLOT_INPUT_0, SLOT_INPUT_1, SLOT_FUEL};
-    private static final int[] SLOTS_BOTTOM = {SLOT_OUTPUT};
+    private static final int[] SLOTS_BOTTOM = {SLOT_OUTPUT, SLOT_FUEL};
 
     private final NonNullList<ItemStack> items = NonNullList.withSize(INVENTORY_SIZE, ItemStack.EMPTY);
     private int burnTimeRemaining = 0;

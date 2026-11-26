@@ -81,7 +81,12 @@ public final class TyC2ItemAccess {
         if (state.getBlock() instanceof ChestBlock chest) {
             return ChestBlock.getContainer(chest, state, level, pos, true);
         }
-        return be instanceof Container container ? container : null;
+        // Only fall back to raw Container for vanilla blocks so modded blocks with restricted side capabilities
+        // (e.g. null capability on a blocked face) are never bypassed via their internal Container implementation.
+        if (be instanceof Container container && TyC2Native.blockId(state).startsWith("minecraft:")) {
+            return container;
+        }
+        return null;
     }
 
     private static int pushIntoContainer(Container container, Direction face, ItemStack stack) {
@@ -102,6 +107,7 @@ public final class TyC2ItemAccess {
                 if (space > 0) {
                     int move = Math.min(space, remaining);
                     existing.grow(move);
+                    container.setItem(slot, existing);
                     remaining -= move;
                     container.setChanged();
                 }

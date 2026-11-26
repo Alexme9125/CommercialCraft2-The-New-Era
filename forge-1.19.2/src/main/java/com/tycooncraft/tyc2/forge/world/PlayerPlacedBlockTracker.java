@@ -18,26 +18,27 @@ public final class PlayerPlacedBlockTracker {
 
     private final Map<String, Set<Long>> placedByDimension = new HashMap<>();
 
-    /** Records a player-placed block position. */
-    public void markPlaced(String dimensionId, BlockPos pos) {
+    /** Records a player-placed block position; returns {@code true} if newly added. */
+    public boolean markPlaced(String dimensionId, BlockPos pos) {
         if (dimensionId == null || pos == null) {
-            return;
+            return false;
         }
-        placedByDimension.computeIfAbsent(dimensionId, ignored -> new HashSet<>()).add(pos.asLong());
+        return placedByDimension.computeIfAbsent(dimensionId, ignored -> new HashSet<>()).add(pos.asLong());
     }
 
-    /** Clears a tracked position when broken or removed. */
-    public void markRemoved(String dimensionId, BlockPos pos) {
+    /** Clears a tracked position when broken or removed; returns {@code true} if removed. */
+    public boolean markRemoved(String dimensionId, BlockPos pos) {
         if (dimensionId == null || pos == null) {
-            return;
+            return false;
         }
         Set<Long> set = placedByDimension.get(dimensionId);
-        if (set != null) {
-            set.remove(pos.asLong());
+        if (set != null && set.remove(pos.asLong())) {
             if (set.isEmpty()) {
                 placedByDimension.remove(dimensionId);
             }
+            return true;
         }
+        return false;
     }
 
     /** Returns {@code true} if the block at {@code (x, y, z)} in {@code dimensionId} was placed by a player. */

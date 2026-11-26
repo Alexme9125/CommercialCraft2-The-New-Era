@@ -165,16 +165,23 @@ public final class AtmMachineBlockEntity extends TyC2BlockEntityBase
                     items.set(SLOT_FUEL, ItemStack.EMPTY);
                 }
                 changed = true;
-            } else if (fuelRemainingEu <= 0) {
-                int yield = TriModePowerMath.getFuelEnergyEu(TyC2Native.itemId(fuelStack));
-                if (yield > 0) {
-                    fuelStack.shrink(1);
-                    if (fuelStack.isEmpty()) {
-                        items.set(SLOT_FUEL, ItemStack.EMPTY);
-                    }
-                    fuelRemainingEu = yield;
-                    fuelTotalEu = yield;
+            } else {
+                double feRequestEu = Math.min(freeSpace, TriModePowerMath.ATM_BASE_MAX_INPUT_EU_PER_TICK);
+                double fromFe = TyC2Native.dischargeFeItem(this, SLOT_FUEL, feRequestEu);
+                if (fromFe > 0.0) {
+                    storedEu = Math.min(maxCap, storedEu + fromFe);
                     changed = true;
+                } else if (fuelRemainingEu <= 0) {
+                    int yield = TriModePowerMath.getFuelEnergyEu(TyC2Native.itemId(fuelStack));
+                    if (yield > 0) {
+                        fuelStack.shrink(1);
+                        if (fuelStack.isEmpty()) {
+                            items.set(SLOT_FUEL, ItemStack.EMPTY);
+                        }
+                        fuelRemainingEu = yield;
+                        fuelTotalEu = yield;
+                        changed = true;
+                    }
                 }
             }
         }
@@ -379,7 +386,8 @@ public final class AtmMachineBlockEntity extends TyC2BlockEntityBase
         }
         if (slot == SLOT_FUEL) {
             return TriModePowerMath.isFuelItem(TyC2Native.itemId(stack))
-                    || Ic2SoftBridge.canDischargeBattery(stack, 1);
+                    || Ic2SoftBridge.canDischargeBattery(stack, 1)
+                    || TyC2Native.canDischargeFeItem(stack);
         }
         return false;
     }

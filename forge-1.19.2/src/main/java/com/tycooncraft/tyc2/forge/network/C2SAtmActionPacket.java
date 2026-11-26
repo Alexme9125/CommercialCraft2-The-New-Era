@@ -80,7 +80,8 @@ public final class C2SAtmActionPacket {
             ctx.setPacketHandled(true);
             return;
         }
-        if (!(player.level.getBlockEntity(pkt.atmPos) instanceof AtmMachineBlockEntity atm)
+        if (!player.level.isLoaded(pkt.atmPos)
+                || !(player.level.getBlockEntity(pkt.atmPos) instanceof AtmMachineBlockEntity atm)
                 || !atm.stillValid(player)) {
             ctx.setPacketHandled(true);
             return;
@@ -100,22 +101,31 @@ public final class C2SAtmActionPacket {
             case WITHDRAW_DENOM -> {
                 CurrencyDenomination[] values = CurrencyDenomination.values();
                 int idx = Math.max(0, Math.min(values.length - 1, pkt.denomIndex));
-                int count = (int) Math.max(1L, Math.min(640L, pkt.amount <= 0 ? 1 : pkt.amount));
+                int count = (int) Math.max(1L, Math.min(64L, pkt.amount <= 0 ? 1 : pkt.amount));
                 feedback = atm.handleWithdrawDenom(player, values[idx], count);
             }
             case CREATE_COMPANY -> {
                 String name = pkt.textA.trim();
+                if (name.length() > BankAccountManager.MAX_COMPANY_NAME_LENGTH) {
+                    name = name.substring(0, BankAccountManager.MAX_COMPANY_NAME_LENGTH).trim();
+                }
                 if (name.isEmpty()) {
                     feedback = Component.translatable("status.tyc2.atm.invalid_amount");
+                } else if (!bank.canJoinAnotherCompany(player.getUUID())) {
+                    feedback = Component.translatable("status.tyc2.atm.company_limit");
                 } else {
-                    BankAccountManager.CompanyAccount co = bank.createCompany(
-                            player.getUUID(), player.getGameProfile().getName(), name
-                    );
-                    bank.setActiveCompany(player.getUUID(), co.companyId());
-                    data.setDirty();
-                    feedback = Component.translatable(
-                            "status.tyc2.atm.company_created", co.name(), co.inviteCode()
-                    );
+                    try {
+                        BankAccountManager.CompanyAccount co = bank.createCompany(
+                                player.getUUID(), player.getGameProfile().getName(), name
+                        );
+                        bank.setActiveCompany(player.getUUID(), co.companyId());
+                        data.setDirty();
+                        feedback = Component.translatable(
+                                "status.tyc2.atm.company_created", co.name(), co.inviteCode()
+                        );
+                    } catch (IllegalStateException ex) {
+                        feedback = Component.translatable("status.tyc2.atm.company_limit");
+                    }
                 }
             }
             case JOIN_COMPANY -> {

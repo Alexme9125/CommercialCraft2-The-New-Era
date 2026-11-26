@@ -25,6 +25,7 @@ import com.tycooncraft.tyc2.village.WorkplaceSize;
 import com.tycooncraft.tyc2.village.WorkplaceSpec;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -325,7 +326,11 @@ public final class S2CHubSyncPacket {
         for (int absSlot : page.slotIndices()) {
             var opt = storage.getSlot(absSlot);
             if (opt.isPresent()) {
-                slotDtos.add(new SlotDto(absSlot, opt.get().itemId(), opt.get().count(), opt.get().nbtJson()));
+                String rawNbt = opt.get().nbtJson();
+                String compactNbt = (rawNbt != null && rawNbt.length() <= 256)
+                        ? rawNbt
+                        : (rawNbt != null && rawNbt.startsWith("enchant:") ? rawNbt.substring(0, 256) : "");
+                slotDtos.add(new SlotDto(absSlot, opt.get().itemId(), opt.get().count(), compactNbt));
             } else {
                 slotDtos.add(new SlotDto(absSlot, "", 0, ""));
             }
@@ -449,12 +454,12 @@ public final class S2CHubSyncPacket {
                 nBal,
                 nSink,
                 exp != null,
-                exp == null ? "" : exp.projectType().name().toLowerCase(),
+                exp == null ? "" : exp.projectType().name().toLowerCase(Locale.ROOT),
                 exp == null ? 0L : exp.constructionBudgetCost(),
                 exp != null && exp.autoFulfill(),
                 matDtos,
                 jobOpt.isPresent(),
-                jobOpt.map(j -> j.getProjectType().name().toLowerCase()).orElse(""),
+                jobOpt.map(j -> j.getProjectType().name().toLowerCase(Locale.ROOT)).orElse(""),
                 jobOpt.map(ConstructionJob::getPlacedCount).orElse(0),
                 jobOpt.map(ConstructionJob::getTotalBlocks).orElse(0),
                 lc2Stations,
@@ -474,15 +479,22 @@ public final class S2CHubSyncPacket {
         );
     }
 
+    private static String clip(@Nullable String s, int maxLen) {
+        if (s == null || s.isEmpty()) {
+            return "";
+        }
+        return s.length() <= maxLen ? s : s.substring(0, maxLen);
+    }
+
     public static void encode(S2CHubSyncPacket p, FriendlyByteBuf buf) {
         buf.writeUUID(p.villageId);
-        buf.writeUtf(p.villageName, 64);
-        buf.writeUtf(p.biomeStyleId, 32);
+        buf.writeUtf(clip(p.villageName, 64), 64);
+        buf.writeUtf(clip(p.biomeStyleId, 32), 32);
         buf.writeVarInt(p.level);
         buf.writeVarInt(p.population);
         buf.writeVarLong(p.cumulativeVolume);
         buf.writeVarLong(p.villageBalance);
-        buf.writeUtf(p.mayorName, 64);
+        buf.writeUtf(clip(p.mayorName, 64), 64);
         buf.writeBoolean(p.depopulatedPaused);
         buf.writeBoolean(p.expansionPaused);
         buf.writeBoolean(p.canManage);
@@ -490,12 +502,14 @@ public final class S2CHubSyncPacket {
         buf.writeVarInt(p.refreshSecondsRemaining);
         buf.writeVarLong(p.activeBankBalance);
 
-        buf.writeVarInt(p.orders.size());
-        for (OrderDto o : p.orders) {
-            buf.writeUtf(o.orderId(), 64);
+        int orderCount = Math.min(64, p.orders.size());
+        buf.writeVarInt(orderCount);
+        for (int i = 0; i < orderCount; i++) {
+            OrderDto o = p.orders.get(i);
+            buf.writeUtf(clip(o.orderId(), 64), 64);
             buf.writeBoolean(o.isVillageBuy());
-            buf.writeUtf(o.itemId(), 96);
-            buf.writeUtf(o.enchantSpec(), 64);
+            buf.writeUtf(clip(o.itemId(), 96), 96);
+            buf.writeUtf(clip(o.enchantSpec(), 64), 64);
             buf.writeVarInt(o.totalQty());
             buf.writeVarInt(o.fulfilledQty());
             buf.writeVarLong(o.unitPrice());
@@ -508,23 +522,27 @@ public final class S2CHubSyncPacket {
         buf.writeVarInt(p.totalPages);
         buf.writeVarInt(p.inboundUsed);
         buf.writeVarInt(p.outboundUsed);
-        buf.writeVarInt(p.warehouseSlots.size());
-        for (SlotDto s : p.warehouseSlots) {
+        int slotCount = Math.min(64, p.warehouseSlots.size());
+        buf.writeVarInt(slotCount);
+        for (int i = 0; i < slotCount; i++) {
+            SlotDto s = p.warehouseSlots.get(i);
             buf.writeVarInt(s.absSlot());
-            buf.writeUtf(s.itemId(), 96);
+            buf.writeUtf(clip(s.itemId(), 96), 96);
             buf.writeVarInt(s.count());
-            buf.writeUtf(s.nbtJson(), 256);
+            buf.writeUtf(clip(s.nbtJson(), 256), 256);
         }
 
-        buf.writeDouble(p.cpi);
-        buf.writeUtf(p.inflationState, 32);
+        buf.writeDouble(Double.isFinite(p.cpi) ? p.cpi : 1.0);
+        buf.writeUtf(clip(p.inflationState, 32), 32);
         buf.writeVarLong(p.moneySupply);
-        buf.writeDouble(p.goodsCirculation);
-        buf.writeUtf(p.seasonKey, 16);
+        buf.writeDouble(Double.isFinite(p.goodsCirculation) ? p.goodsCirculation : 0.0);
+        buf.writeUtf(clip(p.seasonKey, 16), 16);
         buf.writeVarInt(p.playerTierLevel);
-        buf.writeVarInt(p.cpiHistory.length);
-        for (double v : p.cpiHistory) {
-            buf.writeDouble(v);
+        int histLen = Math.min(64, p.cpiHistory.length);
+        buf.writeVarInt(histLen);
+        for (int i = 0; i < histLen; i++) {
+            double v = p.cpiHistory[i];
+            buf.writeDouble(Double.isFinite(v) ? v : 1.0);
         }
 
         buf.writeBoolean(p.canUpgrade);
@@ -534,23 +552,26 @@ public final class S2CHubSyncPacket {
         buf.writeVarLong(p.nextSinkCost);
 
         buf.writeBoolean(p.hasExpansion);
-        buf.writeUtf(p.expProjectKey, 48);
+        buf.writeUtf(clip(p.expProjectKey, 48), 48);
         buf.writeVarLong(p.expBudget);
         buf.writeBoolean(p.expAutoFulfill);
-        buf.writeVarInt(p.expMaterials.size());
-        for (MatDto m : p.expMaterials) {
-            buf.writeUtf(m.itemId(), 96);
+        int matCount = Math.min(32, p.expMaterials.size());
+        buf.writeVarInt(matCount);
+        for (int i = 0; i < matCount; i++) {
+            MatDto m = p.expMaterials.get(i);
+            buf.writeUtf(clip(m.itemId(), 96), 96);
             buf.writeVarInt(m.delivered());
             buf.writeVarInt(m.required());
         }
 
         buf.writeBoolean(p.hasJob);
-        buf.writeUtf(p.jobProjectKey, 48);
+        buf.writeUtf(clip(p.jobProjectKey, 48), 48);
         buf.writeVarInt(p.jobPlaced);
         buf.writeVarInt(p.jobTotal);
-        buf.writeVarInt(p.nearbyLc2Stations.size());
-        for (String st : p.nearbyLc2Stations) {
-            buf.writeUtf(st, 64);
+        int lc2Count = Math.min(16, p.nearbyLc2Stations.size());
+        buf.writeVarInt(lc2Count);
+        for (int i = 0; i < lc2Count; i++) {
+            buf.writeUtf(clip(p.nearbyLc2Stations.get(i), 64), 64);
         }
         buf.writeVarInt(p.workforceCount);
         buf.writeVarInt(p.employedCount);
@@ -559,15 +580,17 @@ public final class S2CHubSyncPacket {
         buf.writeBoolean(p.employmentBonusActive);
         buf.writeVarInt(p.restockBonusPct);
         buf.writeVarInt(p.qtyBonusPct);
-        buf.writeDouble(p.gatherSpeedMult);
+        buf.writeDouble(Double.isFinite(p.gatherSpeedMult) ? p.gatherSpeedMult : 1.0);
         buf.writeVarInt(p.lowUnempThresholdPct);
         buf.writeVarInt(p.maxQueuedAid);
-        buf.writeVarInt(p.availableWorkplaces.size());
-        for (WorkplaceDto wp : p.availableWorkplaces) {
-            buf.writeUtf(wp.professionId(), 96);
-            buf.writeUtf(wp.workstationBlockId(), 96);
-            buf.writeUtf(wp.archetypeName(), 32);
-            buf.writeUtf(wp.displayNameFallback(), 64);
+        int wpCount = Math.min(128, p.availableWorkplaces.size());
+        buf.writeVarInt(wpCount);
+        for (int i = 0; i < wpCount; i++) {
+            WorkplaceDto wp = p.availableWorkplaces.get(i);
+            buf.writeUtf(clip(wp.professionId(), 96), 96);
+            buf.writeUtf(clip(wp.workstationBlockId(), 96), 96);
+            buf.writeUtf(clip(wp.archetypeName(), 32), 32);
+            buf.writeUtf(clip(wp.displayNameFallback(), 64), 64);
             buf.writeVarLong(wp.costSmallIc());
             buf.writeVarLong(wp.costLargeIc());
             buf.writeVarInt(wp.minLevelSmall());
@@ -575,21 +598,25 @@ public final class S2CHubSyncPacket {
             buf.writeBoolean(wp.smallUnlocked());
             buf.writeBoolean(wp.largeUnlocked());
         }
-        buf.writeVarInt(p.aidProjects.size());
-        for (AidProjectDto aid : p.aidProjects) {
-            buf.writeUtf(aid.projectId(), 64);
-            buf.writeUtf(aid.professionId(), 96);
-            buf.writeUtf(aid.workstationBlockId(), 96);
-            buf.writeUtf(aid.archetypeName(), 32);
-            buf.writeUtf(aid.displayNameFallback(), 64);
+        int aidCount = Math.min(16, p.aidProjects.size());
+        buf.writeVarInt(aidCount);
+        for (int i = 0; i < aidCount; i++) {
+            AidProjectDto aid = p.aidProjects.get(i);
+            buf.writeUtf(clip(aid.projectId(), 64), 64);
+            buf.writeUtf(clip(aid.professionId(), 96), 96);
+            buf.writeUtf(clip(aid.workstationBlockId(), 96), 96);
+            buf.writeUtf(clip(aid.archetypeName(), 32), 32);
+            buf.writeUtf(clip(aid.displayNameFallback(), 64), 64);
             buf.writeBoolean(aid.large());
-            buf.writeUtf(aid.statusName(), 24);
+            buf.writeUtf(clip(aid.statusName(), 24), 24);
             buf.writeVarInt(aid.progressPct());
             buf.writeVarLong(aid.paidIc());
             buf.writeBoolean(aid.canCancel());
-            buf.writeVarInt(aid.materials().size());
-            for (MatDto m : aid.materials()) {
-                buf.writeUtf(m.itemId(), 96);
+            int amCount = Math.min(32, aid.materials().size());
+            buf.writeVarInt(amCount);
+            for (int k = 0; k < amCount; k++) {
+                MatDto m = aid.materials().get(k);
+                buf.writeUtf(clip(m.itemId(), 96), 96);
                 buf.writeVarInt(m.delivered());
                 buf.writeVarInt(m.required());
             }

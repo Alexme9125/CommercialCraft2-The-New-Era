@@ -16,7 +16,9 @@ import com.tycooncraft.tyc2.village.SlotStack;
 import com.tycooncraft.tyc2.village.VillageRecord;
 import com.tycooncraft.tyc2.world.TyC2WorldManager;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -73,6 +75,9 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
     private ChunkPos heldChunkCenter = null;
     private int ioTickCounter = 0;
     private boolean removalProcessed = false;
+    private final Map<Integer, ItemStack> liveSlotCache = new HashMap<>();
+    private long cachedStorageRevision = Long.MIN_VALUE;
+    private boolean flushingLiveCache = false;
 
     /** Dedicated local Container for GUI cash + 2 upgrade slots (isolated from external pipe I/O). */
     private final Container localContainer = new Container() {
@@ -199,7 +204,8 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
 
     @Override
     public void setRemoved() {
-        if (level instanceof ServerLevel serverLevel) {
+        flushLiveSlotCache();
+        if (level instanceof ServerLevel serverLevel && removalProcessed) {
             releaseChunkTickets(serverLevel);
         }
         super.setRemoved();
@@ -207,9 +213,9 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
 
     @Override
     public void onChunkUnloaded() {
-        if (level instanceof ServerLevel serverLevel) {
-            releaseChunkTickets(serverLevel);
-        }
+        flushLiveSlotCache();
+        // Keep 3x3 chunk-loader tickets active across chunk unload / server restart;
+        // tickets are released only when the upgrade is removed or the Hub block is removed.
         super.onChunkUnloaded();
     }
 
@@ -219,7 +225,13 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
             return;
         }
         removalProcessed = true;
+        flushLiveSlotCache();
         releaseChunkTickets(level);
+        VillageRecord village = resolveVillage(level);
+        if (village != null && village.isChunkLoaderInstalled()) {
+            village.setChunkLoaderInstalled(false);
+            TyC2WorldManager.markDirty(level);
+        }
         // Drop only local cash & upgrade items; the 1,000-slot warehouse remains safely in TycoonSavedData!
         Containers.dropContents(level, pos, localItems);
         for (int i = 0; i < localItems.size(); i++) {
@@ -229,8 +241,15 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
 
     /** Server-side tick: maintains 3x3 chunk tickets and optional IC2 ejector/pulling automation. */
     public void serverTick(ServerLevel level) {
-        // 1. LC2 Chunk Loading Upgrade -> 3x3 forced chunk loading
+        flushLiveSlotCache();
+
+        // 1. LC2 Chunk Loading Upgrade -> 3x3 forced chunk loading (persisted on VillageRecord across restarts)
         boolean hasChunkUpgrade = hasChunkLoadingUpgrade();
+        VillageRecord village = resolveVillage(level);
+        if (village != null && village.isChunkLoaderInstalled() != hasChunkUpgrade) {
+            village.setChunkLoaderInstalled(hasChunkUpgrade);
+            TyC2WorldManager.markDirty(level);
+        }
         if (hasChunkUpgrade && !chunkLoaderActive) {
             ChunkPos center = new ChunkPos(worldPosition.getX() >> 4, worldPosition.getZ() >> 4);
             TyC2ChunkTickets.holdArea3x3(level, center);
@@ -299,7 +318,7 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
                     continue;
                 }
                 ItemStack candidate = TyC2Native.fromSlotStack(opt.get(), registries);
-                if (candidate.isEmpty()) {
+                if (candidate.isEmpty() || !Ic2SoftBridge.matchesUpgradeFilter(upgrades, true, candidate)) {
                     continue;
                 }
                 int offerCount = Math.min(candidate.getCount(), budget);
@@ -341,6 +360,9 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
                         dir.getOpposite(),
                         budget,
                         stack -> {
+                            if (!Ic2SoftBridge.matchesUpgradeFilter(upgrades, false, stack)) {
+                                return false;
+                            }
                             SlotStack ss = TyC2Native.toSlotStack(stack, registries);
                             return ss != null && storage.canFitInInbound(
                                     ss.itemId(), ss.count(), ss.nbtJson(), stack.getMaxStackSize()
@@ -406,8 +428,72 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
         return CooperationHubStorage.TOTAL_SLOTS;
     }
 
+    /**
+     * Commits any in-place mutations made by vanilla hoppers or external containers onto cached
+     * {@link ItemStack} instances returned by {@link #getItem(int)} back into
+     * {@link CooperationHubStorage} (fixes RT-04 / T-07 hopper stack merge loss).
+     */
+    private void flushLiveSlotCache() {
+        if (flushingLiveCache || liveSlotCache.isEmpty() || level == null) {
+            return;
+        }
+        flushingLiveCache = true;
+        try {
+            CooperationHubStorage storage = resolveStorage();
+            if (storage == null) {
+                liveSlotCache.clear();
+                cachedStorageRevision = Long.MIN_VALUE;
+                return;
+            }
+            if (storage.getRevision() != cachedStorageRevision) {
+                liveSlotCache.clear();
+                cachedStorageRevision = storage.getRevision();
+                return;
+            }
+            boolean mutated = false;
+            var registries = level.registryAccess();
+            for (Map.Entry<Integer, ItemStack> entry : new ArrayList<>(liveSlotCache.entrySet())) {
+                int slot = entry.getKey();
+                ItemStack cached = entry.getValue();
+                Optional<SlotStack> storedOpt = storage.getSlot(slot);
+                if (cached == null || cached.isEmpty()) {
+                    if (storedOpt.isPresent()) {
+                        storage.setSlotRaw(slot, null);
+                        mutated = true;
+                    }
+                    liveSlotCache.remove(slot);
+                } else {
+                    String cachedId = TyC2Native.itemId(cached);
+                    boolean needsWrite = storedOpt.isEmpty()
+                            || storedOpt.get().count() != cached.getCount()
+                            || !storedOpt.get().itemId().equals(cachedId);
+                    if (needsWrite) {
+                        SlotStack updated = TyC2Native.toSlotStack(cached, registries);
+                        storage.setSlotRaw(slot, updated);
+                        mutated = true;
+                    }
+                }
+            }
+            if (mutated) {
+                cachedStorageRevision = storage.getRevision();
+                if (level instanceof ServerLevel serverLevel) {
+                    TyC2WorldManager.markDirty(serverLevel);
+                }
+            }
+        } finally {
+            flushingLiveCache = false;
+        }
+    }
+
+    @Override
+    public void setChanged() {
+        flushLiveSlotCache();
+        super.setChanged();
+    }
+
     @Override
     public boolean isEmpty() {
+        flushLiveSlotCache();
         CooperationHubStorage storage = resolveStorage();
         if (storage == null) {
             return true;
@@ -422,19 +508,34 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
         if (storage == null || slot < 0 || slot >= CooperationHubStorage.TOTAL_SLOTS || level == null) {
             return ItemStack.EMPTY;
         }
-        return storage.getSlot(slot)
+        if (storage.getRevision() != cachedStorageRevision) {
+            liveSlotCache.clear();
+            cachedStorageRevision = storage.getRevision();
+        }
+        ItemStack cached = liveSlotCache.get(slot);
+        if (cached != null) {
+            return cached;
+        }
+        ItemStack fresh = storage.getSlot(slot)
                 .map(ss -> TyC2Native.fromSlotStack(ss, level.registryAccess()))
                 .orElse(ItemStack.EMPTY);
+        if (!fresh.isEmpty()) {
+            liveSlotCache.put(slot, fresh);
+        }
+        return fresh;
     }
 
     @Override
     public ItemStack removeItem(int slot, int amount) {
+        flushLiveSlotCache();
         CooperationHubStorage storage = resolveStorage();
         if (storage == null || amount <= 0 || slot < 0 || slot >= CooperationHubStorage.TOTAL_SLOTS || level == null) {
             return ItemStack.EMPTY;
         }
         Optional<SlotStack> taken = storage.playerExtract(slot, amount);
         if (taken.isPresent()) {
+            liveSlotCache.remove(slot);
+            cachedStorageRevision = storage.getRevision();
             if (level instanceof ServerLevel serverLevel) {
                 TyC2WorldManager.markDirty(serverLevel);
             }
@@ -450,16 +551,20 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
 
     @Override
     public void setItem(int slot, ItemStack stack) {
+        flushLiveSlotCache();
         CooperationHubStorage storage = resolveStorage();
         if (storage == null || slot < 0 || slot >= CooperationHubStorage.TOTAL_SLOTS || level == null) {
             return;
         }
         if (stack == null || stack.isEmpty()) {
             storage.setSlotRaw(slot, null);
+            liveSlotCache.remove(slot);
         } else {
             SlotStack ss = TyC2Native.toSlotStack(stack, level.registryAccess());
             storage.setSlotRaw(slot, ss);
+            liveSlotCache.put(slot, stack);
         }
+        cachedStorageRevision = storage.getRevision();
         if (level instanceof ServerLevel serverLevel) {
             TyC2WorldManager.markDirty(serverLevel);
         }
@@ -478,9 +583,11 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
 
     @Override
     public void clearContent() {
+        liveSlotCache.clear();
         CooperationHubStorage storage = resolveStorage();
         if (storage != null) {
             storage.clearAll();
+            cachedStorageRevision = storage.getRevision();
             if (level instanceof ServerLevel serverLevel) {
                 TyC2WorldManager.markDirty(serverLevel);
             }

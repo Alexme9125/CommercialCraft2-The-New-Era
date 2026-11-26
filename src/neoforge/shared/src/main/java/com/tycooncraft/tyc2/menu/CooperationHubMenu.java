@@ -25,6 +25,7 @@ import net.minecraft.world.item.ItemStack;
 public final class CooperationHubMenu extends AbstractContainerMenu {
 
     private final Container localContainer;
+    private final SimpleContainer cashContainer = new SimpleContainer(1);
     private final BlockPos pos;
     private Map<String, Object> syncedSnapshot = Collections.emptyMap();
     private int syncRevision = 0;
@@ -53,25 +54,35 @@ public final class CooperationHubMenu extends AbstractContainerMenu {
         this.localContainer = localContainer;
         this.pos = pos;
 
-        // Local Slot 0: Physical Cash Slot (181, 144)
-        addSlot(new Slot(localContainer, CooperationHubBlockEntity.LOCAL_SLOT_CASH, 181, 144) {
+        // Per-player Cash Slot (181, 144): isolated from concurrent Hub users and returned on menu close
+        addSlot(new Slot(cashContainer, 0, 181, 144) {
             @Override
             public boolean mayPlace(ItemStack stack) {
                 return CurrencyDenomination.isLegalTender(TyC2Native.itemId(stack));
             }
         });
 
-        // Local Slots 1 & 2: Hub Upgrade Slots (203, 144) and (223, 144)
+        // Local Slots 1 & 2: Hub Upgrade Slots (203, 144) and (223, 144), max 1 per slot
         addSlot(new Slot(localContainer, CooperationHubBlockEntity.LOCAL_SLOT_UPGRADE_0, 203, 144) {
             @Override
             public boolean mayPlace(ItemStack stack) {
                 return TriModePowerMath.isSupportedHubUpgrade(TyC2Native.itemId(stack));
+            }
+
+            @Override
+            public int getMaxStackSize() {
+                return 1;
             }
         });
         addSlot(new Slot(localContainer, CooperationHubBlockEntity.LOCAL_SLOT_UPGRADE_1, 223, 144) {
             @Override
             public boolean mayPlace(ItemStack stack) {
                 return TriModePowerMath.isSupportedHubUpgrade(TyC2Native.itemId(stack));
+            }
+
+            @Override
+            public int getMaxStackSize() {
+                return 1;
             }
         });
 
@@ -95,6 +106,17 @@ public final class CooperationHubMenu extends AbstractContainerMenu {
 
     public BlockPos blockPos() {
         return pos;
+    }
+
+    /** Returns the per-player isolated physical cash slot container for this open menu. */
+    public Container cashContainer() {
+        return cashContainer;
+    }
+
+    @Override
+    public void removed(Player player) {
+        super.removed(player);
+        clearContainer(player, cashContainer);
     }
 
     public Map<String, Object> snapshot() {

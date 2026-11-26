@@ -474,6 +474,33 @@ public final class ExpansionPlanner {
             }
         }
 
+        // 3b. For waterfront piers, verify underwater piling columns never overwrite protected blocks/BEs/pipes!
+        if (isPier) {
+            for (int dx = 0; dx < w; dx++) {
+                for (int dz = 0; dz < d; dz++) {
+                    if (!isWater[dx][dz]) {
+                        continue;
+                    }
+                    boolean cornerOrEdgePost = (dx == 0 || dx == w - 1) && (dz == 0 || dz == d - 1 || dz == d / 2)
+                            || (dz == 0 || dz == d - 1) && (dx == 0 || dx == w - 1 || dx == w / 2);
+                    if (!cornerOrEdgePost) {
+                        continue;
+                    }
+                    int wx = originX + dx;
+                    int wz = originZ + dz;
+                    for (int depth = 1; depth <= MAX_PIER_PILING_DEPTH; depth++) {
+                        int y = originY - depth;
+                        if (probe.isProtectedUnderwater(wx, y, wz)) {
+                            return Optional.empty();
+                        }
+                        if (probe.isSolidFoundation(wx, y, wz)) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
         // 4. Open-sky clearance for LC2 logistics pads (helipad & pier deck)
         if (bp.projectType().requiresOpenSky()) {
             int padMinX = originX + 1;
@@ -738,7 +765,7 @@ public final class ExpansionPlanner {
                 } else if (cornerOrEdgePost) {
                     for (int depth = 1; depth <= MAX_PIER_PILING_DEPTH; depth++) {
                         int y = origin.y() - depth;
-                        if (probe.isSolidFoundation(wx, y, wz)) {
+                        if (probe.isProtectedUnderwater(wx, y, wz) || probe.isSolidFoundation(wx, y, wz)) {
                             break;
                         }
                         placementMap.put(new BlockPos3i(wx, y, wz), pilingSpec);

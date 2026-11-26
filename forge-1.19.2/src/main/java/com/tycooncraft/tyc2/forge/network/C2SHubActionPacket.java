@@ -93,7 +93,8 @@ public final class C2SHubActionPacket {
             ctx.setPacketHandled(true);
             return;
         }
-        if (!(player.level.getBlockEntity(pkt.hubPos) instanceof CooperationHubBlockEntity hubBe)
+        if (!player.level.isLoaded(pkt.hubPos)
+                || !(player.level.getBlockEntity(pkt.hubPos) instanceof CooperationHubBlockEntity hubBe)
                 || !hubBe.stillValid(player)) {
             ctx.setPacketHandled(true);
             return;
@@ -111,6 +112,22 @@ public final class C2SHubActionPacket {
         }
         VillageRecord village = vOpt.get();
         CooperationHubMenu menu = player.containerMenu instanceof CooperationHubMenu m ? m : null;
+        if (pkt.action != Action.REQUEST_SYNC
+                && pkt.action != Action.SET_WAREHOUSE_VIEW
+                && !TycoonForgeWorldManager.canAccessVillage(player, data, village)) {
+            CooperationHubStorage.Zone zone = menu != null ? menu.getWarehouseZone() : CooperationHubStorage.Zone.INBOUND;
+            int page = menu != null ? menu.getWarehousePage() : 0;
+            String search = menu != null ? menu.getWarehouseSearch() : "";
+            TyC2ForgeNetwork.sendToPlayer(
+                    player,
+                    S2CHubSyncPacket.buildFor(
+                            player, village, hubBe, zone, page, search,
+                            Component.translatable("status.tyc2.hub.not_owner")
+                    )
+            );
+            ctx.setPacketHandled(true);
+            return;
+        }
         Component feedback = Component.empty();
         boolean closeScreen = false;
 

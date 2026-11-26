@@ -186,11 +186,23 @@ public final class CooperationHubStorage {
     }
 
     private final SlotStack[] slots = new SlotStack[TOTAL_SLOTS];
+    private long revision = 0L;
 
     /**
      * Creates an empty 1,000-slot {@link CooperationHubStorage}.
      */
     public CooperationHubStorage() {
+    }
+
+    /**
+     * Returns a monotonically increasing revision counter incremented on every actual storage
+     * mutation. Platform container adapters use this to detect and synchronize live {@code ItemStack}
+     * references returned to hoppers and automation mods.
+     *
+     * @return current storage revision
+     */
+    public long getRevision() {
+        return revision;
     }
 
     /**
@@ -382,6 +394,7 @@ public final class CooperationHubStorage {
                 remaining = 0;
             }
         }
+        revision++;
         return true;
     }
 
@@ -478,6 +491,7 @@ public final class CooperationHubStorage {
     public void setSlotRaw(int slot, SlotStack stack) {
         validateSlotIndex(slot);
         slots[slot] = stack;
+        revision++;
     }
 
     /**
@@ -522,6 +536,7 @@ public final class CooperationHubStorage {
         for (int i = 0; i < TOTAL_SLOTS; i++) {
             slots[i] = null;
         }
+        revision++;
     }
 
     /**
@@ -676,6 +691,7 @@ public final class CooperationHubStorage {
             Objects.requireNonNull(entry, "entry");
             slots[entry.slot()] = entry.stack();
         }
+        revision++;
     }
 
     /**
@@ -736,6 +752,9 @@ public final class CooperationHubStorage {
                 remaining -= toAdd;
             }
         }
+        if (!simulate && remaining < count) {
+            revision++;
+        }
         return remaining;
     }
 
@@ -753,6 +772,7 @@ public final class CooperationHubStorage {
             int toAdd = Math.min(maxStackSize, count);
             if (!simulate) {
                 slots[slot] = new SlotStack(itemId, toAdd, normNbt);
+                revision++;
             }
             return count - toAdd;
         }
@@ -763,6 +783,7 @@ public final class CooperationHubStorage {
         int toAdd = Math.min(space, count);
         if (!simulate) {
             slots[slot] = existing.withCount(existing.count() + toAdd);
+            revision++;
         }
         return count - toAdd;
     }
@@ -780,6 +801,7 @@ public final class CooperationHubStorage {
             } else {
                 slots[slot] = existing.withCount(existing.count() - taken);
             }
+            revision++;
         }
         return Optional.of(result);
     }

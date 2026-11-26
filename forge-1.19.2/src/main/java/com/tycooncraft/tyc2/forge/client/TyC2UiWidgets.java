@@ -157,6 +157,9 @@ public final class TyC2UiWidgets {
         double maxV = 1.35;
         if (history != null) {
             for (double v : history) {
+                if (!Double.isFinite(v)) {
+                    continue;
+                }
                 if (v < minV) {
                     minV = Math.max(0.20, v - 0.08);
                 }
@@ -206,7 +209,7 @@ public final class TyC2UiWidgets {
         int prevPx = -1;
         int prevPy = -1;
         for (int i = 0; i < n; i++) {
-            double v = history[i];
+            double v = Double.isFinite(history[i]) ? history[i] : 1.0;
             int px = n == 1
                     ? plotX + plotW / 2
                     : plotX + (int) Math.round(((double) i / (n - 1)) * (plotW - 1));
