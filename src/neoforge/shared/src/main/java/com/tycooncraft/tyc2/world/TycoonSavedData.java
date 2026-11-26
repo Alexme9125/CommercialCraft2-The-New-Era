@@ -19,6 +19,7 @@ import com.tycooncraft.tyc2.village.OrderSide;
 import com.tycooncraft.tyc2.village.ProjectType;
 import com.tycooncraft.tyc2.village.SlotStack;
 import com.tycooncraft.tyc2.village.SpawnMarker;
+import com.tycooncraft.tyc2.village.SupplyCycleClock;
 import com.tycooncraft.tyc2.village.VillageEmploymentStats;
 import com.tycooncraft.tyc2.village.VillageRecord;
 import com.tycooncraft.tyc2.village.VillageTradeOrder;
@@ -350,6 +351,7 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
             ot.putLong("expires", o.expiresTick());
             ot.putBoolean("auto", o.autoFulfill());
             ot.putBoolean("season", o.seasonalBonus());
+            ot.putBoolean("BiomeSpecialty", o.biomeSpecialty());
             ordersTag.add(ot);
         }
         t.put("orders", ordersTag);
@@ -558,9 +560,10 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
                         Math.max(0, TyC2Nbt.getInt(ot, "done", 0)),
                         Math.max(1L, TyC2Nbt.getLong(ot, "price", 1L)),
                         TyC2Nbt.getLong(ot, "created", 0L),
-                        TyC2Nbt.getLong(ot, "expires", 12000L),
+                        TyC2Nbt.getLong(ot, "expires", SupplyCycleClock.TICKS_PER_WEEK),
                         TyC2Nbt.getBoolean(ot, "auto", false),
-                        TyC2Nbt.getBoolean(ot, "season", false)
+                        TyC2Nbt.getBoolean(ot, "season", false),
+                        TyC2Nbt.getBoolean(ot, "BiomeSpecialty", false)
                 ));
             } catch (Exception ignored) {
                 // Skip invalid order

@@ -760,6 +760,12 @@ public final class TyC2QaHarness {
                 playerA.getInventory().add(new ItemStack(Items.OAK_LOG, 32));
                 playerA.getInventory().add(new ItemStack(Items.IRON_INGOT, 16));
                 playerA.getInventory().add(new ItemStack(Items.BREAD, 32));
+                // Re-open MayorNegotiationMenu before SIGN_PARTNERSHIP (server validates active menu + proximity)
+                MayorNegotiationMenu signMenu = new MayorNegotiationMenu(
+                        2, playerA.getInventory(), villageId, bellPos, liveMayor.getUUID()
+                );
+                playerA.containerMenu = signMenu;
+                TyC2WorldManager.startMayorNegotiation(playerA, level, liveMayor);
                 // Alice has 475 IC in personal bank account (covers 100 IC startup cost)
                 TyC2WorldManager.handleActionPayload(playerA, level,
                         new TyC2ActionPayload("MAYOR", bellPos, "SIGN_PARTNERSHIP",
@@ -774,10 +780,14 @@ public final class TyC2QaHarness {
                                 && hubState.getBlock().getExplosionResistance() >= 3_600_000.0F,
                         "hardness=" + hubState.getDestroySpeed(level, bellPos)
                                 + ", blastRes=" + hubState.getBlock().getExplosionResistance());
+                long expectedStartBal = Math.max(
+                        TyC2DataLoader.config().negotiationCostIc(),
+                        TyC2DataLoader.config().initialVillageWorkingCapital()
+                );
                 checks.check("partnership.village_partnered_and_orders_generated",
-                        village.isPartnered() && village.getVillageBalance() == 100L && !village.getActiveOrders().isEmpty(),
+                        village.isPartnered() && village.getVillageBalance() == expectedStartBal && !village.getActiveOrders().isEmpty(),
                         "partnered=" + village.isPartnered() + ", bal=" + village.getVillageBalance()
-                                + ", orders=" + village.getActiveOrders().size());
+                                + " (expected=" + expectedStartBal + "), orders=" + village.getActiveOrders().size());
 
                 // E. Normal villagers blocked from vanilla emerald trading inside partnered village!
                 boolean tradeBlocked = TyC2QaPlatform.fireVillagerInteract(level, playerA, nonMayor);
@@ -1502,7 +1512,7 @@ public final class TyC2QaHarness {
                                 baselineQtySum > 0 ? (double) boostedQtySum / baselineQtySum : 0.0));
 
                 // Live order refresh on the village uses effectiveDemandRefreshTicks & boosted quantities
-                long refreshNow = level.getGameTime();
+                long refreshNow = TyC2Native.dayTime(level);
                 TyC2WorldManager.refreshVillageOrders(level, data, village, refreshNow);
                 boolean liveOrdersAccelerated = !village.getActiveOrders().isEmpty()
                         && village.getActiveOrders().stream()

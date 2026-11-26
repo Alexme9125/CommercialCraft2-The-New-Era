@@ -58,14 +58,22 @@ class JsonConfigAndApiTest {
         assertTrue(created.enforceIndustrialTierCap());
         assertEquals(0.25, created.minPriceMultiplier(), 1e-6);
         assertEquals(4.00, created.maxPriceMultiplier(), 1e-6);
-        assertEquals(12_000, created.demandRefreshTicks());
+        assertEquals(168_000, created.demandRefreshTicks());
+        assertEquals(3.5, created.weeklyQuantityMultiplier(), 1e-6);
+        assertEquals(1.75, created.weeklyRareQuantityMultiplier(), 1e-6);
+        assertEquals(500L, created.initialVillageWorkingCapital());
+        assertEquals(0.45, created.weeklyMunicipalStipendRatio(), 1e-6);
         assertEquals(18_000, created.expansionIntervalTicks());
         assertEquals(100L, created.negotiationCostIc());
 
         created.setMinPriceMultiplier(0.40)
                 .setMaxPriceMultiplier(3.50)
                 .setDisableIc2MetalFormerCoinRecipe(false)
-                .setNegotiationCostIc(250L);
+                .setNegotiationCostIc(250L)
+                .setWeeklyQuantityMultiplier(4.5)
+                .setWeeklyRareQuantityMultiplier(2.25)
+                .setInitialVillageWorkingCapital(750L)
+                .setWeeklyMunicipalStipendRatio(0.50);
         created.save(cfgPath);
 
         TyC2Config reloaded = TyC2Config.loadOrCreate(cfgPath);
@@ -73,10 +81,16 @@ class JsonConfigAndApiTest {
         assertEquals(0.40, reloaded.minPriceMultiplier(), 1e-6);
         assertEquals(3.50, reloaded.maxPriceMultiplier(), 1e-6);
         assertEquals(250L, reloaded.negotiationCostIc());
+        assertEquals(4.5, reloaded.weeklyQuantityMultiplier(), 1e-6);
+        assertEquals(2.25, reloaded.weeklyRareQuantityMultiplier(), 1e-6);
+        assertEquals(750L, reloaded.initialVillageWorkingCapital());
+        assertEquals(0.50, reloaded.weeklyMunicipalStipendRatio(), 1e-6);
 
         // Extreme out-of-range JSON values are safely clamped
         TyC2Config clamped = TyC2Config.fromJson(
                 "{\"minPriceMultiplier\": -5, \"maxPriceMultiplier\": 999, \"demandRefreshTicks\": 1,"
+                        + "\"weeklyQuantityMultiplier\": 99.0, \"weeklyRareQuantityMultiplier\": 0.05,"
+                        + "\"initialVillageWorkingCapital\": 9999999, \"weeklyMunicipalStipendRatio\": 3.5,"
                         + "\"aidGatherTicksSmall\": 0, \"maxQueuedAidProjects\": 99,"
                         + "\"lowUnemploymentThreshold\": 5.0, \"lowUnempRestockMinMult\": 0.5,"
                         + "\"lowUnempRestockMaxMult\": 0.2, \"lowUnempQtyMinMult\": 0.1,"
@@ -84,6 +98,10 @@ class JsonConfigAndApiTest {
         assertEquals(0.05, clamped.minPriceMultiplier(), 1e-6);
         assertEquals(20.0, clamped.maxPriceMultiplier(), 1e-6);
         assertEquals(200, clamped.demandRefreshTicks());
+        assertEquals(20.0, clamped.weeklyQuantityMultiplier(), 1e-6);
+        assertEquals(0.5, clamped.weeklyRareQuantityMultiplier(), 1e-6);
+        assertEquals(100_000L, clamped.initialVillageWorkingCapital());
+        assertEquals(1.0, clamped.weeklyMunicipalStipendRatio(), 1e-6);
         assertEquals(20, clamped.aidGatherTicksSmall());
         assertEquals(16, clamped.maxQueuedAidProjects());
         assertEquals(1.0, clamped.lowUnemploymentThreshold(), 1e-6);

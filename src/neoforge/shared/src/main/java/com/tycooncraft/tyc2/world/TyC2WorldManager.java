@@ -39,6 +39,7 @@ import com.tycooncraft.tyc2.village.ProjectType;
 import com.tycooncraft.tyc2.village.SlotStack;
 import com.tycooncraft.tyc2.village.SpawnMarker;
 import com.tycooncraft.tyc2.village.StructureBlueprint;
+import com.tycooncraft.tyc2.village.SupplyCycleClock;
 import com.tycooncraft.tyc2.village.VillageEmploymentStats;
 import com.tycooncraft.tyc2.village.VillageLevelTable;
 import com.tycooncraft.tyc2.village.VillageRecord;
@@ -277,14 +278,43 @@ public final class TyC2WorldManager {
                 style
         );
         if (ownerUuid != null) {
+            TyC2Config cfg = TyC2DataLoader.config();
             String activeCo = data.bank().getPersonal(ownerUuid)
                     .map(BankAccountManager.PersonalAccount::activeCompanyId)
                     .orElse(null);
-            v.establishPartnership(ownerUuid, activeCo, TyC2DataLoader.config().negotiationCostIc());
-            refreshVillageOrders(level, data, v, level.getGameTime());
+            v.establishPartnershipWithWorkingCapital(
+                    ownerUuid,
+                    activeCo,
+                    cfg.negotiationCostIc(),
+                    cfg.initialVillageWorkingCapital()
+            );
+            refreshVillageOrders(level, data, v, overworldDayTime(level));
         }
         data.putVillage(v);
+        if (ownerUuid != null) {
+            syncMacroAccountTotals(data);
+        }
         return v;
+    }
+
+    private static long overworldDayTime(ServerLevel level) {
+        return TyC2Native.dayTime(level);
+    }
+
+    private static void syncMacroAccountTotals(TycoonSavedData data) {
+        long villageTotal = 0L;
+        int partneredCount = 0;
+        for (VillageRecord v : data.allVillages()) {
+            if (v.isPartnered()) {
+                villageTotal += v.getVillageBalance();
+                partneredCount++;
+            }
+        }
+        data.economy().syncAccountTotals(
+                data.bank().getTotalCombinedBalance(),
+                villageTotal,
+                Math.max(1, partneredCount)
+        );
     }
 
     /**
@@ -444,19 +474,7 @@ public final class TyC2WorldManager {
     ) {
         // 1. Sync bank + village balances into MacroEconomyEngine periodically
         if (gameTime % 40L == 0L) {
-            long villageTotal = 0L;
-            int partneredCount = 0;
-            for (VillageRecord v : data.allVillages()) {
-                if (v.isPartnered()) {
-                    villageTotal += v.getVillageBalance();
-                    partneredCount++;
-                }
-            }
-            data.economy().syncAccountTotals(
-                    data.bank().getTotalCombinedBalance(),
-                    villageTotal,
-                    Math.max(1, partneredCount)
-            );
+            syncMacroAccountTotals(data);
         }
 
         // 2. Daily municipal upkeep deflationary sink
@@ -481,6 +499,7 @@ public final class TyC2WorldManager {
         }
 
         // 3. Per-village virtual timers (run even when Hub chunks are unloaded!)
+        long dayTime = TyC2Native.dayTime(overworld);
         boolean runAutoFulfill = (gameTime % cfg.autoFulfillIntervalTicks()) == 0L;
         boolean runAidTick = (gameTime % 20L) == 0L;
 
@@ -489,22 +508,34 @@ public final class TyC2WorldManager {
                 continue;
             }
 
+            // Re-anchor backward /time set jumps or legacy saves so weekly refreshes never stall
+            if (v.normalizeDemandRefreshAnchor(dayTime)) {
+                data.setDirty();
+            }
+
             // 3a. Auto-fulfill Buy Orders & Expansion Desire from Inbound 0..499
             if (runAutoFulfill) {
                 processAutoFulfill(overworld, data, v, gameTime);
             }
 
-            // 3b. Demand order refresh (periodic with low-unemployment speed boost, or when all orders completed)
+            // 3b. Weekly calendar dayTime demand order refresh (or early restock when all orders completed)
             if (v.canGenerateOrders()) {
                 int effectiveRefreshTicks = v.getEmploymentStats().effectiveDemandRefreshTicks(cfg);
-                boolean allDone = !v.getActiveOrders().isEmpty()
+                boolean ordersEmpty = v.getActiveOrders().isEmpty();
+                boolean allDone = !ordersEmpty
                         && v.getActiveOrders().stream().allMatch(VillageTradeOrder::isCompleted);
-                boolean refreshDue = v.getActiveOrders().isEmpty()
-                        || (gameTime - v.getLastDemandRefreshTick()) >= effectiveRefreshTicks
-                        || allDone;
-                if (refreshDue) {
-                    data.economy().advanceDemandCycleIfDue(gameTime, cfg.demandRefreshTicks());
-                    refreshVillageOrders(overworld, data, v, gameTime);
+                if (SupplyCycleClock.isRefreshDue(
+                        dayTime, v.getLastDemandRefreshTick(), effectiveRefreshTicks, ordersEmpty, allDone)) {
+                    // Apply weekly municipal stipend on periodic restock cycles (never immediately on initial signup)
+                    if (!ordersEmpty) {
+                        long stipend = v.applyWeeklyMunicipalStipend(cfg.weeklyMunicipalStipendRatio());
+                        if (stipend > 0L) {
+                            syncMacroAccountTotals(data);
+                            data.setDirty();
+                        }
+                    }
+                    data.economy().advanceDemandCycleIfDue(dayTime, effectiveRefreshTicks);
+                    refreshVillageOrders(overworld, data, v, dayTime);
                 }
             }
 
@@ -568,7 +599,8 @@ public final class TyC2WorldManager {
                             "Auto-fulfill " + order.itemId()
                     );
                 }
-                long basePrice = TyC2DataLoader.goodsCatalog().findByItemId(order.itemId())
+                long basePrice = TyC2DataLoader.goodsCatalog()
+                        .findOrderGood(order.displayHint(), order.itemId(), true)
                         .map(g -> g.basePrice())
                         .orElse(order.unitPrice());
                 data.economy().recordTrade(order.itemId(), res.executedQty(), basePrice, true);
@@ -1285,7 +1317,7 @@ public final class TyC2WorldManager {
             ServerLevel level,
             TycoonSavedData data,
             VillageRecord v,
-            long gameTime
+            long dayTime
     ) {
         Season season = SeasonSoftBridge.currentSeason(level);
         IndustrialTier tier = resolveVillageIndustrialTier(data, v);
@@ -1303,13 +1335,15 @@ public final class TyC2WorldManager {
                 RNG
         );
 
-        long expires = gameTime + v.getEmploymentStats().effectiveDemandRefreshTicks(cfg);
+        long anchorTick = Math.max(0L, dayTime);
+        int effectiveRefreshTicks = v.getEmploymentStats().effectiveDemandRefreshTicks(cfg);
+        long expires = anchorTick + effectiveRefreshTicks;
         List<VillageTradeOrder> fresh = new ArrayList<>();
         for (DemandGenerator.GeneratedOrder go : demand.allOrders()) {
             OrderSide side = go.side() == DemandGenerator.OrderSide.VILLAGE_SELLS
                     ? OrderSide.VILLAGE_SELLS : OrderSide.VILLAGE_BUYS;
             fresh.add(new VillageTradeOrder(
-                    go.orderId() + "_" + gameTime,
+                    go.orderId() + "_" + anchorTick,
                     side,
                     go.itemId(),
                     go.goodId(),
@@ -1317,14 +1351,15 @@ public final class TyC2WorldManager {
                     go.quantity(),
                     0,
                     go.unitPrice(),
-                    gameTime,
+                    anchorTick,
                     expires,
                     false,
-                    go.seasonalHighlight()
+                    go.seasonalHighlight(),
+                    go.biomeSpecialty()
             ));
         }
         v.setActiveOrders(fresh);
-        v.setLastDemandRefreshTick(gameTime);
+        v.setLastDemandRefreshTick(anchorTick);
         data.setDirty();
     }
 
@@ -1924,7 +1959,10 @@ public final class TyC2WorldManager {
                 } else {
                     bank.debitAccount(activeRef, res.totalCurrency(), BankAccountManager.TransactionType.TRADE_BUY, now, village.getVillageName(), order.itemId());
                 }
-                long basePrice = TyC2DataLoader.goodsCatalog().findByItemId(order.itemId()).map(g -> g.basePrice()).orElse(order.unitPrice());
+                long basePrice = TyC2DataLoader.goodsCatalog()
+                        .findOrderGood(order.displayHint(), order.itemId(), false)
+                        .map(g -> g.basePrice())
+                        .orElse(order.unitPrice());
                 data.economy().recordTrade(order.itemId(), res.executedQty(), basePrice, false);
                 data.setDirty();
                 TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.order_fulfilled", res.totalCurrency()).withStyle(ChatFormatting.GREEN));
@@ -2012,7 +2050,10 @@ public final class TyC2WorldManager {
                 } else {
                     bank.creditAccount(activeRef, res.totalCurrency(), BankAccountManager.TransactionType.TRADE_SELL, now, village.getVillageName(), order.itemId());
                 }
-                long basePrice = TyC2DataLoader.goodsCatalog().findByItemId(order.itemId()).map(g -> g.basePrice()).orElse(order.unitPrice());
+                long basePrice = TyC2DataLoader.goodsCatalog()
+                        .findOrderGood(order.displayHint(), order.itemId(), true)
+                        .map(g -> g.basePrice())
+                        .orElse(order.unitPrice());
                 data.economy().recordTrade(order.itemId(), res.executedQty(), basePrice, true);
                 data.setDirty();
                 TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.order_fulfilled", res.totalCurrency()).withStyle(ChatFormatting.GREEN));
@@ -2108,7 +2149,7 @@ public final class TyC2WorldManager {
                 long sink = village.tryUpgrade(TyC2DataLoader.levelTable());
                 if (sink > 0L) {
                     data.economy().recordVillageMoneySink(sink);
-                    refreshVillageOrders(level, data, village, now);
+                    refreshVillageOrders(level, data, village, overworldDayTime(level));
                     data.setDirty();
                     Component lvlName = Component.translatable("level.tyc2." + village.getLevel());
                     TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.upgraded", village.getVillageName(), village.getLevel(), lvlName).withStyle(ChatFormatting.GOLD));
@@ -2586,7 +2627,12 @@ public final class TyC2WorldManager {
         String activeCo = data.bank().getPersonal(player.getUUID())
                 .map(BankAccountManager.PersonalAccount::activeCompanyId)
                 .orElse(null);
-        village.establishPartnership(player.getUUID(), activeCo, costIc);
+        village.establishPartnershipWithWorkingCapital(
+                player.getUUID(),
+                activeCo,
+                costIc,
+                cfg.initialVillageWorkingCapital()
+        );
 
         ServerLevel targetLevel = resolveDimensionLevel(level.getServer(), village.getDimensionId(), level);
         BlockPos hubPos = new BlockPos(village.getHubPos().x(), village.getHubPos().y(), village.getHubPos().z());
@@ -2598,7 +2644,8 @@ public final class TyC2WorldManager {
         // Register initial Hub core zone & existing village houses so expansion stays cleanly outside
         village.addOccupiedZone(Aabb3i.singleBlock(village.getHubPos()).padHorizontal(4));
         registerExistingVillageZones(targetLevel, village, hubPos);
-        refreshVillageOrders(targetLevel, data, village, targetLevel.getGameTime());
+        refreshVillageOrders(targetLevel, data, village, overworldDayTime(targetLevel));
+        syncMacroAccountTotals(data);
         data.setDirty();
 
         endAllNegotiationsForPlayer(player);
@@ -2754,7 +2801,8 @@ public final class TyC2WorldManager {
 
     private static Predicate<String> buildOrderIdMatcher(VillageTradeOrder order) {
         String exactId = order.itemId();
-        String optTag = TyC2DataLoader.goodsCatalog().findByItemId(exactId)
+        String optTag = TyC2DataLoader.goodsCatalog()
+                .findOrderGood(order.displayHint(), exactId, order.side() == OrderSide.VILLAGE_BUYS)
                 .map(g -> g.optionalTag())
                 .orElse(null);
         if (optTag == null || optTag.isBlank()) {
@@ -2906,6 +2954,7 @@ public final class TyC2WorldManager {
                 VillageRecord rec = recOpt.get();
                 vm.put("name", rec.getVillageName());
                 vm.put("level", rec.getLevel());
+                vm.put("biome", rec.getBiomeStyle().id());
                 vm.put("partnered", rec.isPartnered());
                 ServerLevel vLvl = resolveDimensionLevel(level.getServer(), rec.getDimensionId(), level);
                 BlockPos hp = new BlockPos(rec.getHubPos().x(), rec.getHubPos().y(), rec.getHubPos().z());
@@ -2916,6 +2965,7 @@ public final class TyC2WorldManager {
             } else {
                 vm.put("name", e.getValue().isBlank() ? e.getKey().toString().substring(0, 8) : e.getValue());
                 vm.put("level", 1);
+                vm.put("biome", "plains");
                 vm.put("partnered", false);
                 vm.put("loaded", false);
             }
@@ -3025,6 +3075,15 @@ public final class TyC2WorldManager {
             root.put("nextUpgradeCost", upStatus.targetSpec().upgradeCostSink());
         }
 
+        VillageEmploymentStats es = v.getEmploymentStats();
+        TyC2Config cfg = TyC2DataLoader.config();
+        int effectiveRefreshTicks = es.effectiveDemandRefreshTicks(cfg);
+        long refreshRemainingTicks = SupplyCycleClock.remainingRefreshTicks(
+                overworldDayTime(level), v.getLastDemandRefreshTick(), effectiveRefreshTicks
+        );
+        root.put("refreshRemainingTicks", refreshRemainingTicks);
+        root.put("refreshTotalTicks", effectiveRefreshTicks);
+
         // Active Orders
         List<Map<String, Object>> orders = new ArrayList<>();
         for (VillageTradeOrder o : v.getActiveOrders()) {
@@ -3038,6 +3097,7 @@ public final class TyC2WorldManager {
             om.put("unitPrice", o.unitPrice());
             om.put("autoFulfill", o.autoFulfill());
             om.put("seasonalBonus", o.seasonalBonus());
+            om.put("biomeSpecialty", o.biomeSpecialty());
             orders.add(om);
         }
         root.put("orders", orders);
@@ -3093,8 +3153,6 @@ public final class TyC2WorldManager {
         });
 
         // Employment stats & low-unemployment bonus
-        VillageEmploymentStats es = v.getEmploymentStats();
-        TyC2Config cfg = TyC2DataLoader.config();
         int unempPct = (int) Math.round(es.unemploymentRate() * 100.0);
         boolean bonusActive = es.isLowUnemploymentBonusActive(cfg);
         int restockBonusPct = bonusActive

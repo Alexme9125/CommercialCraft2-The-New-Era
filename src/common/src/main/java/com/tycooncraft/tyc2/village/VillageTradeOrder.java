@@ -16,7 +16,8 @@ import java.util.Objects;
  * @param createdTick game tick when this order was created
  * @param expiresTick game tick when this order expires
  * @param autoFulfill whether Hub auto-fulfillment pulls matching Inbound stock automatically
- * @param seasonalBonus whether this order carries a seasonal harvest discount or off-season premium
+ * @param seasonalBonus whether this order carries a seasonal harvest discount or seasonal demand bonus
+ * @param biomeSpecialty whether this order matches the village's local biome specialty supply or shortage demand
  */
 public record VillageTradeOrder(
         String orderId,
@@ -30,7 +31,42 @@ public record VillageTradeOrder(
         long createdTick,
         long expiresTick,
         boolean autoFulfill,
-        boolean seasonalBonus) {
+        boolean seasonalBonus,
+        boolean biomeSpecialty) {
+
+    /**
+     * Backwards-compatible 12-argument constructor defaulting {@link #biomeSpecialty()} to {@code false}.
+     *
+     * @param orderId unique order identifier within the village
+     * @param side whether the village is selling or buying
+     * @param itemId namespaced item identifier
+     * @param displayHint optional display hint
+     * @param enchantSpec optional enchantment specification string
+     * @param totalQty total order quantity ({@code >= 1})
+     * @param fulfilledQty quantity already fulfilled ({@code 0..totalQty})
+     * @param unitPrice price per single item in IC ({@code >= 1})
+     * @param createdTick dayTime tick when this order was created
+     * @param expiresTick dayTime tick when this order expires
+     * @param autoFulfill whether Hub auto-fulfillment pulls matching Inbound stock automatically
+     * @param seasonalBonus whether this order carries a seasonal bonus
+     */
+    public VillageTradeOrder(
+            String orderId,
+            OrderSide side,
+            String itemId,
+            String displayHint,
+            String enchantSpec,
+            int totalQty,
+            int fulfilledQty,
+            long unitPrice,
+            long createdTick,
+            long expiresTick,
+            boolean autoFulfill,
+            boolean seasonalBonus) {
+        this(orderId, side, itemId, displayHint, enchantSpec,
+                totalQty, fulfilledQty, unitPrice,
+                createdTick, expiresTick, autoFulfill, seasonalBonus, false);
+    }
 
     /**
      * Validates order invariants and normalizes optional strings.
@@ -121,7 +157,7 @@ public record VillageTradeOrder(
         return new VillageTradeOrder(
                 orderId, side, itemId, displayHint, enchantSpec,
                 totalQty, fulfilledQty + delta, unitPrice,
-                createdTick, expiresTick, autoFulfill, seasonalBonus);
+                createdTick, expiresTick, autoFulfill, seasonalBonus, biomeSpecialty);
     }
 
     /**
@@ -137,6 +173,6 @@ public record VillageTradeOrder(
         return new VillageTradeOrder(
                 orderId, side, itemId, displayHint, enchantSpec,
                 totalQty, fulfilledQty, unitPrice,
-                createdTick, expiresTick, enabled, seasonalBonus);
+                createdTick, expiresTick, enabled, seasonalBonus, biomeSpecialty);
     }
 }

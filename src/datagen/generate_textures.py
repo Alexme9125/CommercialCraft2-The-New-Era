@@ -2071,13 +2071,728 @@ def make_gui_atm_machine() -> Image.Image:
     return im
 
 
+def _draw_hub_bronze_panel_frame(px, w: int, h: int):
+    """Draw a bespoke 'Gilded Bronze & Deep Ledger' architectural municipal panel at (0, 0, w, h)."""
+    c_out = rgba("#1E160E")       # deep espresso-bronze contour
+    c_hi = rgba("#F5EAD4")        # warm sunlit parchment bevel
+    c_hi2 = rgba("#E6D8BE")       # inner warm limestone highlight
+    c_bg = rgba("#CFC4B0")        # warm architectural limestone body
+    c_bg2 = rgba("#C8BCA6")       # subtle stone-grain rhythm
+    c_bg3 = rgba("#D4CAB6")       # subtle mineral speckle
+    c_sh = rgba("#5E4B33")        # deep antique bronze shadow
+    c_sh2 = rgba("#826B4D")       # mid antique bronze bevel
+
+    au_sp = rgba("#FFF2A8")       # specular gold highlight
+    au_hi = rgba("#F2C446")       # burnished gold top
+    au_md = rgba("#C48D22")       # antique gold mid
+    au_dk = rgba("#7A5210")       # deep bronze shade
+
+    # Outer contour with 1px transparent rounded corners
+    fill_rect(px, 0, 0, w - 1, h - 1, c_out)
+    for cx, cy in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
+        px[cx, cy] = (0, 0, 0, 0)
+
+    # Limestone body & dual-step chamfer bevel
+    fill_rect(px, 1, 1, w - 2, h - 2, c_bg)
+    hline(px, 1, w - 3, 1, c_hi)
+    hline(px, 2, w - 4, 2, c_hi2)
+    vline(px, 1, 1, h - 3, c_hi)
+    vline(px, 2, 2, h - 4, c_hi2)
+    hline(px, 2, w - 2, h - 2, c_sh)
+    hline(px, 3, w - 3, h - 3, c_sh2)
+    vline(px, w - 2, 2, h - 2, c_sh)
+    vline(px, w - 3, 3, h - 3, c_sh2)
+
+    # Subtle architectural limestone grain
+    for y in range(4, h - 4):
+        if y % 2 == 0:
+            hline(px, 3, w - 4, y, c_bg2)
+        for x in range(4, w - 4):
+            if (x * 13 + y * 7) % 29 == 0:
+                px[x, y] = c_bg3
+
+    # Burnished gold top molding (y=2..3, x=7..w-8) & bottom molding (y=h-5..h-4, x=7..w-8)
+    hline(px, 7, w - 8, 2, au_hi)
+    hline(px, 7, w - 8, 3, au_md)
+    hline(px, 7, w - 8, h - 5, au_hi)
+    hline(px, 7, w - 8, h - 4, au_dk)
+
+    # Riveted gilded-bronze corner plates (strictly outside x=7..w-8 and clear of tab/slots)
+    corners = (
+        (1, 1, 1, 1),
+        (w - 2, 1, -1, 1),
+        (1, h - 2, 1, -1),
+        (w - 2, h - 2, -1, -1),
+    )
+    for cx, cy, dx, dy in corners:
+        # L-shaped bronze corner armor arms (length 6 along edge, thickness 2)
+        for step in range(6):
+            # Horizontal arm
+            px[cx + dx * step, cy] = au_hi if (dy > 0 and step < 5) else au_md
+            px[cx + dx * step, cy + dy] = au_md if dy > 0 else au_dk
+            # Vertical arm
+            px[cx, cy + dy * step] = au_hi if (dx > 0 and step < 5) else au_md
+            px[cx + dx, cy + dy * step] = au_md if dx > 0 else au_dk
+        # Inner corner bevel plate (2x2) + crisp brass rivet stud
+        px[cx + dx * 2, cy + dy * 2] = au_dk
+        px[cx + dx * 3, cy + dy * 2] = au_md
+        px[cx + dx * 2, cy + dy * 3] = au_md
+        px[cx + dx * 3, cy + dy * 3] = au_sp if (dx > 0 and dy > 0) else au_hi
+        px[cx + dx, cy + dy] = au_sp if (dx > 0 and dy > 0) else au_hi
+
+    # Subtle bronze architectural side clasps aligned with viewport/inventory split (y=135..138)
+    for sx in (3, w - 5):
+        fill_rect(px, sx, 135, sx + 1, 138, au_md)
+        px[sx, 135] = au_hi
+        px[sx + 1, 138] = au_dk
+
+
+def _draw_pda_tactical_frame(px, w: int, h: int):
+    """Draw a sleek 'Deep-Space Cyan/Teal Tactical Handheld PDA' chassis at (0, 0, w, h)."""
+    c_out = rgba("#090D13")       # void-black outer shell contour
+    c_hi = rgba("#54687F")        # machined anodized edge highlight
+    c_hi2 = rgba("#38485B")       # secondary chamfer highlight
+    c_bg = rgba("#232E3C")        # anodized dark gunmetal-navy chassis
+    c_bg2 = rgba("#1E2835")       # brushed micro-texture
+    c_sh = rgba("#10161F")        # deep shadow bevel
+    c_sh2 = rgba("#17202B")       # inner shadow bevel
+    c_rim_dk = rgba("#111923")    # inner recessed screen bezel shadow
+    c_rim_lt = rgba("#3B5066")    # inner recessed screen bezel catchlight
+
+    # Outer shell with 1px transparent rounded corners
+    fill_rect(px, 0, 0, w - 1, h - 1, c_out)
+    for cx, cy in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
+        px[cx, cy] = (0, 0, 0, 0)
+
+    # Anodized gunmetal-navy body + chamfer bevel
+    fill_rect(px, 1, 1, w - 2, h - 2, c_bg)
+    hline(px, 1, w - 3, 1, c_hi)
+    hline(px, 2, w - 4, 2, c_hi2)
+    vline(px, 1, 1, h - 3, c_hi)
+    vline(px, 2, 2, h - 4, c_hi2)
+    hline(px, 2, w - 2, h - 2, c_sh)
+    hline(px, 3, w - 3, h - 3, c_sh2)
+    vline(px, w - 2, 2, h - 2, c_sh)
+    vline(px, w - 3, 3, h - 3, c_sh2)
+
+    for y in range(4, h - 4, 2):
+        hline(px, 3, w - 4, y, c_bg2)
+
+    # Recessed top OLED header strip behind title/signal/battery (x=6..w-7, y=4..19)
+    fill_rect(px, 6, 4, w - 7, 19, rgba("#182330"))
+    hline(px, 6, w - 7, 4, c_rim_dk)
+    hline(px, 6, w - 7, 19, rgba("#2A3D52"))
+    # Subtle cyan header micro-accent flanking title
+    hline(px, 24, 174, 18, rgba("#1C455C"))
+
+    # Beveled inner display bay rim framing both screens (x=6..w-7, y=20..h-9)
+    hline(px, 6, w - 7, 20, c_rim_dk)
+    vline(px, 6, 20, h - 9, c_rim_dk)
+    hline(px, 6, w - 7, h - 9, c_rim_lt)
+    vline(px, w - 7, 20, h - 9, c_rim_lt)
+
+    # Rugged amber-gold armored corner bumpers with crisp bevel & dark rubberized seam
+    amb_sp = rgba("#FFE680")
+    amb_hi = rgba("#F2B632")
+    amb_md = rgba("#C77E14")
+    amb_dk = rgba("#784407")
+    seam = rgba("#0D131B")
+    bumper_corners = (
+        (1, 1, 1, 1),
+        (w - 2, 1, -1, 1),
+        (1, h - 2, 1, -1),
+        (w - 2, h - 2, -1, -1),
+    )
+    for cx, cy, dx, dy in bumper_corners:
+        # Horizontal & vertical armored bumper arms (8px long, 3px thick)
+        for s in range(8):
+            px[cx + dx * s, cy] = amb_hi if dy > 0 else amb_dk
+            px[cx + dx * s, cy + dy] = amb_md
+            px[cx + dx * s, cy + dy * 2] = amb_dk if dy > 0 else amb_md
+            px[cx, cy + dy * s] = amb_hi if dx > 0 else amb_dk
+            px[cx + dx, cy + dy * s] = amb_md
+            px[cx + dx * 2, cy + dy * s] = amb_dk if dx > 0 else amb_md
+        # Specular corner knuckle & dark mounting seam
+        px[cx, cy] = amb_sp if (dx > 0 and dy > 0) else amb_hi
+        px[cx + dx, cy + dy] = amb_hi if (dx > 0 and dy > 0) else amb_md
+        px[cx + dx * 8, cy] = seam
+        px[cx + dx * 8, cy + dy] = seam
+        px[cx + dx * 8, cy + dy * 2] = seam
+        px[cx, cy + dy * 8] = seam
+        px[cx + dx, cy + dy * 8] = seam
+        px[cx + dx * 2, cy + dy * 8] = seam
+
+    # Tactile knurled chassis grip ticks on left (x=1..3) & right (x=w-4..w-2) edges
+    for gy in range(52, h - 52, 4):
+        hline(px, 1, 3, gy, rgba("#0F151E"))
+        hline(px, 1, 3, gy + 1, rgba("#475B70"))
+        hline(px, w - 4, w - 2, gy, rgba("#0F151E"))
+        hline(px, w - 4, w - 2, gy + 1, rgba("#475B70"))
+
+    # Bottom chassis tactical speaker micro-grille & status LEDs (y=h-6..h-4, well below screens y=199)
+    for vx in range(106, 142, 3):
+        fill_rect(px, vx, h - 6, vx + 1, h - 5, rgba("#101720"))
+        px[vx, h - 4] = rgba("#354759")
+    # Small glowing teal power indicator LED on bottom-left chin
+    fill_rect(px, 14, h - 6, 17, h - 5, rgba("#0E292A"))
+    px[15, h - 6] = rgba("#3BF5D6")
+    px[16, h - 6] = rgba("#1BB8A2")
+    # Small amber RF link indicator on bottom-right chin
+    fill_rect(px, w - 18, h - 6, w - 15, h - 5, rgba("#2B1F0E"))
+    px[w - 17, h - 6] = rgba("#F2B632")
+    px[w - 16, h - 6] = rgba("#B57514")
+
+
+def _draw_framed_lcd(px, x0: int, y0: int, w: int, h: int, bg_hex: str, scan_hex: str, rim_dk: str, rim_lt: str, rim_mid: str):
+    """Draw a recessed dark LCD viewport with custom bevel colors and crisp 2px scanlines."""
+    x1, y1 = x0 + w - 1, y0 + h - 1
+    fill_rect(px, x0, y0, x1, y1, rgba(bg_hex))
+    hline(px, x0, x1 - 1, y0, rgba(rim_dk))
+    vline(px, x0, y0, y1 - 1, rgba(rim_dk))
+    hline(px, x0 + 1, x1, y1, rgba(rim_lt))
+    vline(px, x1, y0 + 1, y1, rgba(rim_lt))
+    px[x1, y0] = rgba(rim_mid)
+    px[x0, y1] = rgba(rim_mid)
+    for y in range(y0 + 2, y1 - 1, 2):
+        hline(px, x0 + 1, x1 - 1, y, rgba(scan_hex))
+
+
+def _draw_hub_slot(px, item_x: int, item_y: int, style: str = "neutral"):
+    """Draw a refined 18x18 recessed slot tailored to the Gilded Bronze Cooperation Hub palette."""
+    x0, y0, x1, y1 = item_x - 1, item_y - 1, item_x + 16, item_y + 16
+    accent = None
+    if style == "gold":
+        c_bg, c_dk, c_lt, c_mid = rgba("#9E9172"), rgba("#593F10"), rgba("#FFF3C8"), rgba("#C9B47E")
+        accent = rgba("#F2C242")
+    elif style == "bronze":
+        c_bg, c_dk, c_lt, c_mid = rgba("#89857E"), rgba("#3E362B"), rgba("#F0E6D2"), rgba("#B8AE9C")
+        accent = rgba("#C49448")
+    elif style == "inbound":
+        c_bg, c_dk, c_lt, c_mid = rgba("#788FA6"), rgba("#1E3854"), rgba("#DDF0FF"), rgba("#9DBCD6")
+        accent = rgba("#38B2FF")
+    elif style == "outbound":
+        c_bg, c_dk, c_lt, c_mid = rgba("#9C8C75"), rgba("#573814"), rgba("#FFF0D8"), rgba("#CFB999")
+        accent = rgba("#FF9E26")
+    else:
+        c_bg, c_dk, c_lt, c_mid = rgba("#8F8D88"), rgba("#423B31"), rgba("#F5ECDA"), rgba("#BEB5A4")
+
+    fill_rect(px, x0, y0, x1, y1, c_bg)
+    hline(px, x0, x1 - 1, y0, c_dk)
+    vline(px, x0, y0, y1 - 1, c_dk)
+    hline(px, x0 + 1, x1, y1, c_lt)
+    vline(px, x1, y0 + 1, y1, c_lt)
+    px[x1, y0] = c_mid
+    px[x0, y1] = c_mid
+    if accent is not None:
+        hline(px, x0 + 1, x1 - 1, y0 + 1, accent)
+
+
+def _draw_pixel_sprite(px, x0: int, y0: int, grid: list[str], pal: dict[str, tuple[int, int, int, int]]):
+    for dy, row in enumerate(grid):
+        for dx, ch in enumerate(row):
+            if ch != ".":
+                px[x0 + dx, y0 + dy] = pal[ch]
+
+
+def _draw_season_badge_12x12(px, x0: int, y0: int, season: str):
+    """Draw crisp 12x12 pixel-art season badges (spring, summer, autumn, winter) on dark rounded plates."""
+    if season == "spring":
+        grid = [
+            ".rrrrrrrrrr.",
+            "rbbbbbbbbbbr",
+            "rbbbbPPbbbbr",
+            "rbPPbHHbPPbr",
+            "rbHHPYYPHHbr",
+            "rbbPPWWPPbbr",
+            "rbbPHYYHPbbr",
+            "rbPPbPPbPPbr",
+            "rbbGbbbbLGbr",
+            "rbbbGGbGGbbr",
+            "rbbbbbbbbbbr",
+            ".rrrrrrrrrr.",
+        ]
+        pal = {
+            "r": rgba("#2B6943"),
+            "b": rgba("#102418"),
+            "P": rgba("#F57EB6"),
+            "H": rgba("#FFD6EB"),
+            "Y": rgba("#FFD942"),
+            "W": rgba("#FFFCE6"),
+            "G": rgba("#2CD96B"),
+            "L": rgba("#94FFBA"),
+        }
+    elif season == "summer":
+        grid = [
+            ".rrrrrrrrrr.",
+            "rbbbbRRbbbbr",
+            "rbRbbbbbbRbr",
+            "rbbbYHHYbbbr",
+            "rbbYHWWYHbbr",
+            "rRbHWWWWHbRr",
+            "rRbHWWYYHbRr",
+            "rbbYHHHHYbbr",
+            "rbbbYYYYbbbr",
+            "rbRbbbbbbRbr",
+            "rbbbbRRbbbbr",
+            ".rrrrrrrrrr.",
+        ]
+        pal = {
+            "r": rgba("#8A5C18"),
+            "b": rgba("#2B1B08"),
+            "R": rgba("#FF9E1C"),
+            "Y": rgba("#FFB824"),
+            "H": rgba("#FFE55C"),
+            "W": rgba("#FFFBD6"),
+        }
+    elif season == "autumn":
+        grid = [
+            ".rrrrrrrrrr.",
+            "rbbbbHHbbbbr",
+            "rbbbHOOHbbbr",
+            "rbHbHOOHbHbr",
+            "rbOHOYYOHObr",
+            "rbbOOYYOObbr",
+            "rbROOYYOORbr",
+            "rbbRROORRbbr",
+            "rbbbbSSbbbbr",
+            "rbbbbbSbbbbr",
+            "rbbbbSbbbbbr",
+            ".rrrrrrrrrr.",
+        ]
+        pal = {
+            "r": rgba("#8A3C1C"),
+            "b": rgba("#2B140B"),
+            "H": rgba("#FFD259"),
+            "Y": rgba("#FFB02E"),
+            "O": rgba("#F0641E"),
+            "R": rgba("#C43314"),
+            "S": rgba("#8C471E"),
+        }
+    else:  # winter
+        grid = [
+            ".rrrrrrrrrr.",
+            "rbbbbCCbbbbr",
+            "rbCbbWWbbCbr",
+            "rbbCbCCbCbbr",
+            "rbbbCWWCbbbr",
+            "rCWCCWWCCWCr",
+            "rCWCCWWCCWCr",
+            "rbbbCWWCbbbr",
+            "rbbCbCCbCbbr",
+            "rbCbbWWbbCbr",
+            "rbbbbCCbbbbr",
+            ".rrrrrrrrrr.",
+        ]
+        pal = {
+            "r": rgba("#2B7099"),
+            "b": rgba("#0C1E2E"),
+            "C": rgba("#47DAFF"),
+            "W": rgba("#F2FEFF"),
+        }
+    _draw_pixel_sprite(px, x0, y0, grid, pal)
+
+
+def _draw_weekly_calendar_12x12(px, x0: int, y0: int):
+    """Draw a crisp 12x12 weekly restock calendar icon with amber-gold header and green restock day."""
+    grid = [
+        "..oo....oo..",
+        ".oBBooooBBo.",
+        "oHGGGGGGGGHo",
+        "oAAAAAAAAAAo",
+        "oWWWWWWWWWWo",
+        "oWDDWDDWDDWo",
+        "oWWWWWWWWWWo",
+        "oWDDWDDWDDWo",
+        "oWWWWWWWWWWo",
+        "oWDDWDDWEEWo",
+        "oSSSSSSSSSSo",
+        ".oooooooooo.",
+    ]
+    pal = {
+        "o": rgba("#1D1710"),
+        "B": rgba("#E2EAF2"),
+        "H": rgba("#FFF099"),
+        "G": rgba("#F0B62B"),
+        "A": rgba("#BD7E14"),
+        "W": rgba("#F2F6FA"),
+        "S": rgba("#C4D0DE"),
+        "D": rgba("#475C75"),
+        "E": rgba("#22CF66"),
+    }
+    _draw_pixel_sprite(px, x0, y0, grid, pal)
+
+
+def _draw_biome_badge_10x10(px, x0: int, y0: int, biome: str):
+    """Draw crisp 10x10 biome emblem badges (plains, desert, savanna, taiga, snowy, jungle, swamp)."""
+    if biome == "plains":
+        grid = [
+            ".rrrrrrrr.",
+            "rbbbbbbbbr",
+            "rbLLbbLLbr",
+            "rbbLGGLbbr",
+            "rbbbGGbbbr",
+            "rbbbGGbbbr",
+            "rbbGLLGbbr",
+            "rbGGGGGGbr",
+            "rbDDDDDDbr",
+            ".rrrrrrrr.",
+        ]
+        pal = {
+            "r": rgba("#2E6E44"),
+            "b": rgba("#10241A"),
+            "L": rgba("#98FFAD"),
+            "G": rgba("#36D968"),
+            "D": rgba("#7A5532"),
+        }
+    elif biome == "desert":
+        grid = [
+            ".rrrrrrrr.",
+            "rbbbbbbbbr",
+            "rbbbLGbbbr",
+            "rbGbLGbbbr",
+            "rbGGLGbGbr",
+            "rbbbLGGGbr",
+            "rbbSGGSSbr",
+            "rbSSSSSSbr",
+            "rbAAAAAAbr",
+            ".rrrrrrrr.",
+        ]
+        pal = {
+            "r": rgba("#8A682A"),
+            "b": rgba("#291D0D"),
+            "L": rgba("#78F088"),
+            "G": rgba("#2DB84A"),
+            "S": rgba("#FFE07D"),
+            "A": rgba("#D49C35"),
+        }
+    elif biome == "savanna":
+        grid = [
+            ".rrrrrrrr.",
+            "rbbbbbbbbr",
+            "rbbLLLLbbr",
+            "rbLLGGGGbr",
+            "rbbGTTGbbr",
+            "rbbbbTbbbr",
+            "rbbbTbbbbr",
+            "rbOOTOOObr",
+            "rbCCCCCCbr",
+            ".rrrrrrrr.",
+        ]
+        pal = {
+            "r": rgba("#8C4B28"),
+            "b": rgba("#2B170E"),
+            "L": rgba("#BEE854"),
+            "G": rgba("#78A828"),
+            "T": rgba("#6E4A2E"),
+            "O": rgba("#E09448"),
+            "C": rgba("#B55B2A"),
+        }
+    elif biome == "taiga":
+        grid = [
+            ".rrrrrrrr.",
+            "rbbbLLbbbr",
+            "rbbbLGbbbr",
+            "rbbLLGGbbr",
+            "rbbbLGbbbr",
+            "rbbLLGGbbr",
+            "rbLLGGGGbr",
+            "rbbbTTbbbr",
+            "rbSSTTSSbr",
+            ".rrrrrrrr.",
+        ]
+        pal = {
+            "r": rgba("#2B6158"),
+            "b": rgba("#0E211F"),
+            "L": rgba("#5AE09B"),
+            "G": rgba("#1E8A5E"),
+            "T": rgba("#6E4A2C"),
+            "S": rgba("#6B8582"),
+        }
+    elif biome == "snowy":
+        grid = [
+            ".rrrrrrrr.",
+            "rbbbWWbbbr",
+            "rbbWCCWbbr",
+            "rbWWHCCWbr",
+            "rbWHCCDDbr",
+            "rbWCCDDDbr",
+            "rbbWCDDbbr",
+            "rbbbCDbbbr",
+            "rbbbbbbbbr",
+            ".rrrrrrrr.",
+        ]
+        pal = {
+            "r": rgba("#2B6B99"),
+            "b": rgba("#0D1E30"),
+            "H": rgba("#FFFFFF"),
+            "W": rgba("#A8FAFF"),
+            "C": rgba("#4BE2FF"),
+            "D": rgba("#1B98D6"),
+        }
+    elif biome == "jungle":
+        grid = [
+            ".rrrrrrrr.",
+            "rbbLbbLLbr",
+            "rbbGbbGLbr",
+            "rbbNbbNGbr",
+            "rbLGbbGbbr",
+            "rbGGbLGLbr",
+            "rbbNbbNGbr",
+            "rbbGbbGbbr",
+            "rbbGbbGbbr",
+            ".rrrrrrrr.",
+        ]
+        pal = {
+            "r": rgba("#247336"),
+            "b": rgba("#0C2412"),
+            "L": rgba("#8EFF54"),
+            "G": rgba("#28C946"),
+            "N": rgba("#E0FF9E"),
+        }
+    else:  # swamp
+        grid = [
+            ".rrrrrrrr.",
+            "rbbbbbbbbr",
+            "rbbbVVbbbr",
+            "rbbVPPVbbr",
+            "rbbbVVbbbr",
+            "rbbLLGGbbr",
+            "rbLLGGGGbr",
+            "rbGGGGbGbr",
+            "rbWWWWWWbr",
+            ".rrrrrrrr.",
+        ]
+        pal = {
+            "r": rgba("#2D665F"),
+            "b": rgba("#112423"),
+            "P": rgba("#FFD9FF"),
+            "V": rgba("#DA6BFF"),
+            "L": rgba("#6CE6A0"),
+            "G": rgba("#279E6C"),
+            "W": rgba("#1A5C6B"),
+        }
+    _draw_pixel_sprite(px, x0, y0, grid, pal)
+
+
+def _draw_order_tag_8x8(px, x0: int, y0: int, kind: str):
+    """Draw crisp 8x8 mini order tag icons (biome specialty star, seasonal spark)."""
+    if kind == "biome":
+        grid = [
+            "...oo...",
+            "..oGGo..",
+            ".oGEEGo.",
+            "oGEWWEGo",
+            "oGEWWEGo",
+            ".oGEEGo.",
+            "..oGGo..",
+            "...oo...",
+        ]
+        pal = {
+            "o": rgba("#16291D"),
+            "G": rgba("#FFD447"),
+            "E": rgba("#36EB7C"),
+            "W": rgba("#E8FFF2"),
+        }
+    else:  # season
+        grid = [
+            "...oo...",
+            "..oAAo..",
+            ".oAWWAo.",
+            "oAWWWCCo",
+            "oAAWWCCo",
+            ".oACCDo.",
+            "..oCCo..",
+            "...oo...",
+        ]
+        pal = {
+            "o": rgba("#15202E"),
+            "A": rgba("#FFBE3B"),
+            "C": rgba("#42EAFF"),
+            "D": rgba("#1D9ED4"),
+            "W": rgba("#FFFCE8"),
+        }
+    _draw_pixel_sprite(px, x0, y0, grid, pal)
+
+
+def _draw_cpi_arrow_10x10(px, x0: int, y0: int, kind: str):
+    """Draw crisp 10x10 shaded CPI trend icons (up, down, stable)."""
+    if kind == "up":
+        grid = [
+            "....oo....",
+            "...oHHo...",
+            "..oHRRHo..",
+            ".oHRRRRHo.",
+            "oHRRRRRRHo",
+            "oRRRRRRRRo",
+            ".ooRRRRoo.",
+            "..oRRRRo..",
+            "..oDDDDo..",
+            "..oooooo..",
+        ]
+        pal = {
+            "o": rgba("#4A120E"),
+            "H": rgba("#FFA69E"),
+            "R": rgba("#FF4F42"),
+            "D": rgba("#B8251C"),
+        }
+    elif kind == "down":
+        grid = [
+            "..oooooo..",
+            "..oHHHHo..",
+            "..oCCCCo..",
+            ".ooCCCCoo.",
+            "oCCCCCCCCo",
+            "oCCCDDDCCo",
+            ".oCDDDDCo.",
+            "..oDDDDo..",
+            "...oDDo...",
+            "....oo....",
+        ]
+        pal = {
+            "o": rgba("#0C2D47"),
+            "H": rgba("#BDF7FF"),
+            "C": rgba("#38DCFF"),
+            "D": rgba("#1799C9"),
+        }
+    else:  # stable
+        grid = [
+            "..........",
+            "..........",
+            "..........",
+            ".oooooooo.",
+            "oHHHHHHHHo",
+            "oGGGGGGGGo",
+            "oDDDDDDDDo",
+            ".oooooooo.",
+            "..........",
+            "..........",
+        ]
+        pal = {
+            "o": rgba("#0E3B21"),
+            "H": rgba("#A8FFCA"),
+            "G": rgba("#3CE87A"),
+            "D": rgba("#1C9C4C"),
+        }
+    _draw_pixel_sprite(px, x0, y0, grid, pal)
+
+
+def _draw_auto_badge_14x14(px, x0: int, y0: int, enabled: bool):
+    """Draw crisp 14x14 Auto-Fulfill ON (emerald checkmark) and OFF (slate dash) badges."""
+    if enabled:
+        grid = [
+            ".oooooooooooo.",
+            "oHHHHHHHHHHHGo",
+            "oHGGGGGGGGGGDo",
+            "oHGGGGGGGGWWDo",
+            "oHGGGGGGGWWWDo",
+            "oHGWWGGGWWWGDo",
+            "oHGWWWGGWWGGDo",
+            "oHGGWWWWWGGGDo",
+            "oHGGGWWWGGGGDo",
+            "oHGGGGWGGGGGDo",
+            "oHGGGGGGGGGGDo",
+            "oHGGGGGGGGGGDo",
+            "oGDDDDDDDDDDDo",
+            ".oooooooooooo.",
+        ]
+        pal = {
+            "o": rgba("#0C2B19"),
+            "H": rgba("#6BF7A1"),
+            "G": rgba("#20B85C"),
+            "D": rgba("#117037"),
+            "W": rgba("#F0FFF6"),
+        }
+    else:
+        grid = [
+            ".oooooooooooo.",
+            "oHHHHHHHHHHHGo",
+            "oHGGGGGGGGGGDo",
+            "oHGGGGGGGGGGDo",
+            "oHGGGGGGGGGGDo",
+            "oHGGGGGGGGGGDo",
+            "oHGGWWWWWWGGDo",
+            "oHGGWWWWWWGGDo",
+            "oHGGGGGGGGGGDo",
+            "oHGGGGGGGGGGDo",
+            "oHGGGGGGGGGGDo",
+            "oHGGGGGGGGGGDo",
+            "oGDDDDDDDDDDDo",
+            ".oooooooooooo.",
+        ]
+        pal = {
+            "o": rgba("#181D24"),
+            "H": rgba("#5E6775"),
+            "G": rgba("#3D4552"),
+            "D": rgba("#282E38"),
+            "W": rgba("#8B95A6"),
+        }
+    _draw_pixel_sprite(px, x0, y0, grid, pal)
+
+
+def _draw_chunk_loader_16x16(px, x0: int, y0: int):
+    """Draw a crisp symmetric 16x16 Chunk-Loader Active 3x3 chunk beacon badge."""
+    grid = [
+        ".rrrrrrrrrrrrrr.",
+        "rbbbbbbbbbbbbbbr",
+        "rbbgbbbbbbbbgbbr",
+        "rbbCCbbCCbbCCbbr",
+        "rbbCCbbCCbbCCbbr",
+        "rbbbbbbbbbbbbbbr",
+        "rbbbbbTTTTbbbbbr",
+        "rbbCCbTWWTbCCbbr",
+        "rbbCCbTWWTbCCbbr",
+        "rbbbbbTTTTbbbbbr",
+        "rbbbbbbbbbbbbbbr",
+        "rbbCCbbCCbbCCbbr",
+        "rbbCCbbCCbbCCbbr",
+        "rbbgbbbbbbbbgbbr",
+        "rbbbbbbbbbbbbbbr",
+        ".rrrrrrrrrrrrrr.",
+    ]
+    pal = {
+        "r": rgba("#207A68"),
+        "b": rgba("#0C1E1C"),
+        "C": rgba("#26CC9F"),
+        "T": rgba("#5EFFDB"),
+        "W": rgba("#ECFFFA"),
+        "g": rgba("#1A5C4E"),
+    }
+    _draw_pixel_sprite(px, x0, y0, grid, pal)
+
+
+def _draw_village_pin_12x12(px, x0: int, y0: int):
+    """Draw a crisp 12x12 glowing cyan tactical map pin for Comm Terminal."""
+    grid = [
+        "....oooo....",
+        "..ooHHHHoo..",
+        ".oHCCCCCCDo.",
+        ".oCCWWWWCDo.",
+        ".oCCWWWWCDo.",
+        ".oHCCCCCCDo.",
+        "..oCCCCCCo..",
+        "...oCDDDCo..",
+        "....oCDCo...",
+        ".....oDo....",
+        "......o.....",
+        "............",
+    ]
+    pal = {
+        "o": rgba("#082030"),
+        "H": rgba("#A8FAFF"),
+        "C": rgba("#3AEBFF"),
+        "D": rgba("#158CB8"),
+        "W": rgba("#FFFFFF"),
+    }
+    _draw_pixel_sprite(px, x0, y0, grid, pal)
+
+
 def make_gui_cooperation_hub() -> Image.Image:
-    """256x256 GUI atlas for Village Cooperation Hub (panel 248x222)."""
+    """256x256 GUI atlas for Village Cooperation Hub (panel 248x222) — Gilded Bronze & Deep Ledger."""
     PW, PH = 248, 222
     panel_rects = [
-        ("tab_strip", 8, 5, 232, 14),
-        ("banner_lcd", 8, 21, 232, 24),
-        ("viewport", 8, 48, 232, 86),
+        ("tab_rail", 8, 4, 232, 16),
+        ("banner_lcd", 8, 21, 232, 25),
+        ("viewport", 8, 48, 232, 87),
         ("player_inv", 7, 139, 162, 54),
         ("hotbar", 7, 197, 162, 18),
         ("divider", 173, 139, 2, 76),
@@ -2088,97 +2803,142 @@ def make_gui_cooperation_hub() -> Image.Image:
     ]
     _verify_rects(panel_rects, PW, PH, margin=3)
 
+    sprite_rects = [
+        ("panel_body", 0, 0, PW, PH),
+        ("slot_neutral", 0, 226, 18, 18),
+        ("slot_inbound", 20, 226, 18, 18),
+        ("slot_outbound", 40, 226, 18, 18),
+        ("season_spring", 62, 226, 12, 12),
+        ("season_summer", 76, 226, 12, 12),
+        ("season_autumn", 90, 226, 12, 12),
+        ("season_winter", 104, 226, 12, 12),
+        ("cpi_up", 120, 226, 10, 10),
+        ("cpi_down", 132, 226, 10, 10),
+        ("cpi_stable", 144, 226, 10, 10),
+        ("auto_on", 158, 226, 14, 14),
+        ("auto_off", 174, 226, 14, 14),
+        ("chunk_loader", 192, 226, 16, 16),
+        ("mayor_crown", 212, 226, 16, 16),
+        ("weekly_calendar", 232, 226, 12, 12),
+        ("biome_plains", 0, 244, 10, 10),
+        ("biome_desert", 12, 244, 10, 10),
+        ("biome_savanna", 24, 244, 10, 10),
+        ("biome_taiga", 36, 244, 10, 10),
+        ("biome_snowy", 48, 244, 10, 10),
+        ("biome_jungle", 60, 244, 10, 10),
+        ("biome_swamp", 72, 244, 10, 10),
+        ("tag_biome", 86, 246, 8, 8),
+        ("tag_season", 96, 246, 8, 8),
+    ]
+    _verify_rects(sprite_rects, 256, 256, margin=0)
+
     im = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
     px = im.load()
-    _draw_panel_frame(px, PW, PH, "gold")
+    _draw_hub_bronze_panel_frame(px, PW, PH)
 
-    # Gilded municipal top trim
-    hline(px, 6, 241, 3, rgba("#E8B838"))
-    hline(px, 6, 241, 4, rgba("#A87314"))
+    # Recessed Header Tab Rail (8, 4, 232, 16) -> integrates seamlessly with 4 beveled tabs
+    _draw_framed_lcd(px, 8, 4, 232, 16, "#1B2534", "#202C3D", "#3B2F1E", "#F2E7CF", "#9E8D70")
+    hline(px, 9, 238, 5, rgba("#121924"))
+    for sep_x in (65, 123, 181):
+        vline(px, sep_x, 5, 18, rgba("#33291B"))
 
-    # Top Village Status Banner LCD (8, 21, 232, 24)
-    _draw_lcd(px, 8, 21, 232, 24, bg_hex="#141F30", scan_hex="#1A283D", rim_lt="#EFE4CE")
-    vline(px, 9, 22, 43, rgba("#F0BC38"))
+    # Top Village Status Banner LCD (8, 21, 232, 25) — Deep Royal-Navy Ledger Header
+    _draw_framed_lcd(px, 8, 21, 232, 25, "#101B2B", "#142236", "#292014", "#EFE1C4", "#9E8D70")
+    # Subtle inner top highlight across banner glass
+    hline(px, 11, 238, 22, rgba("#1E3452"))
+    # Gilded left accent bar (x=9) + shadow separator (x=10)
+    vline(px, 9, 22, 44, rgba("#F2C244"))
+    px[9, 22] = rgba("#FFF2A8")
+    px[9, 44] = rgba("#AD7916")
+    vline(px, 10, 22, 44, rgba("#0B121D"))
 
-    # Main Multi-Tab Content Viewport (8, 48, 232, 86) — clean dark slate panel
-    _draw_lcd(px, 8, 48, 232, 86, bg_hex="#181F29", scan_hex="#1E2733", rim_lt="#EFE4CE")
+    # Subtle bronze accent rail between Banner and Viewport (y=46..47)
+    hline(px, 9, 238, 46, rgba("#D9A834"))
+    hline(px, 9, 238, 47, rgba("#7D5714"))
 
-    # Player Inventory (8 + col*18, y=140/158/176 & hotbar y=198)
+    # Main Multi-Tab Content Viewport (8, 48, 232, 87) — Deep Slate-Navy Ledger Surface
+    _draw_framed_lcd(px, 8, 48, 232, 87, "#111924", "#151F2D", "#261E14", "#EBDCB8", "#9A896B")
+    hline(px, 9, 238, 49, rgba("#0C121B"))
+
+    # Architectural gilded-bronze divider groove between Viewport & Inventory/Utility row (y=136..137)
+    hline(px, 7, 239, 136, rgba("#8F6E30"))
+    hline(px, 7, 239, 137, rgba("#F0E4CA"))
+
+    # Player Inventory (8 + col*18, y=140/158/176) & Hotbar (y=198) — exact menu coordinates!
     for row in range(3):
         for col in range(9):
-            _draw_slot(px, 8 + col * 18, 140 + row * 18)
+            _draw_hub_slot(px, 8 + col * 18, 140 + row * 18, style="neutral")
+    # Subtle bronze separator groove between inventory & hotbar (y=194..195)
+    hline(px, 8, 167, 194, rgba("#9C8E78"))
+    hline(px, 8, 167, 195, rgba("#EDE2CC"))
     for col in range(9):
-        _draw_slot(px, 8 + col * 18, 198)
+        _draw_hub_slot(px, 8 + col * 18, 198, style="neutral")
 
     # Vertical Divider & Right Utility Column (Cash Slot + 2 Upgrade Slots + Status LCD)
-    vline(px, 173, 139, 214, rgba("#8C8474"))
-    vline(px, 174, 139, 214, rgba("#F2EBD8"))
+    vline(px, 173, 139, 214, rgba("#7D694D"))
+    vline(px, 174, 139, 214, rgba("#F2E8D2"))
+    px[173, 139] = rgba("#C9962C")
+    px[173, 214] = rgba("#C9962C")
 
-    _draw_slot(px, 181, 144, accent=rgba("#E8B838"), tint="gold")
-    _draw_watermark(px, 181, 144, WM_COIN, rgba("#877C63"), rgba("#6E634B"))
+    # Gilded Cash Slot (181, 144)
+    _draw_hub_slot(px, 181, 144, style="gold")
+    _draw_watermark(px, 181, 144, WM_COIN, rgba("#8A7A56"), rgba("#6E5F3E"))
 
-    _draw_slot(px, 203, 144)
-    _draw_watermark(px, 203, 144, WM_UPGRADE, rgba("#7B808A"), rgba("#636872"))
-    _draw_slot(px, 223, 144)
-    _draw_watermark(px, 223, 144, WM_UPGRADE, rgba("#7B808A"), rgba("#636872"))
+    # Brushed Bronze Upgrade Slots 0 & 1 (203, 144 & 223, 144)
+    _draw_hub_slot(px, 203, 144, style="bronze")
+    _draw_watermark(px, 203, 144, WM_UPGRADE, rgba("#756F66"), rgba("#5C564E"))
+    _draw_hub_slot(px, 223, 144, style="bronze")
+    _draw_watermark(px, 223, 144, WM_UPGRADE, rgba("#756F66"), rgba("#5C564E"))
 
-    _draw_lcd(px, 179, 166, 61, 49, bg_hex="#141D29", scan_hex="#1A2534", rim_lt="#EFE4CE")
+    # Right Status Summary LCD (179, 166, 61, 49) with gilded top accent hairline
+    _draw_framed_lcd(px, 179, 166, 61, 49, "#101924", "#14202F", "#261E14", "#EBDCB8", "#9A896B")
+    hline(px, 180, 238, 167, rgba("#E8B838"))
+    px[180, 167] = rgba("#FFF2A8")
+    px[238, 167] = rgba("#AD7916")
+    hline(px, 180, 238, 168, rgba("#0B111A"))
 
-    # Dynamic Sprites in Bottom Margin (v = 226..254)
-    # 1) Reusable 18x18 Slots: Standard (0,226), Inbound Blue (20,226), Outbound Amber (40,226)
-    _draw_slot(px, 1, 227, tint="neutral")
-    _draw_slot(px, 21, 227, accent=rgba("#2FA0F5"), tint="blue")
-    _draw_slot(px, 41, 227, accent=rgba("#F58C1F"), tint="amber")
+    # --- Sprite Atlas Strip (v = 224..255) ---
+    # 1) Reusable 18x18 Warehouse Slots: Neutral (0,226), Inbound Sapphire (20,226), Outbound Amber (40,226)
+    _draw_hub_slot(px, 1, 227, style="neutral")
+    _draw_hub_slot(px, 21, 227, style="inbound")
+    _draw_hub_slot(px, 41, 227, style="outbound")
 
-    # 2) Season Icons (12x12 each at u=62, 76, 90, 104, v=226)
-    # Spring (green blossom), Summer (golden sun), Autumn (amber leaf), Winter (cyan snowflake)
-    season_colors = [
-        (62, rgba("#152E1E"), rgba("#47F07A"), rgba("#FFB8D9")),
-        (76, rgba("#33230A"), rgba("#FFD93B"), rgba("#FFF8B8")),
-        (90, rgba("#33180B"), rgba("#F07824"), rgba("#FFC25C")),
-        (104, rgba("#112838"), rgba("#5CE8FF"), rgba("#FFFFFF")),
-    ]
-    for sx, bg_c, main_c, hi_c in season_colors:
-        fill_rect(px, sx, 226, sx + 11, 237, bg_c)
-        fill_rect(px, sx + 3, 229, sx + 8, 234, main_c)
-        px[sx + 5, 231] = hi_c
-        px[sx + 6, 231] = hi_c
-        px[sx + 5, 228] = hi_c
-        px[sx + 6, 235] = main_c
-        px[sx + 2, 231] = main_c
-        px[sx + 9, 232] = main_c
+    # 2) Season Badges (12x12 at u=62, 76, 90, 104, v=226)
+    _draw_season_badge_12x12(px, 62, 226, "spring")
+    _draw_season_badge_12x12(px, 76, 226, "summer")
+    _draw_season_badge_12x12(px, 90, 226, "autumn")
+    _draw_season_badge_12x12(px, 104, 226, "winter")
 
     # 3) CPI Trend Arrows (10x10 at u=120, 132, 144, v=226)
-    # Inflation UP (red-orange)
-    for dy in range(6):
-        hline(px, 125 - dy // 2, 125 + dy // 2, 228 + dy, rgba("#FF5247"))
-    # Deflation DOWN (cyan)
-    for dy in range(6):
-        hline(px, 137 - (5 - dy) // 2, 137 + (5 - dy) // 2, 228 + dy, rgba("#38D9FF"))
-    # Stable (green dash)
-    hline(px, 146, 152, 230, rgba("#42E87A"))
-    hline(px, 146, 152, 231, rgba("#42E87A"))
+    _draw_cpi_arrow_10x10(px, 120, 226, "up")
+    _draw_cpi_arrow_10x10(px, 132, 226, "down")
+    _draw_cpi_arrow_10x10(px, 144, 226, "stable")
 
     # 4) Auto-Fulfill ON (158, 226, 14x14) & OFF (174, 226, 14x14)
-    fill_rect(px, 158, 226, 171, 239, rgba("#113320"))
-    fill_rect(px, 160, 228, 169, 237, rgba("#2EE070"))
-    fill_rect(px, 174, 226, 187, 239, rgba("#292E36"))
-    fill_rect(px, 176, 228, 185, 237, rgba("#545C68"))
+    _draw_auto_badge_14x14(px, 158, 226, True)
+    _draw_auto_badge_14x14(px, 174, 226, False)
 
     # 5) Chunk-Loader Active Badge (192, 226, 16x16)
-    fill_rect(px, 192, 226, 207, 241, rgba("#0F2420"))
-    for gx in (195, 199, 203):
-        for gy in (229, 233, 237):
-            col = rgba("#A8FFEB") if (gx == 199 and gy == 233) else rgba("#24D9AC")
-            fill_rect(px, gx, gy, gx + 1, gy + 1, col)
+    _draw_chunk_loader_16x16(px, 192, 226)
 
     # 6) Golden Mayor Crown Badge (212, 226, 16x16)
     _draw_crown_16x16(px, 212, 226)
+
+    # 7) Weekly Calendar/Restock Icon (232, 226, 12x12)
+    _draw_weekly_calendar_12x12(px, 232, 226)
+
+    # 8) 7 Biome Emblem Badges (10x10 each at v=244)
+    for idx, biome_id in enumerate(("plains", "desert", "savanna", "taiga", "snowy", "jungle", "swamp")):
+        _draw_biome_badge_10x10(px, idx * 12, 244, biome_id)
+
+    # 9) Mini Order Tag Icons (8x8 at v=246: u=86 Biome Specialty, u=96 Seasonal)
+    _draw_order_tag_8x8(px, 86, 246, "biome")
+    _draw_order_tag_8x8(px, 96, 246, "season")
     return im
 
 
 def make_gui_comm_terminal() -> Image.Image:
-    """256x256 GUI atlas for Handheld Communication Terminal PDA (panel 248x210)."""
+    """256x256 GUI atlas for Handheld Communication Terminal PDA (panel 248x210) — Deep-Space Cyan/Teal."""
     PW, PH = 248, 210
     panel_rects = [
         ("signal_led", 8, 6, 14, 12),
@@ -2188,56 +2948,135 @@ def make_gui_comm_terminal() -> Image.Image:
     ]
     _verify_rects(panel_rects, PW, PH, margin=3)
 
+    sprite_rects = [
+        ("panel_body", 0, 0, PW, PH),
+        ("battery_green", 0, 216, 56, 10),
+        ("battery_red", 0, 228, 56, 10),
+        ("village_pin", 64, 216, 12, 12),
+        ("mayor_crown", 82, 216, 16, 16),
+        ("season_spring", 102, 216, 12, 12),
+        ("season_summer", 116, 216, 12, 12),
+        ("season_autumn", 130, 216, 12, 12),
+        ("season_winter", 144, 216, 12, 12),
+        ("weekly_calendar", 160, 216, 12, 12),
+        ("biome_plains", 64, 236, 10, 10),
+        ("biome_desert", 76, 236, 10, 10),
+        ("biome_savanna", 88, 236, 10, 10),
+        ("biome_taiga", 100, 236, 10, 10),
+        ("biome_snowy", 112, 236, 10, 10),
+        ("biome_jungle", 124, 236, 10, 10),
+        ("biome_swamp", 136, 236, 10, 10),
+        ("tag_biome", 150, 238, 8, 8),
+        ("tag_season", 160, 238, 8, 8),
+    ]
+    _verify_rects(sprite_rects, 256, 256, margin=0)
+
     im = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
     px = im.load()
-    _draw_panel_frame(px, PW, PH, "pda")
+    _draw_pda_tactical_frame(px, PW, PH)
 
-    # Yellow-amber ruggedized corner grip bumpers on PDA housing
-    amb_hi, amb_md = rgba("#FFCC44"), rgba("#C98314")
-    for (x0, y0, x1, y1) in (
-        (1, 1, 7, 3), (1, 1, 3, 7),
-        (PW - 8, 1, PW - 2, 3), (PW - 4, 1, PW - 2, 7),
-        (1, PH - 4, 7, PH - 2), (1, PH - 8, 3, PH - 2),
-        (PW - 8, PH - 4, PW - 2, PH - 2), (PW - 4, PH - 8, PW - 2, PH - 2),
-    ):
-        fill_rect(px, x0, y0, x1, y1, amb_md)
-        hline(px, x0, x1, y0, amb_hi)
+    # Top-left Glowing Emerald-Cyan RF Signal Bars (8, 6, 14, 12)
+    _draw_framed_lcd(px, 8, 6, 14, 12, "#09151E", "#0C1B26", "#070E14", "#32495E", "#1A2B3B")
+    bar_colors = (
+        (rgba("#2BE899"), rgba("#A6FFD8")),
+        (rgba("#30EBB5"), rgba("#B0FFE8")),
+        (rgba("#36ECD6"), rgba("#B8FFF6")),
+        (rgba("#4AEFFF"), rgba("#D6FDFF")),
+    )
+    for idx, bar_h in enumerate((2, 4, 6, 8)):
+        bx = 10 + idx * 3
+        col_mid, col_hi = bar_colors[idx]
+        fill_rect(px, bx, 16 - bar_h, bx + 1, 15, col_mid)
+        hline(px, bx, bx + 1, 16 - bar_h, col_hi)
 
-    # Top-left RF signal bars icon (8, 6, 14, 12)
-    for idx, bar_h in enumerate((3, 5, 7, 9)):
-        bx = 9 + idx * 3
-        fill_rect(px, bx, 16 - bar_h, bx + 1, 16, rgba("#38F0A8"))
+    # Top-right Recessed Segmented Battery Gauge Frame (178, 6, 58, 12) + battery nub (236, 9)
+    _draw_framed_lcd(px, 178, 6, 58, 12, "#09131C", "#0D1A26", "#050A0F", "#4F6880", "#26384A")
+    # Subtle internal cell notches (8 x 7px segments) visible when partially discharged
+    for seg_x in range(185, 235, 7):
+        vline(px, seg_x, 7, 16, rgba("#152536"))
+    # Metallic battery terminal nub at (236, 9, 3x6)
+    fill_rect(px, 236, 9, 238, 14, rgba("#667C94"))
+    hline(px, 236, 238, 9, rgba("#9EB4CC"))
+    hline(px, 236, 238, 14, rgba("#334457"))
 
-    # Top-right Battery EU Gauge Frame (178, 6, 60, 12) + battery nub
-    _draw_lcd(px, 178, 6, 58, 12, bg_hex="#0D1720", scan_hex="#12202C", rim_lt="#6E8094")
-    fill_rect(px, 236, 9, 238, 14, rgba("#92A6BC"))
+    # Left Bound Villages List Rail (8, 22, 64, 178) — Deep Ocean-Black + Glowing Teal Top Bar
+    _draw_framed_lcd(px, 8, 22, 64, 178, "#0A141E", "#0E1A26", "#050A0F", "#3D556B", "#1F3040")
+    hline(px, 9, 70, 23, rgba("#24D9B8"))
+    hline(px, 20, 59, 23, rgba("#5EFFDF"))
+    # Subtle rail header tint (y=24..32) + separator line under rail header (y=33)
+    fill_rect(px, 9, 24, 70, 32, rgba("#0E1D2B"))
+    hline(px, 10, 69, 33, rgba("#1C3B52"))
+    hline(px, 10, 22, 33, rgba("#258F84"))
 
-    # Left Bound Villages List Rail (8, 22, 64, 178)
-    _draw_lcd(px, 8, 22, 64, 178, bg_hex="#0E1A22", scan_hex="#13222C", rim_lt="#5E7082")
-    hline(px, 9, 70, 23, rgba("#28C9A8"))
+    # Right Tactical Viewport (76, 22, 164, 178) — Deep Midnight Tactical Screen
+    _draw_framed_lcd(px, 76, 22, 164, 178, "#0B1622", "#0F1D2C", "#050A0F", "#425B73", "#223447")
+    # Bright cyan tactical top bar (y=23)
+    hline(px, 77, 238, 23, rgba("#2CE6FF"))
+    hline(px, 100, 215, 23, rgba("#8AF6FF"))
+    # Crisp tactical header zone framing (y=24..40) + horizontal divider (y=41)
+    fill_rect(px, 77, 24, 238, 40, rgba("#0F1E2E"))
+    for hy in range(25, 40, 2):
+        hline(px, 77, 238, hy, rgba("#132538"))
+    vline(px, 77, 24, 40, rgba("#2CE6FF"))
+    px[77, 24] = rgba("#B8FAFF")
+    hline(px, 77, 238, 41, rgba("#1F4B69"))
+    hline(px, 77, 94, 41, rgba("#32C8EB"))
 
-    # Main Tactical LCD Screen (76, 22, 164, 178)
-    _draw_lcd(px, 76, 22, 164, 178, bg_hex="#0E1920", scan_hex="#122029", rim_lt="#5E7082")
-    hline(px, 77, 238, 23, rgba("#32E6FF"))
-
-    # Dynamic Sprites in Bottom Margin (v = 216..248)
-    # 1) Battery Fill Green-Cyan: UV (0, 216, 56, 10)
+    # --- Sprite Atlas Strip (v = 214..255) ---
+    # 1) Battery Fill Green-Cyan Segmented Cells (8 clean 7px LED cells): UV (0, 216, 56, 10)
+    cell_palette = (
+        (rgba("#B8FFDF"), rgba("#2CE894"), rgba("#127A4E")),
+        (rgba("#B8FFE5"), rgba("#2CEAA0"), rgba("#127A56")),
+        (rgba("#B8FFEC"), rgba("#2EEBB0"), rgba("#127A62")),
+        (rgba("#C0FFF2"), rgba("#32ECC2"), rgba("#127D6F")),
+        (rgba("#C4FFF6"), rgba("#36EDD4"), rgba("#147D7D")),
+        (rgba("#CCF9FF"), rgba("#3CEEE6"), rgba("#157E8E")),
+        (rgba("#D4FBFF"), rgba("#46F0F5"), rgba("#16809E")),
+        (rgba("#DEFDFF"), rgba("#54F2FF"), rgba("#1882AD")),
+    )
     for dx in range(56):
-        col = rgba("#38F0A8") if dx < 40 else rgba("#5CEEFF")
-        vline(px, dx, 216, 225, col)
-        px[dx, 216] = rgba("#B8FFF0")
-        px[dx, 225] = rgba("#147D5C")
-    # 2) Battery Fill Red Low: UV (0, 228, 56, 10)
+        if dx % 7 == 6:
+            vline(px, dx, 216, 225, rgba("#0B2626"))
+        else:
+            c_hi, c_mid, c_sh = cell_palette[dx // 7]
+            vline(px, dx, 216, 225, c_mid)
+            px[dx, 216] = c_hi
+            px[dx, 217] = c_hi if (dx % 7 == 1) else c_mid
+            px[dx, 224] = c_sh
+            px[dx, 225] = rgba("#0C4A3D")
+
+    # 2) Battery Fill Red Low Segmented Cells: UV (0, 228, 56, 10)
     for dx in range(56):
-        vline(px, dx, 228, 237, rgba("#F03E32"))
-        px[dx, 228] = rgba("#FF9A91")
-        px[dx, 237] = rgba("#8A1A14")
-    # 3) Village Pin Icon (64, 216, 12, 12)
-    fill_rect(px, 66, 218, 73, 223, rgba("#38EBFF"))
-    fill_rect(px, 68, 224, 71, 226, rgba("#1D9AC2"))
-    px[69, 220] = rgba("#FFFFFF")
-    # 4) Golden Mayor Crown (82, 216, 16, 16)
+        if dx % 7 == 6:
+            vline(px, dx, 228, 237, rgba("#380D0B"))
+        else:
+            vline(px, dx, 228, 237, rgba("#F03E32"))
+            px[dx, 228] = rgba("#FFA39B")
+            px[dx, 236] = rgba("#B32219")
+            px[dx, 237] = rgba("#78140F")
+
+    # 3) Village Pin Icon (64, 216, 12x12)
+    _draw_village_pin_12x12(px, 64, 216)
+
+    # 4) Golden Mayor Crown (82, 216, 16x16)
     _draw_crown_16x16(px, 82, 216)
+
+    # 5) Season Badges (12x12 at u=102, 116, 130, 144, v=216)
+    _draw_season_badge_12x12(px, 102, 216, "spring")
+    _draw_season_badge_12x12(px, 116, 216, "summer")
+    _draw_season_badge_12x12(px, 130, 216, "autumn")
+    _draw_season_badge_12x12(px, 144, 216, "winter")
+
+    # 6) Weekly Calendar/Restock Icon (160, 216, 12x12)
+    _draw_weekly_calendar_12x12(px, 160, 216)
+
+    # 7) 7 Biome Emblem Badges (10x10 each at v=236: u=64..136)
+    for idx, biome_id in enumerate(("plains", "desert", "savanna", "taiga", "snowy", "jungle", "swamp")):
+        _draw_biome_badge_10x10(px, 64 + idx * 12, 236, biome_id)
+
+    # 8) Mini Order Tag Icons (8x8 at v=238: u=150 Biome Specialty, u=160 Seasonal)
+    _draw_order_tag_8x8(px, 150, 238, "biome")
+    _draw_order_tag_8x8(px, 160, 238, "season")
     return im
 
 

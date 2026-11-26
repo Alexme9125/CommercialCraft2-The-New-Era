@@ -1059,7 +1059,7 @@ final class TyC2QaServerRunner {
                                 statsAfter.tradeQuantityMultiplier(cfg), baselineQtySum, boostedQtySum,
                                 baselineQtySum > 0 ? (double) boostedQtySum / baselineQtySum : 0.0));
 
-                TycoonForgeWorldManager.refreshVillageOrders(level, data, village, level.getGameTime());
+                TycoonForgeWorldManager.refreshVillageOrders(level, data, village, level.getDayTime());
                 qa.check("employment_bonus.live_refresh_orders_present",
                         !village.getActiveOrders().isEmpty(),
                         "orders=" + village.getActiveOrders().size());
@@ -1493,7 +1493,7 @@ final class TyC2QaServerRunner {
         List<VillageTradeOrder> withQaOrder = new ArrayList<>(village.getActiveOrders());
         withQaOrder.add(new VillageTradeOrder(
                 qaCopperOrderId, OrderSide.VILLAGE_BUYS, "minecraft:copper_ingot", "vanilla_copper_ingot",
-                "", 10, 0, 25L, level.getGameTime(), level.getGameTime() + 12_000L, false, false
+                "", 10, 0, 25L, level.getDayTime(), level.getDayTime() + 168_000L, false, false, false
         ));
         village.setActiveOrders(withQaOrder);
 

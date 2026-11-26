@@ -31,6 +31,7 @@ public final class S2CTerminalSyncPacket {
     public record BoundVillageDto(
             UUID villageId,
             String name,
+            String biomeStyleId,
             int level,
             long balance,
             boolean partnered,
@@ -90,11 +91,11 @@ public final class S2CTerminalSyncPacket {
             if (vOpt.isPresent()) {
                 VillageRecord v = vOpt.get();
                 briefs.add(new BoundVillageDto(
-                        vid, v.getVillageName(), v.getLevel(), v.getVillageBalance(),
+                        vid, v.getVillageName(), v.getBiomeStyle().id(), v.getLevel(), v.getVillageBalance(),
                         v.isPartnered(), v.getMayorState().isPausedDueToDepopulation()
                 ));
             } else {
-                briefs.add(new BoundVillageDto(vid, vid.toString().substring(0, 8), 1, 0L, false, false));
+                briefs.add(new BoundVillageDto(vid, vid.toString().substring(0, 8), "plains", 1, 0L, false, false));
             }
         }
 
@@ -145,6 +146,7 @@ public final class S2CTerminalSyncPacket {
         for (BoundVillageDto v : pkt.boundVillages) {
             buf.writeUUID(v.villageId());
             buf.writeUtf(v.name(), 64);
+            buf.writeUtf(v.biomeStyleId() == null ? "plains" : v.biomeStyleId(), 32);
             buf.writeVarInt(v.level());
             buf.writeVarLong(v.balance());
             buf.writeBoolean(v.partnered());
@@ -177,6 +179,7 @@ public final class S2CTerminalSyncPacket {
             villages.add(new BoundVillageDto(
                     buf.readUUID(),
                     buf.readUtf(64),
+                    buf.readUtf(32),
                     buf.readVarInt(),
                     buf.readVarLong(),
                     buf.readBoolean(),

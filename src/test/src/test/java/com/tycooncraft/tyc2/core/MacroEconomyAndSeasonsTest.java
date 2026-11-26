@@ -82,9 +82,9 @@ class MacroEconomyAndSeasonsTest {
         assertEquals(elastic.totalMoneySupply(), restored.totalMoneySupply());
         assertEquals(elastic.computeCpi(), restored.computeCpi(), 1e-6);
 
-        // Municipal upkeep burns 2% of excess reserve above R_target
-        assertEquals(0L, engine.computeMunicipalUpkeep(1, 200L));
-        assertEquals(20L, engine.computeMunicipalUpkeep(1, 1_200L));
+        // Municipal upkeep burns 2% of excess reserve above R_target (Lv1 R_target = 350)
+        assertEquals(0L, engine.computeMunicipalUpkeep(1, 350L));
+        assertEquals(20L, engine.computeMunicipalUpkeep(1, 1_350L));
     }
 
     @Test
@@ -103,15 +103,15 @@ class MacroEconomyAndSeasonsTest {
         TradeGood kcChili = catalog.getById("tyc2:kc_chili").orElseThrow();
         TradeGood kcTea = catalog.getById("tyc2:kc_tea_leaf").orElseThrow();
 
-        // In-season sell discount (0.75x) vs off-season buy premium (1.45x..1.75x)
+        // In-season sell discount (0.75x) vs off-season buy premium (1.40x..1.65x)
         assertEquals(0.75, economy.computeSeasonFactor(wheat, Season.SPRING, false), 1e-6);
-        assertEquals(1.75, economy.computeSeasonFactor(wheat, Season.WINTER, true), 1e-6);
+        assertEquals(1.65, economy.computeSeasonFactor(wheat, Season.WINTER, true), 1e-6);
         assertEquals(0.75, economy.computeSeasonFactor(melon, Season.SUMMER, false), 1e-6);
-        assertEquals(1.60, economy.computeSeasonFactor(melon, Season.SPRING, true), 1e-6);
+        assertEquals(1.55, economy.computeSeasonFactor(melon, Season.SPRING, true), 1e-6);
         assertEquals(0.75, economy.computeSeasonFactor(beetroot, Season.WINTER, false), 1e-6);
         assertEquals(0.75, economy.computeSeasonFactor(fdCabbage, Season.WINTER, false), 1e-6);
-        assertEquals(1.75, economy.computeSeasonFactor(fdOnion, Season.WINTER, true), 1e-6);
-        assertEquals(1.45, economy.computeSeasonFactor(ic2Hops, Season.SPRING, true), 1e-6);
+        assertEquals(1.65, economy.computeSeasonFactor(fdOnion, Season.WINTER, true), 1e-6);
+        assertEquals(1.40, economy.computeSeasonFactor(ic2Hops, Season.SPRING, true), 1e-6);
         assertEquals(0.75, economy.computeSeasonFactor(kcChili, Season.SUMMER, false), 1e-6);
         assertEquals(0.75, economy.computeSeasonFactor(kcTea, Season.SPRING, false), 1e-6);
 

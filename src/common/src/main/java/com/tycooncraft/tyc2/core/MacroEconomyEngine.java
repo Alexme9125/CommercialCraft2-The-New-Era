@@ -509,13 +509,14 @@ public final class MacroEconomyEngine {
     }
 
     /**
-     * Computes target municipal reserve {@code R_target(level) = 200 * level^1.8}.
+     * Computes target municipal reserve {@code R_target(level) = 350 * clamped(level)^1.8}.
      *
      * @param villageLevel village level (1..10)
      * @return target reserve in IC
      */
     public static double targetVillageReserve(int villageLevel) {
-        return 200.0 * Math.pow(Math.max(1, villageLevel), 1.8);
+        int clamped = Math.max(1, Math.min(10, villageLevel));
+        return 350.0 * Math.pow(clamped, 1.8);
     }
 
     /**
@@ -553,13 +554,15 @@ public final class MacroEconomyEngine {
     }
 
     /**
-     * Computes seasonal arbitrage pricing factor {@code F_season(i, s)}:
+     * Computes seasonal arbitrage and seasonal demand pricing factor {@code F_season(i, s)}:
      * <ul>
-     *   <li>In-season sell by village: {@code 0.75x} harvest glut discount.</li>
-     *   <li>In-season buy by village: {@code 0.90x} normal fresh demand.</li>
-     *   <li>Off-season buy by village: {@code 1.45x..1.75x} scarcity premium ({@code 1.75x} in Winter,
-     *       {@code 1.60x} for single-season specialty crops, {@code 1.45x} otherwise).</li>
-     *   <li>Season {@link Season#NONE} or non-seasonal good: {@code 1.00x}.</li>
+     *   <li>In-season seasonal crop sell by village: {@code 0.75x} harvest glut discount.</li>
+     *   <li>In-season seasonal crop buy by village: {@code 0.90x} normal fresh demand.</li>
+     *   <li>Off-season seasonal crop buy by village: {@code 1.40x..1.65x} scarcity premium ({@code 1.65x} in Winter,
+     *       {@code 1.55x} for single-season specialty crops, {@code 1.40x} otherwise).</li>
+     *   <li>Non-crop goods with {@link TradeGood#hasDemandSeason(Season)} when village is buying:
+     *       {@code 1.20x} seasonal demand bonus (e.g., winter fuel and hearty warm food).</li>
+     *   <li>Season {@link Season#NONE} or seasonal arbitrage disabled: {@code 1.00x}.</li>
      * </ul>
      *
      * @param good trade good
@@ -572,27 +575,34 @@ public final class MacroEconomyEngine {
             return 1.0;
         }
         if (!good.isSeasonalCrop()) {
+            if (isVillageBuying && good.hasDemandSeason(currentSeason)) {
+                return 1.20;
+            }
             return 1.0;
         }
         if (good.isInSeason(currentSeason)) {
             return isVillageBuying ? 0.90 : 0.75;
         }
-        // Off-season scarcity premium
+        // Off-season scarcity premium (1.40x..1.65x)
         if (isVillageBuying) {
             if (currentSeason == Season.WINTER) {
-                return 1.75;
+                return 1.65;
             }
             if (good.harvestSeasons().size() == 1) {
-                return 1.60;
+                return 1.55;
             }
-            return 1.45;
+            return 1.40;
         }
-        return 1.45;
+        return 1.40;
     }
 
     /**
      * Computes biome specialty pricing factor {@code F_biome(i, v)}:
-     * {@code 0.90x} sell discount when the village biome matches the good's affinity, otherwise {@code 1.00x}.
+     * <ul>
+     *   <li>Village Sell Orders matching {@link TradeGood#hasBiomeAffinity(String)}: {@code 0.88x} (-12% local specialty discount).</li>
+     *   <li>Village Buy Orders matching {@link TradeGood#hasDemandBiome(String)}: {@code 1.15x} (+15% local shortage bonus).</li>
+     *   <li>Otherwise: {@code 1.00x}.</li>
+     * </ul>
      *
      * @param good trade good
      * @param biomeId village biome ID or style key
@@ -600,10 +610,13 @@ public final class MacroEconomyEngine {
      * @return biome factor
      */
     public double computeBiomeFactor(TradeGood good, String biomeId, boolean isVillageBuying) {
-        if (good == null || isVillageBuying) {
+        if (good == null) {
             return 1.0;
         }
-        return good.hasBiomeAffinity(biomeId) ? 0.90 : 1.0;
+        if (isVillageBuying) {
+            return good.hasDemandBiome(biomeId) ? 1.15 : 1.0;
+        }
+        return good.hasBiomeAffinity(biomeId) ? 0.88 : 1.0;
     }
 
     /**

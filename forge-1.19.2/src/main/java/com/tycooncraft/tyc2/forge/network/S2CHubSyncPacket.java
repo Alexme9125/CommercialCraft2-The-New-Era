@@ -16,6 +16,7 @@ import com.tycooncraft.tyc2.village.ConstructionJob;
 import com.tycooncraft.tyc2.village.CooperationHubStorage;
 import com.tycooncraft.tyc2.village.ExpansionDesire;
 import com.tycooncraft.tyc2.village.OrderSide;
+import com.tycooncraft.tyc2.village.SupplyCycleClock;
 import com.tycooncraft.tyc2.village.VillageEmploymentStats;
 import com.tycooncraft.tyc2.village.VillageLevelTable;
 import com.tycooncraft.tyc2.village.VillageRecord;
@@ -57,7 +58,8 @@ public final class S2CHubSyncPacket {
             int fulfilledQty,
             long unitPrice,
             boolean autoFulfill,
-            boolean seasonalBonus
+            boolean seasonalBonus,
+            boolean biomeSpecialty
     ) {
         public int remainingQty() {
             return Math.max(0, totalQty - fulfilledQty);
@@ -112,6 +114,8 @@ public final class S2CHubSyncPacket {
     public final boolean canManage;
     public final boolean chunkLoaderActive;
     public final int refreshSecondsRemaining;
+    public final long refreshRemainingTicks;
+    public final long refreshTotalTicks;
     public final long activeBankBalance;
 
     public final List<OrderDto> orders;
@@ -177,6 +181,8 @@ public final class S2CHubSyncPacket {
             boolean canManage,
             boolean chunkLoaderActive,
             int refreshSecondsRemaining,
+            long refreshRemainingTicks,
+            long refreshTotalTicks,
             long activeBankBalance,
             List<OrderDto> orders,
             boolean outboundZone,
@@ -234,6 +240,8 @@ public final class S2CHubSyncPacket {
         this.canManage = canManage;
         this.chunkLoaderActive = chunkLoaderActive;
         this.refreshSecondsRemaining = refreshSecondsRemaining;
+        this.refreshRemainingTicks = refreshRemainingTicks;
+        this.refreshTotalTicks = refreshTotalTicks;
         this.activeBankBalance = activeBankBalance;
         this.orders = orders;
         this.outboundZone = outboundZone;
@@ -300,10 +308,12 @@ public final class S2CHubSyncPacket {
         Season season = SeasonSoftBridge.currentSeason(dimLevel);
         TyC2Config cfg = TyC2RuntimeData.config();
         VillageEmploymentStats emp = village.getEmploymentStats();
-        long now = player.getServer().overworld().getGameTime();
-        long refreshTicks = emp.effectiveDemandRefreshTicks(cfg);
-        long elapsed = Math.max(0L, now - village.getLastDemandRefreshTick());
-        int refreshSecs = (int) Math.max(0L, (refreshTicks - elapsed) / 20L);
+        long dayTime = player.getServer().overworld().getDayTime();
+        int effectiveRefreshTicks = emp.effectiveDemandRefreshTicks(cfg);
+        long refreshRemainingTicks = SupplyCycleClock.remainingRefreshTicks(
+                dayTime, village.getLastDemandRefreshTick(), effectiveRefreshTicks
+        );
+        int refreshSecs = (int) Math.max(0L, refreshRemainingTicks / 20L);
 
         List<OrderDto> orderDtos = new ArrayList<>();
         for (VillageTradeOrder o : village.getActiveOrders()) {
@@ -316,7 +326,8 @@ public final class S2CHubSyncPacket {
                     o.fulfilledQty(),
                     o.unitPrice(),
                     o.autoFulfill(),
-                    o.seasonalBonus()
+                    o.seasonalBonus(),
+                    o.biomeSpecialty()
             ));
         }
 
@@ -433,6 +444,8 @@ public final class S2CHubSyncPacket {
                 TycoonForgeWorldManager.canManageVillage(player, data, village),
                 hubBe != null && hubBe.isChunkLoaderActive(),
                 refreshSecs,
+                refreshRemainingTicks,
+                effectiveRefreshTicks,
                 playerBankBal,
                 orderDtos,
                 zone == CooperationHubStorage.Zone.OUTBOUND,
@@ -500,6 +513,8 @@ public final class S2CHubSyncPacket {
         buf.writeBoolean(p.canManage);
         buf.writeBoolean(p.chunkLoaderActive);
         buf.writeVarInt(p.refreshSecondsRemaining);
+        buf.writeVarLong(p.refreshRemainingTicks);
+        buf.writeVarLong(p.refreshTotalTicks);
         buf.writeVarLong(p.activeBankBalance);
 
         int orderCount = Math.min(64, p.orders.size());
@@ -515,6 +530,7 @@ public final class S2CHubSyncPacket {
             buf.writeVarLong(o.unitPrice());
             buf.writeBoolean(o.autoFulfill());
             buf.writeBoolean(o.seasonalBonus());
+            buf.writeBoolean(o.biomeSpecialty());
         }
 
         buf.writeBoolean(p.outboundZone);
@@ -638,6 +654,8 @@ public final class S2CHubSyncPacket {
         boolean manage = buf.readBoolean();
         boolean chunk = buf.readBoolean();
         int refSecs = buf.readVarInt();
+        long refRemTicks = buf.readVarLong();
+        long refTotTicks = buf.readVarLong();
         long bankBal = buf.readVarLong();
 
         int oCount = Math.min(64, buf.readVarInt());
@@ -651,6 +669,7 @@ public final class S2CHubSyncPacket {
                     buf.readVarInt(),
                     buf.readVarInt(),
                     buf.readVarLong(),
+                    buf.readBoolean(),
                     buf.readBoolean(),
                     buf.readBoolean()
             ));
@@ -754,7 +773,7 @@ public final class S2CHubSyncPacket {
 
         return new S2CHubSyncPacket(
                 vid, name, biome, lv, pop, vol, bal, mayor, depop, expPaused, manage, chunk,
-                refSecs, bankBal, orders, outZone, pIdx, totPages, inUsed, outUsed, slots,
+                refSecs, refRemTicks, refTotTicks, bankBal, orders, outZone, pIdx, totPages, inUsed, outUsed, slots,
                 cpi, inf, ms, gc, season, tier, hist, canUpg, nPop, nVol, nBal, nSink,
                 hasExp, expProj, expBud, expAuto, mats, hasJob, jobProj, jobPlaced, jobTotal, lc2,
                 wf, empCnt, unempCnt, unempPct, bonusAct, restockPct, qtyPct, gatherMult,

@@ -32,6 +32,7 @@ import com.tycooncraft.tyc2.village.ProjectType;
 import com.tycooncraft.tyc2.village.SlotStack;
 import com.tycooncraft.tyc2.village.SpawnMarker;
 import com.tycooncraft.tyc2.village.StructureBlueprint;
+import com.tycooncraft.tyc2.village.SupplyCycleClock;
 import com.tycooncraft.tyc2.village.VillageEmploymentStats;
 import com.tycooncraft.tyc2.village.VillageLevelTable;
 import com.tycooncraft.tyc2.village.VillageRecord;
@@ -675,7 +676,8 @@ public final class TycoonForgeWorldManager {
             long gameTime
     ) {
         data.syncMacroAccountTotals();
-        long currentDay = overworld.getDayTime() / 24_000L;
+        long dayTime = overworld.getDayTime();
+        long currentDay = dayTime / SupplyCycleClock.TICKS_PER_DAY;
         boolean runDailyUpkeep = currentDay > data.lastUpkeepDay() && data.lastUpkeepDay() >= 0L;
         if (data.lastUpkeepDay() < 0L) {
             data.setLastUpkeepDay(currentDay);
@@ -702,14 +704,35 @@ public final class TycoonForgeWorldManager {
                 runAutoFulfill(data, village, gameTime);
             }
 
-            // 3. Demand Refresh (virtual — runs even if village chunk is unloaded! Low-unemployment <25% speeds up live countdown)
-            village.pruneFinishedOrExpiredOrders(gameTime);
+            // 3. Weekly Calendar Demand Refresh (dayTime-based; runs even while chunk is unloaded!)
+            if (village.normalizeDemandRefreshAnchor(dayTime)) {
+                data.setDirty();
+            }
+            boolean hadOrdersBeforePrune = !village.getActiveOrders().isEmpty();
+            boolean allDone = hadOrdersBeforePrune
+                    && village.getActiveOrders().stream().allMatch(VillageTradeOrder::isCompleted);
+            int pruned = village.pruneFinishedOrExpiredOrders(dayTime);
+            if (pruned > 0) {
+                data.setDirty();
+            }
             int effectiveRefreshTicks = village.getEmploymentStats().effectiveDemandRefreshTicks(cfg);
-            boolean dueForRefresh = village.getActiveOrders().isEmpty()
-                    || (gameTime - village.getLastDemandRefreshTick()) >= effectiveRefreshTicks;
+            boolean dueForRefresh = SupplyCycleClock.isRefreshDue(
+                    dayTime,
+                    village.getLastDemandRefreshTick(),
+                    effectiveRefreshTicks,
+                    village.getActiveOrders().isEmpty(),
+                    allDone
+            );
             if (dueForRefresh && village.canGenerateOrders()) {
-                data.economy().advanceDemandCycleIfDue(gameTime, cfg.demandRefreshTicks());
-                refreshVillageOrders(dimLevel, data, village, gameTime);
+                if (hadOrdersBeforePrune) {
+                    long stipend = village.applyWeeklyMunicipalStipend(cfg.weeklyMunicipalStipendRatio());
+                    if (stipend > 0L) {
+                        data.syncMacroAccountTotals();
+                        data.setDirty();
+                    }
+                }
+                data.economy().advanceDemandCycleIfDue(dayTime, effectiveRefreshTicks);
+                refreshVillageOrders(dimLevel, data, village, dayTime);
             }
 
             // 4. Periodic Expansion Desire generation
@@ -749,7 +772,7 @@ public final class TycoonForgeWorldManager {
             if (order.side() != OrderSide.VILLAGE_BUYS || !order.autoFulfill() || order.isCompleted()) {
                 continue;
             }
-            Predicate<SlotStack> slotMatcher = buildOrderSlotMatcher(order.itemId());
+            Predicate<SlotStack> slotMatcher = buildOrderSlotMatcher(order);
             int available = village.getStorage().countInInbound(slotMatcher);
             if (available <= 0) {
                 continue;
@@ -768,8 +791,9 @@ public final class TycoonForgeWorldManager {
                             "Auto-Fulfill " + res.executedQty() + "x " + order.itemId()
                     );
                 }
-                long basePrice = TyC2RuntimeData.goodsCatalog().findByItemId(order.itemId())
-                        .map(g -> g.basePrice()).orElse(order.unitPrice());
+                long basePrice = TyC2RuntimeData.goodsCatalog()
+                        .findOrderGood(order.displayHint(), order.itemId(), true)
+                        .map(TradeGood::basePrice).orElse(order.unitPrice());
                 data.economy().recordTrade(order.itemId(), res.executedQty(), basePrice, true);
                 changed = true;
             }
@@ -987,13 +1011,14 @@ public final class TycoonForgeWorldManager {
         }
     }
 
-    /** Generates a fresh set of Sell & Buy orders for {@code village} using live CPI, season, employment bonus, and tier rules. */
+    /** Generates a fresh weekly set of Sell & Buy orders for {@code village} anchored to {@code dayTime}. */
     public static void refreshVillageOrders(
             ServerLevel level,
             TycoonForgeSavedData data,
             VillageRecord village,
-            long gameTime
+            long dayTime
     ) {
+        long safeDayTime = Math.max(0L, dayTime);
         Season season = SeasonSoftBridge.currentSeason(level);
         IndustrialTier ownerTier = data.resolveVillageOwnerTier(village);
         DemandGenerator.GeneratedDemand demand = TyC2RuntimeData.demandGenerator().generate(
@@ -1008,14 +1033,15 @@ public final class TycoonForgeWorldManager {
                 TyC2RuntimeData.workplaceCatalog(),
                 RNG
         );
-        long expires = gameTime + village.getEmploymentStats().effectiveDemandRefreshTicks(TyC2RuntimeData.config());
+        int effectiveRefreshTicks = village.getEmploymentStats().effectiveDemandRefreshTicks(TyC2RuntimeData.config());
+        long expires = safeDayTime + effectiveRefreshTicks;
         List<VillageTradeOrder> orders = new ArrayList<>();
         for (DemandGenerator.GeneratedOrder go : demand.allOrders()) {
             OrderSide side = go.side() == DemandGenerator.OrderSide.VILLAGE_SELLS
                     ? OrderSide.VILLAGE_SELLS
                     : OrderSide.VILLAGE_BUYS;
             orders.add(new VillageTradeOrder(
-                    go.orderId() + "_" + (gameTime % 100_000L),
+                    go.orderId() + "_" + (safeDayTime % 100_000L),
                     side,
                     go.itemId(),
                     go.goodId(),
@@ -1023,14 +1049,15 @@ public final class TycoonForgeWorldManager {
                     go.quantity(),
                     0,
                     go.unitPrice(),
-                    gameTime,
+                    safeDayTime,
                     expires,
                     false,
-                    go.seasonalHighlight()
+                    go.seasonalHighlight(),
+                    go.biomeSpecialty()
             ));
         }
         village.setActiveOrders(orders);
-        village.setLastDemandRefreshTick(gameTime);
+        village.setLastDemandRefreshTick(safeDayTime);
         data.setDirty();
     }
 
@@ -1129,10 +1156,13 @@ public final class TycoonForgeWorldManager {
         consumeMatchingItems(player.getInventory(), s -> TyC2Ids.matchesItemOrTag(s, "#ingots/iron"), status.requiredIron());
         consumeMatchingItems(player.getInventory(), TycoonForgeWorldManager::isBasicNegotiationFood, status.requiredFood());
 
-        // 3. Establish partnership and register existing village structures as protected zones
+        // 3. Establish partnership with working capital floor and register existing village structures as protected zones
         BankAccountManager.AccountRef activeRef = data.bank().resolveSettlementAccount(player.getUUID());
         String companyId = activeRef.scope() == BankAccountManager.AccountScope.COMPANY ? activeRef.accountId() : null;
-        village.establishPartnership(player.getUUID(), companyId, requiredIc);
+        TyC2Config cfg = TyC2RuntimeData.config();
+        village.establishPartnershipWithWorkingCapital(
+                player.getUUID(), companyId, requiredIc, cfg.initialVillageWorkingCapital()
+        );
 
         ServerLevel villageLevel = resolveLevel(level.getServer(), village.getDimensionId());
         if (villageLevel == null) {
@@ -1150,8 +1180,9 @@ public final class TycoonForgeWorldManager {
             villageLevel.playSound(null, hubPos, SoundEvents.BELL_RESONATE, SoundSource.BLOCKS, 1.0F, 1.0F);
         }
 
-        // 5. Generate initial Lv 1 orders immediately & release negotiating Mayor
-        refreshVillageOrders(villageLevel, data, village, tick);
+        // 5. Generate initial Lv 1 orders immediately (anchored to dayTime) & release negotiating Mayor
+        long dayTime = level.getServer().overworld().getDayTime();
+        refreshVillageOrders(villageLevel, data, village, dayTime);
         endMayorNegotiation(player, village.getMayorState().getMayorEntityUuid());
         data.syncMacroAccountTotals();
         data.setDirty();
@@ -1260,8 +1291,9 @@ public final class TycoonForgeWorldManager {
         if (!useBank) {
             data.economy().recordCashPaidToVillage(res.totalCurrency());
         }
-        long basePrice = TyC2RuntimeData.goodsCatalog().findByItemId(order.itemId())
-                .map(g -> g.basePrice()).orElse(order.unitPrice());
+        long basePrice = TyC2RuntimeData.goodsCatalog()
+                .findOrderGood(order.displayHint(), order.itemId(), false)
+                .map(TradeGood::basePrice).orElse(order.unitPrice());
         data.economy().recordTrade(order.itemId(), res.executedQty(), basePrice, false);
         data.syncMacroAccountTotals();
         data.setDirty();
@@ -1325,9 +1357,9 @@ public final class TycoonForgeWorldManager {
             );
         }
 
-        // 2. Build tag-aware item matcher (exact itemId OR GoodsCatalog optionalTag)
-        Predicate<SlotStack> slotMatcher = buildOrderSlotMatcher(order.itemId());
-        Predicate<ItemStack> stackMatcher = buildOrderStackMatcher(order.itemId());
+        // 2. Build tag-aware item matcher (exact itemId OR GoodsCatalog optionalTag via findOrderGood)
+        Predicate<SlotStack> slotMatcher = buildOrderSlotMatcher(order);
+        Predicate<ItemStack> stackMatcher = buildOrderStackMatcher(order);
 
         // 3. At local Hub, pull at most (min(desired, affordableQty) - currentMatchingInbound) from player inv
         int cappedTarget = Math.min(desired, affordableQty);
@@ -1384,8 +1416,9 @@ public final class TycoonForgeWorldManager {
             data.economy().recordVillagePaidCash(res.totalCurrency());
         }
 
-        long basePrice = TyC2RuntimeData.goodsCatalog().findByItemId(order.itemId())
-                .map(g -> g.basePrice()).orElse(order.unitPrice());
+        long basePrice = TyC2RuntimeData.goodsCatalog()
+                .findOrderGood(order.displayHint(), order.itemId(), true)
+                .map(TradeGood::basePrice).orElse(order.unitPrice());
         data.economy().recordTrade(order.itemId(), res.executedQty(), basePrice, true);
         data.syncMacroAccountTotals();
         data.setDirty();
@@ -1442,7 +1475,7 @@ public final class TycoonForgeWorldManager {
         data.syncMacroAccountTotals();
         ServerLevel dimLevel = resolveLevel(player.getServer(), village.getDimensionId());
         if (dimLevel != null) {
-            refreshVillageOrders(dimLevel, data, village, player.getServer().overworld().getGameTime());
+            refreshVillageOrders(dimLevel, data, village, player.getServer().overworld().getDayTime());
         }
         data.setDirty();
         return new ActionFeedback(
@@ -2448,9 +2481,16 @@ public final class TycoonForgeWorldManager {
         return null;
     }
 
-    private static Predicate<SlotStack> buildOrderSlotMatcher(String orderItemId) {
-        String optionalTag = resolveOrderOptionalTag(orderItemId);
+    private static Predicate<SlotStack> buildOrderSlotMatcher(VillageTradeOrder order) {
+        String optionalTag = resolveOrderOptionalTag(order);
+        String orderItemId = order.itemId();
         return slot -> slot != null && slot.count() > 0 && matchesOrderItem(slot.itemId(), orderItemId, optionalTag);
+    }
+
+    private static Predicate<ItemStack> buildOrderStackMatcher(VillageTradeOrder order) {
+        String optionalTag = resolveOrderOptionalTag(order);
+        String orderItemId = order.itemId();
+        return stack -> !stack.isEmpty() && matchesOrderItem(TyC2Ids.itemId(stack), orderItemId, optionalTag);
     }
 
     private static Predicate<ItemStack> buildOrderStackMatcher(String orderItemId) {
@@ -2459,8 +2499,21 @@ public final class TycoonForgeWorldManager {
     }
 
     @Nullable
+    private static String resolveOrderOptionalTag(VillageTradeOrder order) {
+        Optional<TradeGood> goodOpt = TyC2RuntimeData.goodsCatalog().findOrderGood(
+                order.displayHint(), order.itemId(), order.side() == OrderSide.VILLAGE_BUYS
+        );
+        return normalizeOptionalTag(goodOpt);
+    }
+
+    @Nullable
     private static String resolveOrderOptionalTag(String orderItemId) {
-        Optional<TradeGood> goodOpt = TyC2RuntimeData.goodsCatalog().findByItemId(orderItemId);
+        Optional<TradeGood> goodOpt = TyC2RuntimeData.goodsCatalog().findOrderGood(null, orderItemId, true);
+        return normalizeOptionalTag(goodOpt);
+    }
+
+    @Nullable
+    private static String normalizeOptionalTag(Optional<TradeGood> goodOpt) {
         if (goodOpt.isEmpty()) {
             return null;
         }

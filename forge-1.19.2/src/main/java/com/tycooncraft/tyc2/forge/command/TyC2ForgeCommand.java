@@ -291,7 +291,7 @@ public final class TyC2ForgeCommand {
             VillageRecord v = vOpt.get();
             int next = Math.min(10, v.getLevel() + 1);
             v.setLevel(next);
-            TycoonForgeWorldManager.refreshVillageOrders(level, data, v, src.getServer().overworld().getGameTime());
+            TycoonForgeWorldManager.refreshVillageOrders(level, data, v, src.getServer().overworld().getDayTime());
             data.setDirty();
             src.sendSuccess(Component.literal("[TyC2] Upgraded " + v.getVillageName() + " to Lv." + next), true);
             return 1;

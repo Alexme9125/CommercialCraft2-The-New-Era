@@ -5,7 +5,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -44,6 +47,121 @@ public abstract class TyC2ScreenBase<M extends AbstractContainerMenu>
     protected final EditBox addTrackedEditBox(EditBox box) {
         editBoxes.add(box);
         return box;
+    }
+
+    /** Creates a custom-themed industrial {@link StyledButton} extending vanilla {@link Button}. */
+    protected final StyledButton createStyledButton(
+            int x,
+            int y,
+            int width,
+            int height,
+            Component message,
+            TyC2Theme.ButtonStyle style,
+            Button.OnPress onPress
+    ) {
+        return new StyledButton(x, y, width, height, message, style, onPress);
+    }
+
+    /** Creates and registers a custom-themed industrial {@link StyledButton} widget. */
+    protected final StyledButton addStyledButton(
+            int x,
+            int y,
+            int width,
+            int height,
+            Component message,
+            TyC2Theme.ButtonStyle style,
+            Button.OnPress onPress
+    ) {
+        return addRenderableWidget(createStyledButton(x, y, width, height, message, style, onPress));
+    }
+
+    /**
+     * Custom-rendered industrial button extending vanilla {@link Button} so automated QA drivers
+     * and accessibility narration continue to work identically while replacing vanilla grey chrome
+     * with bespoke beveled dark-ledger / tactical-PDA styling and fit-scaled centered text.
+     */
+    public static final class StyledButton extends Button {
+
+        private TyC2Theme.ButtonStyle style;
+        private boolean selected;
+
+        public StyledButton(
+                int x,
+                int y,
+                int width,
+                int height,
+                Component message,
+                TyC2Theme.ButtonStyle style,
+                OnPress onPress
+        ) {
+            super(x, y, width, height, message, onPress, DEFAULT_NARRATION);
+            this.style = style == null ? TyC2Theme.ButtonStyle.HUB_ACTION : style;
+        }
+
+        /** Marks this button as actively selected (e.g. active tab/sub-tab highlight). */
+        public StyledButton setSelected(boolean selected) {
+            this.selected = selected;
+            return this;
+        }
+
+        /** Returns whether this button is rendered in its selected visual state. */
+        public boolean isSelected() {
+            return selected;
+        }
+
+        /** Updates this button's visual theme preset dynamically. */
+        public StyledButton setStyle(TyC2Theme.ButtonStyle style) {
+            if (style != null) {
+                this.style = style;
+            }
+            return this;
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+            int x = getX();
+            int y = getY();
+            int w = getWidth();
+            int h = getHeight();
+            TyC2Theme.ButtonVisual vis = TyC2Theme.resolveButtonVisual(
+                    style, active, isHoveredOrFocused(), selected
+            );
+
+            // Crisp beveled industrial chrome (zero vanilla grey button texture)
+            g.fill(x + 1, y + 1, x + w - 1, y + h - 1, vis.fill());
+            if (h >= 4) {
+                g.fill(x + 1, y + 1, x + w - 1, y + 2, vis.topBevel());
+                g.fill(x + 1, y + h - 2, x + w - 1, y + h - 1, vis.bottomBevel());
+            }
+            if (vis.accentBar() != 0 && w >= 4 && h >= 4) {
+                int barH = h >= 14 ? 2 : 1;
+                g.fill(x + 1, y + 1, x + w - 1, y + 1 + barH, vis.accentBar());
+            }
+            g.renderOutline(x, y, w, h, vis.border());
+
+            // Fit-scaled centered label (never clips in en_us or zh_cn)
+            Font font = Minecraft.getInstance().font;
+            String label = getMessage().getString();
+            if (label.isEmpty() || w <= 4) {
+                return;
+            }
+            int availW = Math.max(4, w - 4);
+            int rawW = font.width(label);
+            float scale = rawW <= availW ? 1.0F : Math.max(0.50F, availW / (float) rawW);
+            String rendered = rawW <= availW
+                    ? label
+                    : font.plainSubstrByWidth(label, Math.max(1, (int) Math.floor(availW / scale)));
+            float drawW = font.width(rendered) * scale;
+            float drawH = 8.0F * scale;
+            float tx = x + (w - drawW) * 0.5F;
+            float ty = y + (h - drawH) * 0.5F + (vis.accentBar() != 0 && h >= 14 ? 0.8F : 0.3F);
+
+            g.pose().pushPose();
+            g.pose().translate(tx, ty, 0.0F);
+            g.pose().scale(scale, scale, 1.0F);
+            g.drawString(font, rendered, 0, 0, vis.textColor(), true);
+            g.pose().popPose();
+        }
     }
 
     protected abstract void paintPanel(ScreenCanvas canvas, int mouseX, int mouseY);

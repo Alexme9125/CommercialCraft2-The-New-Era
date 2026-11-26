@@ -181,14 +181,14 @@ public final class VillageLevelTable {
     }
 
     /**
-     * Computes the target municipal treasury reserve ({@code 200 * level^1.8}) from Design Section 7.2.
+     * Computes the target municipal treasury reserve ({@code 350 * level^1.8}) scaled for weekly trade volumes.
      *
      * @param level village level ({@code 1..10})
      * @return target municipal reserve in IC
      */
     public static double targetReserve(int level) {
         int clamped = clampLevel(level);
-        return 200.0 * Math.pow(clamped, 1.8);
+        return 350.0 * Math.pow(clamped, 1.8);
     }
 
     /**

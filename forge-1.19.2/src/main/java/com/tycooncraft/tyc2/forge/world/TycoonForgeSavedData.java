@@ -342,6 +342,7 @@ public final class TycoonForgeSavedData extends SavedData {
             oTag.putLong("Expires", o.expiresTick());
             oTag.putBoolean("Auto", o.autoFulfill());
             oTag.putBoolean("Seasonal", o.seasonalBonus());
+            oTag.putBoolean("BiomeSpecialty", o.biomeSpecialty());
             orderList.add(oTag);
         }
         t.put("Orders", orderList);
@@ -551,7 +552,8 @@ public final class TycoonForgeSavedData extends SavedData {
                     oTag.getLong("Created"),
                     oTag.getLong("Expires"),
                     oTag.getBoolean("Auto"),
-                    oTag.getBoolean("Seasonal")
+                    oTag.getBoolean("Seasonal"),
+                    oTag.getBoolean("BiomeSpecialty")
             ));
         }
 

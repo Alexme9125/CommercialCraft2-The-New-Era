@@ -911,6 +911,17 @@ public final class TyC2Native {
         return level != null && level.isBrightOutside();
     }
 
+    /** Returns the Overworld calendar {@code dayTime} tick ({@code WorldClocks.OVERWORLD}, advances on sleep). */
+    public static long dayTime(ServerLevel level) {
+        if (level == null) {
+            return 0L;
+        }
+        ServerLevel overworld = level.getServer() != null && level.getServer().overworld() != null
+                ? level.getServer().overworld()
+                : level;
+        return Math.max(0L, overworld.getOverworldClockTime());
+    }
+
     /** Sets or clears the trading player on a Villager entity so it halts and faces the player. */
     public static void setVillagerTradingPlayer(Entity entity, Player player) {
         if (entity instanceof Villager v) {

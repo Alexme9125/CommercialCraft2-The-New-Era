@@ -32,6 +32,9 @@ public final class TradeGood {
     private final IndustrialTier industrialTierRequired;
     private final Set<Season> harvestSeasons;
     private final Set<String> biomeAffinities;
+    private final boolean biomeExclusive;
+    private final Set<String> demandBiomes;
+    private final Set<Season> demandSeasons;
     private final boolean sellableByVillage;
     private final boolean buyableByVillage;
     private final int baseMinQty;
@@ -83,6 +86,28 @@ public final class TradeGood {
             }
         }
         this.biomeAffinities = Collections.unmodifiableSet(biomes);
+        this.biomeExclusive = b.biomeExclusive;
+
+        Set<String> dBiomes = new LinkedHashSet<>();
+        if (b.demandBiomes != null) {
+            for (String biome : b.demandBiomes) {
+                if (biome != null && !biome.isBlank()) {
+                    dBiomes.add(biome.trim().toLowerCase(Locale.ROOT));
+                }
+            }
+        }
+        this.demandBiomes = Collections.unmodifiableSet(dBiomes);
+
+        EnumSet<Season> dSeasons = EnumSet.noneOf(Season.class);
+        if (b.demandSeasons != null) {
+            for (Season s : b.demandSeasons) {
+                if (s != null && s.isActive()) {
+                    dSeasons.add(s);
+                }
+            }
+        }
+        this.demandSeasons = Collections.unmodifiableSet(dSeasons);
+
         this.sellableByVillage = b.sellableByVillage;
         this.buyableByVillage = b.buyableByVillage;
         this.baseMinQty = b.baseMinQty;
@@ -160,6 +185,21 @@ public final class TradeGood {
         return biomeAffinities;
     }
 
+    /** @return {@code true} if this good is geographically restricted to matching biome(s) */
+    public boolean isBiomeExclusive() {
+        return biomeExclusive;
+    }
+
+    /** @return biome keys with heightened local buy demand for this good */
+    public Set<String> demandBiomes() {
+        return demandBiomes;
+    }
+
+    /** @return calendar seasons during which non-crop demand for this good is heightened */
+    public Set<Season> demandSeasons() {
+        return demandSeasons;
+    }
+
     /** @return {@code true} if villages can generate Sell Orders (village sells to player) */
     public boolean isSellableByVillage() {
         return sellableByVillage;
@@ -235,15 +275,40 @@ public final class TradeGood {
      * @return {@code true} if matched
      */
     public boolean hasBiomeAffinity(String biomeId) {
-        if (biomeId == null || biomeId.isBlank() || biomeAffinities.isEmpty()) {
+        return matchesBiomeSet(biomeAffinities, biomeId);
+    }
+
+    /**
+     * Checks whether the given biome has heightened local buy demand for this good.
+     *
+     * @param biomeId biome ID or style key
+     * @return {@code true} if matched
+     */
+    public boolean hasDemandBiome(String biomeId) {
+        return matchesBiomeSet(demandBiomes, biomeId);
+    }
+
+    /**
+     * Checks whether this good has heightened non-crop demand during {@code season}.
+     * Always returns {@code false} when {@code season} is {@code null} or {@link Season#NONE}.
+     *
+     * @param season current season
+     * @return {@code true} if active season matches {@link #demandSeasons()}
+     */
+    public boolean hasDemandSeason(Season season) {
+        return season != null && season.isActive() && demandSeasons.contains(season);
+    }
+
+    private static boolean matchesBiomeSet(Set<String> targetBiomes, String biomeId) {
+        if (biomeId == null || biomeId.isBlank() || targetBiomes.isEmpty()) {
             return false;
         }
         String lower = biomeId.trim().toLowerCase(Locale.ROOT);
-        if (biomeAffinities.contains(lower)) {
+        if (targetBiomes.contains(lower)) {
             return true;
         }
         String normalizedStyle = normalizeBiomeStyle(lower);
-        return normalizedStyle != null && biomeAffinities.contains(normalizedStyle);
+        return normalizedStyle != null && targetBiomes.contains(normalizedStyle);
     }
 
     /**
@@ -260,7 +325,9 @@ public final class TradeGood {
         String lower = biomeId.trim().toLowerCase(Locale.ROOT);
         int colon = lower.indexOf(':');
         String path = colon >= 0 ? lower.substring(colon + 1) : lower;
-        if (path.contains("snow") || path.contains("ice") || path.contains("frozen") || path.equals("grove")) {
+        if (path.contains("snow") || path.contains("ice") || path.contains("frozen")
+                || path.contains("glacier") || path.contains("tundra")
+                || path.equals("grove") || path.equals("jagged_peaks")) {
             return "snowy";
         }
         if (path.contains("desert") || path.contains("badlands") || path.contains("mesa") || path.contains("dune")) {
@@ -276,7 +343,8 @@ public final class TradeGood {
                 || path.contains("bog") || path.contains("bayou")) {
             return "swamp";
         }
-        if (path.contains("taiga") || path.contains("spruce")) {
+        if (path.contains("taiga") || path.contains("spruce") || path.contains("pine")
+                || path.contains("boreal") || path.contains("redwood") || path.contains("windswept")) {
             return "taiga";
         }
         if (path.contains("plains") || path.contains("meadow") || path.contains("forest")) {
@@ -299,6 +367,9 @@ public final class TradeGood {
                 .industrialTier(industrialTierRequired)
                 .harvestSeasons(newSeasons)
                 .biomeAffinities(biomeAffinities)
+                .biomeExclusive(biomeExclusive)
+                .demandBiomes(demandBiomes)
+                .demandSeasons(demandSeasons)
                 .sellable(sellableByVillage)
                 .buyable(buyableByVillage)
                 .quantityRange(baseMinQty, baseMaxQty)
@@ -335,6 +406,19 @@ public final class TradeGood {
         }
         if (!biomeAffinities.isEmpty()) {
             map.put("biomeAffinities", new ArrayList<>(biomeAffinities));
+        }
+        if (biomeExclusive) {
+            map.put("biomeExclusive", true);
+        }
+        if (!demandBiomes.isEmpty()) {
+            map.put("demandBiomes", new ArrayList<>(demandBiomes));
+        }
+        if (!demandSeasons.isEmpty()) {
+            List<String> dSeasons = new ArrayList<>(demandSeasons.size());
+            for (Season s : demandSeasons) {
+                dSeasons.add(s.name());
+            }
+            map.put("demandSeasons", dSeasons);
         }
         map.put("isSellableByVillage", sellableByVillage);
         map.put("isBuyableByVillage", buyableByVillage);
@@ -390,6 +474,19 @@ public final class TradeGood {
         }
 
         List<String> biomes = JsonLite.getStringList(map, map.containsKey("biomeAffinities") ? "biomeAffinities" : "biomes");
+        boolean biomeExclusive = JsonLite.getBoolean(map, "biomeExclusive", false);
+        List<String> demandBiomes = JsonLite.getStringList(map, "demandBiomes");
+        List<Season> demandSeasons = new ArrayList<>();
+        for (String s : JsonLite.getStringList(map, "demandSeasons")) {
+            if ("ALL".equalsIgnoreCase(s)) {
+                demandSeasons.addAll(Season.allFourSeasons());
+            } else {
+                Season parsed = Season.parse(s);
+                if (parsed.isActive()) {
+                    demandSeasons.add(parsed);
+                }
+            }
+        }
         boolean sellable = map.containsKey("isSellableByVillage")
                 ? JsonLite.getBoolean(map, "isSellableByVillage", true)
                 : JsonLite.getBoolean(map, "sellable", true);
@@ -410,6 +507,9 @@ public final class TradeGood {
                 .industrialTier(tier)
                 .harvestSeasons(seasons)
                 .biomeAffinities(biomes)
+                .biomeExclusive(biomeExclusive)
+                .demandBiomes(demandBiomes)
+                .demandSeasons(demandSeasons)
                 .sellable(sellable)
                 .buyable(buyable)
                 .quantityRange(minQty, maxQty)
@@ -429,6 +529,7 @@ public final class TradeGood {
         return basePrice == that.basePrice
                 && minLevel == that.minLevel
                 && maxLevel == that.maxLevel
+                && biomeExclusive == that.biomeExclusive
                 && sellableByVillage == that.sellableByVillage
                 && buyableByVillage == that.buyableByVillage
                 && baseMinQty == that.baseMinQty
@@ -441,6 +542,8 @@ public final class TradeGood {
                 && industrialTierRequired == that.industrialTierRequired
                 && harvestSeasons.equals(that.harvestSeasons)
                 && biomeAffinities.equals(that.biomeAffinities)
+                && demandBiomes.equals(that.demandBiomes)
+                && demandSeasons.equals(that.demandSeasons)
                 && Objects.equals(optionalEnchantmentSpec, that.optionalEnchantmentSpec);
     }
 
@@ -448,6 +551,7 @@ public final class TradeGood {
     public int hashCode() {
         return Objects.hash(id, itemId, optionalTag, requiredModId, category, basePrice,
                 minLevel, maxLevel, industrialTierRequired, harvestSeasons, biomeAffinities,
+                biomeExclusive, demandBiomes, demandSeasons,
                 sellableByVillage, buyableByVillage, baseMinQty, baseMaxQty, optionalEnchantmentSpec);
     }
 
@@ -471,6 +575,9 @@ public final class TradeGood {
         private IndustrialTier industrialTierRequired = IndustrialTier.TIER_0;
         private Set<Season> harvestSeasons = EnumSet.noneOf(Season.class);
         private Set<String> biomeAffinities = new LinkedHashSet<>();
+        private boolean biomeExclusive = false;
+        private Set<String> demandBiomes = new LinkedHashSet<>();
+        private Set<Season> demandSeasons = EnumSet.noneOf(Season.class);
         private boolean sellableByVillage = true;
         private boolean buyableByVillage = false;
         private int baseMinQty = 4;
@@ -549,6 +656,56 @@ public final class TradeGood {
             this.biomeAffinities = new LinkedHashSet<>();
             if (biomes != null) {
                 this.biomeAffinities.addAll(biomes);
+            }
+            return this;
+        }
+
+        /** @param exclusive whether this good is geographically restricted to matching biome(s) */
+        public Builder biomeExclusive(boolean exclusive) {
+            this.biomeExclusive = exclusive;
+            return this;
+        }
+
+        /** @param biomes biome keys with heightened local buy demand */
+        public Builder demandBiomes(String... biomes) {
+            this.demandBiomes = new LinkedHashSet<>();
+            if (biomes != null) {
+                Collections.addAll(this.demandBiomes, biomes);
+            }
+            return this;
+        }
+
+        /** @param biomes biome keys with heightened local buy demand */
+        public Builder demandBiomes(Collection<String> biomes) {
+            this.demandBiomes = new LinkedHashSet<>();
+            if (biomes != null) {
+                this.demandBiomes.addAll(biomes);
+            }
+            return this;
+        }
+
+        /** @param seasons active calendar seasons with heightened non-crop demand */
+        public Builder demandSeasons(Season... seasons) {
+            this.demandSeasons = EnumSet.noneOf(Season.class);
+            if (seasons != null) {
+                for (Season s : seasons) {
+                    if (s != null && s.isActive()) {
+                        this.demandSeasons.add(s);
+                    }
+                }
+            }
+            return this;
+        }
+
+        /** @param seasons active calendar seasons collection with heightened non-crop demand */
+        public Builder demandSeasons(Collection<Season> seasons) {
+            this.demandSeasons = EnumSet.noneOf(Season.class);
+            if (seasons != null) {
+                for (Season s : seasons) {
+                    if (s != null && s.isActive()) {
+                        this.demandSeasons.add(s);
+                    }
+                }
             }
             return this;
         }
