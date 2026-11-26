@@ -61,6 +61,9 @@ public final class TyC2ForgeCommand {
                 .then(Commands.literal("levelup")
                         .requires(src -> src.hasPermission(2))
                         .executes(ctx -> forceLevelUp(ctx.getSource())))
+                .then(Commands.literal("restore_hub")
+                        .requires(src -> src.hasPermission(2))
+                        .executes(ctx -> restoreHub(ctx.getSource())))
                 .then(Commands.literal("expand")
                         .requires(src -> src.hasPermission(2))
                         .executes(ctx -> forceExpand(ctx.getSource(), null))
@@ -291,6 +294,36 @@ public final class TyC2ForgeCommand {
             TycoonForgeWorldManager.refreshVillageOrders(level, data, v, src.getServer().overworld().getGameTime());
             data.setDirty();
             src.sendSuccess(Component.literal("[TyC2] Upgraded " + v.getVillageName() + " to Lv." + next), true);
+            return 1;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("Player required"));
+            return 0;
+        }
+    }
+
+    private static int restoreHub(CommandSourceStack src) {
+        try {
+            ServerPlayer player = src.getPlayerOrException();
+            ServerLevel level = player.getLevel();
+            TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
+            Optional<VillageRecord> vOpt = data.findNearestVillage(
+                    level.dimension().location().toString(), player.blockPosition(), 128
+            );
+            if (vOpt.isEmpty()) {
+                src.sendFailure(Component.literal("[TyC2] No tracked village within 128 blocks."));
+                return 0;
+            }
+            VillageRecord v = vOpt.get();
+            if (!v.isPartnered()) {
+                src.sendFailure(Component.literal("[TyC2] " + v.getVillageName() + " is not currently partnered."));
+                return 0;
+            }
+            net.minecraft.core.BlockPos hubPos = TycoonForgeWorldManager.restoreHubBlock(level, v);
+            src.sendSuccess(Component.translatable(
+                    "status.tyc2.hub.restored",
+                    v.getVillageName(),
+                    hubPos.getX() + "," + hubPos.getY() + "," + hubPos.getZ()
+            ), true);
             return 1;
         } catch (Exception e) {
             src.sendFailure(Component.literal("Player required"));

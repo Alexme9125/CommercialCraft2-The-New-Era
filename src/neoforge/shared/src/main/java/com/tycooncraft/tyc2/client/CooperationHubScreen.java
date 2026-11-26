@@ -926,13 +926,17 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                         if (sm != null) {
                             String itemId = JsonLite.getString(sm, "itemId", "");
                             int count = JsonLite.getInt(sm, "count", 0);
+                            String metaHint = JsonLite.getString(sm, "metaHint", "");
                             if (!itemId.isEmpty() && count > 0) {
                                 ItemStack st = TyC2Native.stack(itemId, 1);
                                 Component nameComp = st.isEmpty() ? Component.literal(itemId) : st.getHoverName();
-                                canvas.drawTooltip(List.of(
-                                        nameComp,
-                                        Component.translatable("gui.tyc2.hub.slot_tooltip", count)
-                                ), mouseX, mouseY);
+                                List<Component> tip = new ArrayList<>(3);
+                                tip.add(nameComp);
+                                if (!metaHint.isBlank()) {
+                                    tip.add(Component.literal(metaHint).withStyle(ChatFormatting.AQUA));
+                                }
+                                tip.add(Component.translatable("gui.tyc2.hub.slot_tooltip", count));
+                                canvas.drawTooltip(tip, mouseX, mouseY);
                             }
                         }
                     }

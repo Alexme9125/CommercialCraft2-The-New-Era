@@ -24,7 +24,8 @@ public final class TyC2ChunkTickets {
             "hub_chunk_loader",
             () -> new TicketType(
                     0L,
-                    TicketType.FLAG_LOADING
+                    TicketType.FLAG_PERSIST
+                            | TicketType.FLAG_LOADING
                             | TicketType.FLAG_SIMULATION
                             | TicketType.FLAG_KEEP_DIMENSION_ACTIVE
             )

@@ -1,5 +1,6 @@
 package com.tycooncraft.tyc2.core;
 
+import java.security.SecureRandom;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,6 +25,15 @@ public final class BankAccountManager {
 
     /** Maximum number of transaction log entries retained per account. */
     public static final int MAX_TRANSACTION_LOGS = 32;
+
+    /** Maximum number of companies a single player may belong to at once. */
+    public static final int MAX_COMPANIES_PER_PLAYER = 16;
+
+    /** Maximum display name length for a company/guild account. */
+    public static final int MAX_COMPANY_NAME_LENGTH = 32;
+
+    private static final SecureRandom INVITE_RANDOM = new SecureRandom();
+    private static final char[] INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
 
     /**
      * Scope of a settlement account.
@@ -405,26 +415,45 @@ public final class BankAccountManager {
     }
 
     /**
+     * Checks whether a player can create or join another company without exceeding
+     * {@link #MAX_COMPANIES_PER_PLAYER}.
+     *
+     * @param playerUuid player UUID
+     * @return {@code true} if below the per-player company limit
+     */
+    public boolean canJoinAnotherCompany(UUID playerUuid) {
+        return getCompaniesForPlayer(playerUuid).size() < MAX_COMPANIES_PER_PLAYER;
+    }
+
+    /**
      * Creates a new shared Guild/Company account owned by {@code ownerUuid}.
      *
      * @param ownerUuid founding player UUID
      * @param ownerName founding player display name
-     * @param companyName desired company name
+     * @param companyName desired company name (trimmed and capped at {@value #MAX_COMPANY_NAME_LENGTH} chars)
      * @return created company account
      * @throws IllegalArgumentException if {@code companyName} is blank
+     * @throws IllegalStateException if the player already belongs to {@value #MAX_COMPANIES_PER_PLAYER} companies
      */
     public CompanyAccount createCompany(UUID ownerUuid, String ownerName, String companyName) {
         Objects.requireNonNull(ownerUuid, "ownerUuid must not be null");
         if (companyName == null || companyName.isBlank()) {
             throw new IllegalArgumentException("Company name must not be blank");
         }
+        if (!canJoinAnotherCompany(ownerUuid)) {
+            throw new IllegalStateException("status.tyc2.atm.company_limit");
+        }
+        String trimmedName = companyName.trim();
+        if (trimmedName.length() > MAX_COMPANY_NAME_LENGTH) {
+            trimmedName = trimmedName.substring(0, MAX_COMPANY_NAME_LENGTH);
+        }
         getOrCreatePersonal(ownerUuid, ownerName);
         String id = "co_" + nextCompanySequence++;
         while (companyAccounts.containsKey(id)) {
             id = "co_" + nextCompanySequence++;
         }
-        String code = generateInviteCode(id, ownerUuid);
-        CompanyAccount company = new CompanyAccount(id, companyName.trim(), ownerUuid, code, 0L);
+        String code = generateUniqueInviteCode();
+        CompanyAccount company = new CompanyAccount(id, trimmedName, ownerUuid, code, 0L);
         companyAccounts.put(id, company);
         return company;
     }
@@ -446,6 +475,9 @@ public final class BankAccountManager {
         if (!company.ownerUuid.equals(actorUuid)) {
             return BankResult.fail("status.tyc2.hub.not_owner", AccountRef.company(companyId), company.balance);
         }
+        if (!company.isMember(targetUuid) && !canJoinAnotherCompany(targetUuid)) {
+            return BankResult.fail("status.tyc2.atm.company_limit", AccountRef.company(companyId), company.balance);
+        }
         getOrCreatePersonal(targetUuid, targetName);
         company.memberUuids.add(targetUuid);
         return BankResult.ok(AccountRef.company(companyId), company.balance);
@@ -466,6 +498,9 @@ public final class BankAccountManager {
         String normalized = inviteCode.trim().toUpperCase(Locale.ROOT);
         for (CompanyAccount company : companyAccounts.values()) {
             if (company.inviteCode.equalsIgnoreCase(normalized)) {
+                if (!company.isMember(playerUuid) && !canJoinAnotherCompany(playerUuid)) {
+                    return BankResult.fail("status.tyc2.atm.company_limit", AccountRef.company(company.companyId), company.balance);
+                }
                 getOrCreatePersonal(playerUuid, displayName);
                 company.memberUuids.add(playerUuid);
                 return BankResult.ok(AccountRef.company(company.companyId), company.balance);
@@ -486,7 +521,7 @@ public final class BankAccountManager {
         if (company == null || !company.ownerUuid.equals(actorUuid)) {
             return Optional.empty();
         }
-        company.inviteCode = generateInviteCode(companyId, UUID.randomUUID());
+        company.inviteCode = generateUniqueInviteCode();
         return Optional.of(company.inviteCode);
     }
 
@@ -520,7 +555,7 @@ public final class BankAccountManager {
             long remaining = company.balance;
             company.balance = 0L;
             if (remaining > 0L) {
-                personal.balance = Math.addExact(personal.balance, remaining);
+                personal.balance = saturatedAdd(personal.balance, remaining);
                 personal.appendLog(new BankTransactionLog(
                         timestamp,
                         TransactionType.COMPANY_DISSOLVE,
@@ -775,6 +810,9 @@ public final class BankAccountManager {
         if (sourceBal < amount) {
             return BankResult.fail("status.tyc2.atm.insufficient_balance", from, sourceBal);
         }
+        if (Long.MAX_VALUE - getBalance(to) < amount) {
+            return BankResult.fail("status.tyc2.atm.invalid_amount", from, sourceBal);
+        }
 
         String fromLabel = describeAccount(from);
         String toLabel = describeAccount(to);
@@ -813,12 +851,12 @@ public final class BankAccountManager {
         }
         if (ref.scope() == AccountScope.PERSONAL) {
             PersonalAccount acc = personalAccounts.get(UUID.fromString(ref.accountId()));
-            acc.balance = Math.addExact(acc.balance, amount);
+            acc.balance = saturatedAdd(acc.balance, amount);
             acc.appendLog(new BankTransactionLog(timestamp, type, amount, acc.balance, counterparty, memo));
             return BankResult.ok(ref, acc.balance);
         }
         CompanyAccount company = companyAccounts.get(ref.accountId());
-        company.balance = Math.addExact(company.balance, amount);
+        company.balance = saturatedAdd(company.balance, amount);
         company.appendLog(new BankTransactionLog(timestamp, type, amount, company.balance, counterparty, memo));
         return BankResult.ok(ref, company.balance);
     }
@@ -874,10 +912,10 @@ public final class BankAccountManager {
     public long getTotalCombinedBalance() {
         long sum = 0L;
         for (PersonalAccount acc : personalAccounts.values()) {
-            sum = Math.addExact(sum, acc.balance);
+            sum = saturatedAdd(sum, acc.balance);
         }
         for (CompanyAccount co : companyAccounts.values()) {
-            sum = Math.addExact(sum, co.balance);
+            sum = saturatedAdd(sum, co.balance);
         }
         return sum;
     }
@@ -1022,12 +1060,43 @@ public final class BankAccountManager {
         return co == null ? ref.accountId() : co.name;
     }
 
-    private static String generateInviteCode(String companyId, UUID seedUuid) {
-        long hash = Math.abs(Objects.hash(companyId, seedUuid.getMostSignificantBits(), seedUuid.getLeastSignificantBits()));
-        String base36 = Long.toString(hash, 36).toUpperCase(Locale.ROOT);
-        while (base36.length() < 6) {
-            base36 = "0" + base36;
+    private String generateUniqueInviteCode() {
+        for (int attempt = 0; attempt < 64; attempt++) {
+            String candidate = generateRandomInviteCode();
+            boolean collision = false;
+            for (CompanyAccount existing : companyAccounts.values()) {
+                if (existing.inviteCode.equalsIgnoreCase(candidate)) {
+                    collision = true;
+                    break;
+                }
+            }
+            if (!collision) {
+                return candidate;
+            }
         }
-        return "TYC-" + base36.substring(0, 6);
+        return generateRandomInviteCode();
+    }
+
+    private static String generateInviteCode(String companyId, UUID seedUuid) {
+        return generateRandomInviteCode();
+    }
+
+    private static String generateRandomInviteCode() {
+        StringBuilder sb = new StringBuilder(10);
+        sb.append("TYC-");
+        for (int i = 0; i < 6; i++) {
+            sb.append(INVITE_ALPHABET[INVITE_RANDOM.nextInt(INVITE_ALPHABET.length)]);
+        }
+        return sb.toString();
+    }
+
+    private static long saturatedAdd(long a, long b) {
+        if (b <= 0L) {
+            return Math.max(0L, a + b);
+        }
+        if (a <= 0L) {
+            return b;
+        }
+        return Long.MAX_VALUE - a < b ? Long.MAX_VALUE : a + b;
     }
 }

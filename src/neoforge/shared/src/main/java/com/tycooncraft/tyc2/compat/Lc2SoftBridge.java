@@ -105,14 +105,6 @@ public final class Lc2SoftBridge {
     }
 
     private static boolean isLc2LogisticsBlock(String blockId) {
-        if (blockId == null || !blockId.startsWith("lc2:")) {
-            return false;
-        }
-        String path = blockId.substring("lc2:".length());
-        return path.contains("smart_port")
-                || path.contains("cargo_station")
-                || path.contains("drone")
-                || path.contains("port")
-                || path.contains("station");
+        return "lc2:smart_port".equals(blockId) || "lc2:cargo_station".equals(blockId);
     }
 }

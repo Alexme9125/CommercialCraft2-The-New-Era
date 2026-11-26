@@ -6,7 +6,9 @@ import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraftforge.fml.ModList;
 
 /**
@@ -39,27 +41,41 @@ public final class Lc2SoftBridge {
      */
     public static List<String> scanNearbyStations(ServerLevel level, BlockPos center, int radius) {
         List<String> results = new ArrayList<>();
-        if (!isLoaded() || level == null || center == null) {
+        if (!isLoaded() || level == null || center == null || radius < 0) {
             return results;
         }
         int minY = Math.max(level.getMinBuildHeight(), center.getY() - 16);
         int maxY = Math.min(level.getMaxBuildHeight() - 1, center.getY() + 24);
-        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
-        for (int dx = -radius; dx <= radius && results.size() < 8; dx++) {
-            int wx = center.getX() + dx;
-            for (int dz = -radius; dz <= radius && results.size() < 8; dz++) {
-                int wz = center.getZ() + dz;
-                if (!level.hasChunkAt(cursor.set(wx, center.getY(), wz))) {
+        int minCx = (center.getX() - radius) >> 4;
+        int maxCx = (center.getX() + radius) >> 4;
+        int minCz = (center.getZ() - radius) >> 4;
+        int maxCz = (center.getZ() + radius) >> 4;
+        long maxDistSq = (long) radius * radius;
+        for (int cx = minCx; cx <= maxCx && results.size() < 8; cx++) {
+            for (int cz = minCz; cz <= maxCz && results.size() < 8; cz++) {
+                LevelChunk chunk = level.getChunkSource().getChunkNow(cx, cz);
+                if (chunk == null) {
                     continue;
                 }
-                for (int y = minY; y <= maxY && results.size() < 8; y++) {
-                    cursor.set(wx, y, wz);
-                    BlockState state = level.getBlockState(cursor);
+                for (BlockEntity be : chunk.getBlockEntities().values()) {
+                    if (results.size() >= 8) {
+                        break;
+                    }
+                    BlockPos bp = be.getBlockPos();
+                    if (bp.getY() < minY || bp.getY() > maxY) {
+                        continue;
+                    }
+                    long dx = bp.getX() - center.getX();
+                    long dz = bp.getZ() - center.getZ();
+                    if (dx * dx + dz * dz > maxDistSq) {
+                        continue;
+                    }
+                    BlockState state = be.getBlockState();
                     String bid = TyC2Ids.blockId(state.getBlock());
                     if (SMART_PORT_ID.equals(bid)) {
-                        results.add(SMART_PORT_ID + "|" + wx + "," + y + "," + wz);
+                        results.add(SMART_PORT_ID + "|" + bp.getX() + "," + bp.getY() + "," + bp.getZ());
                     } else if (CARGO_STATION_ID.equals(bid)) {
-                        results.add(CARGO_STATION_ID + "|" + wx + "," + y + "," + wz);
+                        results.add(CARGO_STATION_ID + "|" + bp.getX() + "," + bp.getY() + "," + bp.getZ());
                     }
                 }
             }

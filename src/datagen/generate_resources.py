@@ -359,9 +359,9 @@ GOODS_IC2 = {
         _good("tyc2:ic2_terra_wart", "ic2:terra_wart", "AGRICULTURE", 45, 6, 9, True, False, 3, 10, tier="TIER_2", seasons=ALL_SEASONS, required_mod="ic2"),
         _good("tyc2:ic2_tin_ingot", "ic2:tin_ingot", "METAL", 6, 1, 5, False, True, 8, 24, optional_tag="#ingots/tin", required_mod="ic2"),
         _good("tyc2:ic2_lead_ingot", "ic2:lead_ingot", "METAL", 7, 1, 5, False, True, 8, 24, optional_tag="#ingots/lead", required_mod="ic2"),
-        _good("tyc2:ic2_bronze_ingot", "ic2:bronze_ingot", "METAL", 14, 4, 9, True, True, 6, 18, tier="TIER_1", optional_tag="#ingots/bronze", required_mod="ic2"),
+        _good("tyc2:ic2_bronze_ingot", "ic2:bronze_ingot", "METAL", 14, 4, 9, False, True, 6, 18, tier="TIER_1", optional_tag="#ingots/bronze", required_mod="ic2"),
         _good("tyc2:ic2_silver_ingot", "ic2:silver_ingot", "METAL", 20, 4, 8, False, True, 4, 14, tier="TIER_1", optional_tag="#ingots/silver", required_mod="ic2"),
-        _good("tyc2:ic2_steel_ingot", "ic2:steel_ingot", "RARE_ALLOY", 26, 4, 10, True, True, 4, 14, tier="TIER_2", optional_tag="#ingots/steel", required_mod="ic2"),
+        _good("tyc2:ic2_steel_ingot", "ic2:steel_ingot", "RARE_ALLOY", 26, 4, 10, False, True, 4, 14, tier="TIER_2", optional_tag="#ingots/steel", required_mod="ic2"),
         _good("tyc2:ic2_circuit", "ic2:circuit", "INDUSTRIAL", 34, 4, 7, False, True, 2, 8, tier="TIER_1", required_mod="ic2"),
         _good("tyc2:ic2_advanced_circuit", "ic2:advanced_circuit", "INDUSTRIAL", 85, 6, 9, False, True, 1, 5, tier="TIER_2", required_mod="ic2"),
         _good("tyc2:ic2_copper_cable", "ic2:copper_cable", "INDUSTRIAL", 5, 4, 6, False, True, 12, 32, tier="TIER_1", required_mod="ic2"),
@@ -739,7 +739,21 @@ def generate(target: str, destination: Path) -> int:
                 "textures": {"layer0": mod("item/comm_terminal_empty")},
             },
         )
-        item_definition("comm_terminal")
+        if newest:
+            asset(
+                "items/comm_terminal",
+                {
+                    "model": {
+                        "type": "minecraft:condition",
+                        "property": "minecraft:custom_model_data",
+                        "index": 0,
+                        "on_true": {"type": "minecraft:model", "model": mod("item/comm_terminal")},
+                        "on_false": {"type": "minecraft:model", "model": mod("item/comm_terminal_empty")},
+                    }
+                },
+            )
+        else:
+            item_definition("comm_terminal")
 
         # ---------------------------------------------------------------------
         # 3. Standalone & Conditional Crafting Recipes (Version-Specific Schema)
@@ -826,6 +840,13 @@ def generate(target: str, destination: Path) -> int:
             f"data/minecraft/{block_tag_dir}mineable/pickaxe.json",
             {"replace": False, "values": [mod(b) for b in MINEABLE_BLOCKS]},
         )
+
+        # Protect Cooperation Hub against Wither and Ender Dragon block destruction across all MC versions
+        for boss_tag in ("wither_immune", "dragon_immune"):
+            write_json(
+                f"data/minecraft/{block_tag_dir}{boss_tag}.json",
+                {"replace": False, "values": [mod("cooperation_hub")]},
+            )
 
         # Optional village POI tag entry (safe whether custom POI or vanilla meeting POI is used)
         write_json(

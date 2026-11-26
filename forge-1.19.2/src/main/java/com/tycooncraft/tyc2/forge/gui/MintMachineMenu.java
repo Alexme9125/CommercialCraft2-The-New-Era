@@ -51,7 +51,7 @@ public class MintMachineMenu extends AbstractContainerMenu {
         this.blockEntity = be;
         this.machinePos = pos;
         this.container = be != null ? be : new SimpleContainer(MintMachineBlockEntity.TOTAL_SLOTS);
-        this.data = be != null ? be.dataAccess : new SimpleContainerData(8);
+        this.data = be != null ? be.dataAccess : new SimpleContainerData(10);
 
         // Input slots (38,26) & (58,26)
         addSlot(new Slot(container, MintMachineBlockEntity.SLOT_INPUT_0, 38, 26));
@@ -122,11 +122,12 @@ public class MintMachineMenu extends AbstractContainerMenu {
     }
 
     public int getStoredEu() {
-        return data.get(0);
+        return (data.get(0) & 0xFFFF) | ((data.get(8) & 0xFFFF) << 16);
     }
 
     public int getMaxEu() {
-        return Math.max(1, data.get(1));
+        int val = (data.get(1) & 0xFFFF) | ((data.get(9) & 0xFFFF) << 16);
+        return Math.max(1, val);
     }
 
     public int getProgress() {

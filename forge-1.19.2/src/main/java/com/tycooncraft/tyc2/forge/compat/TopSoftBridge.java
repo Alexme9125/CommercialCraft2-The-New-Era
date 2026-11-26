@@ -47,7 +47,8 @@ public final class TopSoftBridge {
             Object blockProxy = Proxy.newProxyInstance(cl, new Class<?>[]{blockProviderIfc}, (proxy, method, args) -> {
                 String name = method.getName();
                 if ("getID".equals(name)) {
-                    return TyC2Ids.id("top_blocks");
+                    var rl = TyC2Ids.id("top_blocks");
+                    return method.getReturnType() == String.class ? rl.toString() : rl;
                 }
                 if ("addProbeInfo".equals(name) && args != null && args.length >= 6) {
                     Object probeInfo = args[1];
@@ -62,7 +63,8 @@ public final class TopSoftBridge {
             Object entityProxy = Proxy.newProxyInstance(cl, new Class<?>[]{entityProviderIfc}, (proxy, method, args) -> {
                 String name = method.getName();
                 if ("getID".equals(name)) {
-                    return TyC2Ids.id("top_entities").toString();
+                    var rl = TyC2Ids.id("top_entities");
+                    return method.getReturnType() == String.class ? rl.toString() : rl;
                 }
                 if ("addProbeEntityInfo".equals(name) && args != null && args.length >= 5) {
                     Object probeInfo = args[1];

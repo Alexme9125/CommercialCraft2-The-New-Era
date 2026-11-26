@@ -150,6 +150,8 @@ public final class VillageRecord {
     private final List<ConstructionJob> constructionQueue;
     private final List<AidConstructionProject> aidProjects;
     private VillageEmploymentStats employmentStats;
+    private boolean chunkLoaderInstalled;
+    private long nextAutoExpansionRetryTick;
 
     /**
      * Creates a new unpartnered Level-1 {@link VillageRecord} centered at {@code hubPos}.
@@ -456,18 +458,33 @@ public final class VillageRecord {
     }
 
     /**
-     * Applies periodic municipal upkeep (2% of excess balance above {@link VillageLevelTable#targetReserve(int)}),
-     * deducting and returning the deflationary money sink burned.
+     * Applies periodic municipal upkeep using the default 2% rate on excess balance above
+     * {@link VillageLevelTable#targetReserve(int)}, deducting and returning the deflationary sink burned.
      *
      * @return burned upkeep amount in IC ({@code >= 0})
      */
     public long applyMunicipalUpkeep() {
+        return applyMunicipalUpkeep(DAILY_EXCESS_UPKEEP_RATE);
+    }
+
+    /**
+     * Applies periodic municipal upkeep using a configured {@code upkeepRate} (clamped to {@code [0.0, 0.25]})
+     * on excess balance above {@link VillageLevelTable#targetReserve(int)}.
+     *
+     * @param upkeepRate configured upkeep fraction (0.0 disables upkeep)
+     * @return burned upkeep amount in IC ({@code >= 0})
+     */
+    public long applyMunicipalUpkeep(double upkeepRate) {
+        if (!Double.isFinite(upkeepRate) || upkeepRate <= 0.0) {
+            return 0L;
+        }
+        double clampedRate = Math.min(0.25, upkeepRate);
         double target = VillageLevelTable.targetReserve(level);
         if (villageBalance <= target) {
             return 0L;
         }
         long excess = (long) Math.floor(villageBalance - target);
-        long upkeep = Math.min(villageBalance, (long) Math.floor(excess * DAILY_EXCESS_UPKEEP_RATE));
+        long upkeep = Math.min(villageBalance, (long) Math.floor(excess * clampedRate));
         if (upkeep > 0L) {
             villageBalance -= upkeep;
         }
@@ -1278,6 +1295,65 @@ public final class VillageRecord {
         int before = constructionQueue.size();
         constructionQueue.removeIf(ConstructionJob::isCompleted);
         return before - constructionQueue.size();
+    }
+
+    /**
+     * Clears and returns all pending/active {@link ConstructionJob}s (used on partnership termination).
+     *
+     * @return snapshot of cleared construction jobs
+     */
+    public List<ConstructionJob> clearConstructionQueue() {
+        List<ConstructionJob> cleared = new ArrayList<>(constructionQueue);
+        constructionQueue.clear();
+        return cleared;
+    }
+
+    /**
+     * Clears and returns all queued/active {@link AidConstructionProject}s (used on partnership termination).
+     *
+     * @return snapshot of cleared aid projects
+     */
+    public List<AidConstructionProject> clearAidProjects() {
+        List<AidConstructionProject> cleared = new ArrayList<>(aidProjects);
+        aidProjects.clear();
+        return cleared;
+    }
+
+    /**
+     * Returns whether an LC2 Chunk Loading Upgrade is installed in this village's Cooperation Hub
+     * so chunk tickets can be cleanly restored after server restarts.
+     *
+     * @return {@code true} if a chunk loading upgrade is installed
+     */
+    public boolean isChunkLoaderInstalled() {
+        return chunkLoaderInstalled;
+    }
+
+    /**
+     * Updates whether an LC2 Chunk Loading Upgrade is installed in this village's Cooperation Hub.
+     *
+     * @param chunkLoaderInstalled installed flag
+     */
+    public void setChunkLoaderInstalled(boolean chunkLoaderInstalled) {
+        this.chunkLoaderInstalled = chunkLoaderInstalled;
+    }
+
+    /**
+     * Returns the earliest server game tick at which a failed auto-expansion site scan may retry.
+     *
+     * @return retry backoff tick
+     */
+    public long getNextAutoExpansionRetryTick() {
+        return nextAutoExpansionRetryTick;
+    }
+
+    /**
+     * Sets the earliest server game tick at which auto-expansion may retry after a site scan failure.
+     *
+     * @param nextAutoExpansionRetryTick retry backoff tick
+     */
+    public void setNextAutoExpansionRetryTick(long nextAutoExpansionRetryTick) {
+        this.nextAutoExpansionRetryTick = Math.max(0L, nextAutoExpansionRetryTick);
     }
 
     private int findOrderIndex(String orderId) {

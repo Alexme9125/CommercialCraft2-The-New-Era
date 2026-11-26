@@ -1,12 +1,17 @@
 package com.tycooncraft.tyc2.forge.network;
 
+import com.tycooncraft.tyc2.forge.gui.MayorNegotiationMenu;
+import com.tycooncraft.tyc2.forge.world.TycoonForgeSavedData;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeWorldManager;
+import com.tycooncraft.tyc2.village.VillageRecord;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.minecraftforge.network.NetworkEvent;
 
 /**
@@ -40,6 +45,26 @@ public final class C2SMayorNegotiatePacket {
         }
         Component fb = Component.empty();
         if (pkt.sign) {
+            if (!(player.containerMenu instanceof MayorNegotiationMenu menu)
+                    || !pkt.villageId.equals(menu.getVillageId())) {
+                ctx.setPacketHandled(true);
+                return;
+            }
+            TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
+            Optional<VillageRecord> vOpt = data.getVillage(pkt.villageId);
+            if (vOpt.isEmpty()
+                    || !player.getLevel().dimension().location().toString().equals(vOpt.get().getDimensionId())) {
+                ctx.setPacketHandled(true);
+                return;
+            }
+            UUID mayorUuid = menu.getMayorEntityUuid() != null
+                    ? menu.getMayorEntityUuid()
+                    : vOpt.get().getMayorState().getMayorEntityUuid();
+            Entity mayor = mayorUuid != null ? player.getLevel().getEntity(mayorUuid) : null;
+            if (mayor == null || !mayor.isAlive() || mayor.distanceToSqr(player) > 100.0) {
+                ctx.setPacketHandled(true);
+                return;
+            }
             TycoonForgeWorldManager.ActionFeedback res = TycoonForgeWorldManager.signPartnership(player, pkt.villageId);
             fb = res.toComponent();
             if (res.success()) {

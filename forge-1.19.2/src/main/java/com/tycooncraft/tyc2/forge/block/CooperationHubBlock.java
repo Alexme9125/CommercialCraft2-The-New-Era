@@ -5,8 +5,10 @@ import com.tycooncraft.tyc2.forge.item.CommTerminalItem;
 import com.tycooncraft.tyc2.forge.item.TyC2BlockItem;
 import com.tycooncraft.tyc2.forge.util.TyC2Ids;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeSavedData;
+import com.tycooncraft.tyc2.forge.world.TycoonForgeWorldManager;
 import com.tycooncraft.tyc2.village.BiomeStyle;
 import com.tycooncraft.tyc2.village.VillageRecord;
+import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
@@ -15,9 +17,11 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
@@ -41,6 +45,11 @@ public class CooperationHubBlock extends Block implements EntityBlock {
         super(BlockBehaviour.Properties.of(Material.METAL)
                 .strength(-1.0F, 3_600_000.0F)
                 .sound(SoundType.METAL));
+    }
+
+    @Override
+    public boolean canEntityDestroy(BlockState state, BlockGetter level, BlockPos pos, Entity entity) {
+        return false;
     }
 
     @Override
@@ -79,12 +88,23 @@ public class CooperationHubBlock extends Block implements EntityBlock {
         CompoundTag tag = stack.getTag();
         if (tag != null && tag.hasUUID(TyC2BlockItem.TAG_BOUND_VILLAGE_ID)) {
             UUID boundId = tag.getUUID(TyC2BlockItem.TAG_BOUND_VILLAGE_ID);
-            hub.setVillageId(boundId);
-            data.getVillage(boundId).ifPresent(v -> {
-                v.setHubPos(TyC2Ids.toCore(pos));
-                v.setDimensionId(dim);
+            Optional<VillageRecord> existingOpt = data.getVillage(boundId);
+            if (existingOpt.isPresent()) {
+                VillageRecord existing = existingOpt.get();
+                BlockPos oldPos = TyC2Ids.toMc(existing.getHubPos());
+                ServerLevel oldLevel = TycoonForgeWorldManager.resolveLevel(serverLevel.getServer(), existing.getDimensionId());
+                if (oldLevel != null
+                        && (!oldPos.equals(pos) || oldLevel != serverLevel)
+                        && oldLevel.isLoaded(oldPos)
+                        && oldLevel.getBlockState(oldPos).is(TyC2ForgeRegistries.COOPERATION_HUB_BLOCK.get())) {
+                    // Prevent duplicate Hub aliasing onto a village whose live Hub still exists
+                    return;
+                }
+                existing.setHubPos(TyC2Ids.toCore(pos));
+                existing.setDimensionId(dim);
                 data.setDirty();
-            });
+            }
+            hub.setVillageId(boundId);
             return;
         }
 

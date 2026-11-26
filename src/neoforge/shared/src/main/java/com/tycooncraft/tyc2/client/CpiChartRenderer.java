@@ -36,7 +36,7 @@ public final class CpiChartRenderer {
         double maxVal = 1.45;
         if (points != null) {
             for (Double d : points) {
-                if (d != null) {
+                if (d != null && Double.isFinite(d)) {
                     minVal = Math.min(minVal, Math.max(0.20, d - 0.10));
                     maxVal = Math.max(maxVal, Math.min(4.20, d + 0.10));
                 }
@@ -64,7 +64,11 @@ public final class CpiChartRenderer {
         int prevX = -1;
         int prevY = -1;
         for (int i = 0; i < n; i++) {
-            double val = points.get(i);
+            Double rawVal = points.get(i);
+            if (rawVal == null || !Double.isFinite(rawVal)) {
+                continue;
+            }
+            double val = rawVal;
             int px = n == 1 ? (plotX + plotW / 2) : plotX + (int) Math.round((i / (double) (n - 1)) * (plotW - 1));
             int py = plotY + plotH - (int) Math.round(((val - minVal) / range) * (plotH - 1));
             py = Math.max(plotY, Math.min(plotY + plotH - 1, py));

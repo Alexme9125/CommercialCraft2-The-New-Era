@@ -26,6 +26,7 @@ import net.minecraft.world.entity.ai.village.poi.PoiType;
 import net.minecraft.world.entity.ai.village.poi.PoiTypes;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerProfession;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -107,24 +108,28 @@ public final class TyC2VillagerHelpers {
         List<DiscoveredProfession> discovered = new ArrayList<>();
         for (Map.Entry<ResourceKey<VillagerProfession>, VillagerProfession> entry
                 : ForgeRegistries.VILLAGER_PROFESSIONS.getEntries()) {
-            ResourceLocation profKey = entry.getKey().location();
-            VillagerProfession prof = entry.getValue();
-            if (prof == null || prof == VillagerProfession.NONE || prof == VillagerProfession.NITWIT) {
-                continue;
+            try {
+                ResourceLocation profKey = entry.getKey().location();
+                VillagerProfession prof = entry.getValue();
+                if (prof == null || prof == VillagerProfession.NONE || prof == VillagerProfession.NITWIT) {
+                    continue;
+                }
+                String profId = profKey.toString().toLowerCase(Locale.ROOT);
+                String path = profKey.getPath().toLowerCase(Locale.ROOT);
+                if ("minecraft:none".equals(profId)
+                        || "minecraft:nitwit".equals(profId)
+                        || "none".equals(path)
+                        || "nitwit".equals(path)) {
+                    continue;
+                }
+                String workstationBlockId = resolveWorkstationBlockId(prof, poiHolders);
+                if (workstationBlockId == null || workstationBlockId.isBlank()) {
+                    continue;
+                }
+                discovered.add(new DiscoveredProfession(profId, workstationBlockId, deriveFallbackName(profKey)));
+            } catch (Throwable ignored) {
+                // Skip malformed modded villager profession without failing discovery
             }
-            String profId = profKey.toString().toLowerCase(Locale.ROOT);
-            String path = profKey.getPath().toLowerCase(Locale.ROOT);
-            if ("minecraft:none".equals(profId)
-                    || "minecraft:nitwit".equals(profId)
-                    || "none".equals(path)
-                    || "nitwit".equals(path)) {
-                continue;
-            }
-            String workstationBlockId = resolveWorkstationBlockId(prof, poiHolders);
-            if (workstationBlockId == null || workstationBlockId.isBlank()) {
-                continue;
-            }
-            discovered.add(new DiscoveredProfession(profId, workstationBlockId, deriveFallbackName(profKey)));
         }
         discovered.sort(Comparator.comparing(DiscoveredProfession::professionId));
         return discovered;
@@ -178,6 +183,9 @@ public final class TyC2VillagerHelpers {
                 return false;
             }
             if (v.getPersistentData().getBoolean(TycoonForgeWorldManager.TAG_MAYOR)) {
+                return false;
+            }
+            if (v.getVillagerXp() > 0) {
                 return false;
             }
             return v.getVillagerData().getProfession() == VillagerProfession.NONE;
@@ -314,22 +322,26 @@ public final class TyC2VillagerHelpers {
             return null;
         }
         for (Holder<PoiType> holder : matched) {
-            PoiType poi = holder.value();
-            if (poi == null || poi.matchingStates() == null) {
-                continue;
-            }
-            for (BlockState state : poi.matchingStates()) {
-                if (state == null || state.isAir()) {
+            try {
+                PoiType poi = holder.value();
+                if (poi == null || poi.matchingStates() == null) {
                     continue;
                 }
-                Block block = state.getBlock();
-                if (block == Blocks.AIR) {
-                    continue;
+                for (BlockState state : poi.matchingStates()) {
+                    if (state == null || state.isAir()) {
+                        continue;
+                    }
+                    Block block = state.getBlock();
+                    if (block == Blocks.AIR || block.asItem() == Items.AIR) {
+                        continue;
+                    }
+                    String id = TyC2Ids.blockId(block);
+                    if (!id.isEmpty() && !"minecraft:air".equals(id)) {
+                        return id.toLowerCase(Locale.ROOT);
+                    }
                 }
-                String id = TyC2Ids.blockId(block);
-                if (!id.isEmpty() && !"minecraft:air".equals(id)) {
-                    return id.toLowerCase(Locale.ROOT);
-                }
+            } catch (Throwable ignored) {
+                // Skip malformed modded POI state
             }
         }
         return null;

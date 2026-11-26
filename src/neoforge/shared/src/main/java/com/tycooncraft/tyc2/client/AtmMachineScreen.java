@@ -101,9 +101,14 @@ public final class AtmMachineScreen extends TyC2ScreenBase<AtmMachineMenu> {
         denomWithdrawBtn = addRenderableWidget(Button.builder(
                 Component.literal(DENOMS[selectedDenomIdx].value() + "x"),
                 b -> {
-                    int cnt = (int) Math.max(1L, Math.min(64L, parsePositiveLong(amountInput.getValue(), 1L)));
+                    CurrencyDenomination denom = DENOMS[selectedDenomIdx];
+                    long rawInput = parsePositiveLong(amountInput.getValue(), 1L);
+                    long coins = (rawInput >= denom.value() && rawInput % denom.value() == 0L)
+                            ? rawInput / denom.value()
+                            : rawInput;
+                    int cnt = (int) Math.max(1L, Math.min(64L, coins));
                     sendAction("WITHDRAW_DENOM", Map.of(
-                            "denom", DENOMS[selectedDenomIdx].name(),
+                            "denom", denom.name(),
                             "count", cnt
                     ));
                 }
@@ -328,6 +333,7 @@ public final class AtmMachineScreen extends TyC2ScreenBase<AtmMachineMenu> {
             case "TRANSFER_OUT" -> "gui.tyc2.atm.tx.transfer_out";
             case "TRADE_BUY", "NEGOTIATION" -> "gui.tyc2.atm.tx.trade_buy";
             case "TRADE_SELL" -> "gui.tyc2.atm.tx.trade_sell";
+            case "SYSTEM_ADJUST", "COMPANY_DISSOLVE" -> "gui.tyc2.atm.tx.system_adjust";
             default -> "gui.tyc2.atm.tx.deposit";
         };
         return Component.translatable(key).getString();

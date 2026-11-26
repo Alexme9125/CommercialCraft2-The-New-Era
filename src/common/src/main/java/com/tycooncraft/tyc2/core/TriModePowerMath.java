@@ -47,6 +47,12 @@ public final class TriModePowerMath {
     /** Maximum number of transformer tier steps supported (LV -> MV -> HV -> EV -> IV). */
     public static final int MAX_TRANSFORMER_UPGRADES = 4;
 
+    /** Maximum effective overclocker upgrades applied in duration/energy scaling (prevents exponential int overflow). */
+    public static final int MAX_OVERCLOCKER_UPGRADES = 16;
+
+    /** Maximum effective energy storage upgrades applied in capacity calculation (prevents int overflow). */
+    public static final int MAX_ENERGY_STORAGE_UPGRADES = 64;
+
     /** Base ATM energy buffer in EU (64,000 FE). */
     public static final int ATM_BASE_CAPACITY_EU = 16_000;
 
@@ -207,7 +213,10 @@ public final class TriModePowerMath {
      * @return equivalent energy in FE
      */
     public static long euToFe(long eu) {
-        return Math.multiplyExact(eu, EU_TO_FE_RATIO);
+        if (eu <= 0L) {
+            return 0L;
+        }
+        return eu >= Long.MAX_VALUE / EU_TO_FE_RATIO ? Long.MAX_VALUE : eu * EU_TO_FE_RATIO;
     }
 
     /**
@@ -239,9 +248,9 @@ public final class TriModePowerMath {
      * @return computed upgrade statistics
      */
     public static MintUpgradeStats computeMintUpgradeStats(int overclockers, int transformers, int energyStorages) {
-        int oc = Math.max(0, overclockers);
+        int oc = Math.min(MAX_OVERCLOCKER_UPGRADES, Math.max(0, overclockers));
         int tf = Math.max(0, transformers);
-        int es = Math.max(0, energyStorages);
+        int es = Math.min(MAX_ENERGY_STORAGE_UPGRADES, Math.max(0, energyStorages));
         int capacity = MINT_BASE_CAPACITY_EU + es * ENERGY_STORAGE_UPGRADE_BONUS_EU;
         int clampedTierSteps = Math.min(tf, MAX_TRANSFORMER_UPGRADES);
         int maxInput = MINT_BASE_MAX_INPUT_EU_PER_TICK * (1 << (2 * clampedTierSteps));
@@ -258,7 +267,7 @@ public final class TriModePowerMath {
      */
     public static int effectiveMintDurationTicks(int baseTicks, int overclockers) {
         int safeBase = Math.max(1, baseTicks);
-        int oc = Math.max(0, overclockers);
+        int oc = Math.min(MAX_OVERCLOCKER_UPGRADES, Math.max(0, overclockers));
         if (oc == 0) {
             return safeBase;
         }
@@ -277,9 +286,12 @@ public final class TriModePowerMath {
     public static int effectiveMintEuPerTick(int baseEnergyEu, int baseTicks, int overclockers) {
         int safeEnergy = Math.max(1, baseEnergyEu);
         int safeTicks = Math.max(1, baseTicks);
-        int oc = Math.max(0, overclockers);
+        int oc = Math.min(MAX_OVERCLOCKER_UPGRADES, Math.max(0, overclockers));
         double basePerTick = (double) safeEnergy / safeTicks;
         double scaled = basePerTick * Math.pow(OVERCLOCKER_POWER_MULTIPLIER, oc);
+        if (!Double.isFinite(scaled) || scaled >= Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
         return Math.max(1, (int) Math.ceil(scaled));
     }
 
@@ -294,13 +306,15 @@ public final class TriModePowerMath {
      */
     public static int effectiveMintTotalEu(int baseEnergyEu, int baseTicks, int overclockers) {
         int safeEnergy = Math.max(1, baseEnergyEu);
-        int oc = Math.max(0, overclockers);
+        int oc = Math.min(MAX_OVERCLOCKER_UPGRADES, Math.max(0, overclockers));
         if (oc == 0) {
             return safeEnergy;
         }
         int ticks = effectiveMintDurationTicks(baseTicks, oc);
         int perTick = effectiveMintEuPerTick(safeEnergy, baseTicks, oc);
-        return Math.max(safeEnergy, Math.multiplyExact(ticks, perTick));
+        long product = (long) ticks * (long) perTick;
+        int capped = product >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) product;
+        return Math.max(safeEnergy, capped);
     }
 
     /**

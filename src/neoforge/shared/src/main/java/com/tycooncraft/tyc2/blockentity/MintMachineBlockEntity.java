@@ -64,11 +64,11 @@ public final class MintMachineBlockEntity extends TyC2BlockEntityBase
     public static final int UPGRADE_COUNT = 4;
     public static final int INVENTORY_SIZE = 9;
 
-    public static final int DATA_COUNT = 8;
+    public static final int DATA_COUNT = 10;
 
     private static final int[] SLOTS_TOP = {SLOT_INPUT_0, SLOT_INPUT_1};
     private static final int[] SLOTS_SIDES = {SLOT_INPUT_0, SLOT_INPUT_1, SLOT_FUEL};
-    private static final int[] SLOTS_BOTTOM = {SLOT_OUTPUT};
+    private static final int[] SLOTS_BOTTOM = {SLOT_OUTPUT, SLOT_FUEL};
 
     private final NonNullList<ItemStack> items = NonNullList.withSize(INVENTORY_SIZE, ItemStack.EMPTY);
     private double storedEu = 0.0;
@@ -86,15 +86,19 @@ public final class MintMachineBlockEntity extends TyC2BlockEntityBase
     private final ContainerData containerData = new ContainerData() {
         @Override
         public int get(int index) {
+            int eu = (int) Math.floor(storedEu);
+            int cap = upgradeStats.maxCapacityEu();
             return switch (index) {
-                case 0 -> (int) Math.floor(storedEu);
-                case 1 -> upgradeStats.maxCapacityEu();
+                case 0 -> eu & 0xFFFF;
+                case 1 -> cap & 0xFFFF;
                 case 2 -> progressTicks;
                 case 3 -> totalTicks;
                 case 4 -> batteryDischarging ? 1 : 0;
                 case 5 -> batteryDischarging ? 1 : 0;
                 case 6 -> upgradeStats.powerTier();
                 case 7 -> upgradeStats.maxInputEuPerTick();
+                case 8 -> (eu >>> 16) & 0xFFFF;
+                case 9 -> (cap >>> 16) & 0xFFFF;
                 default -> 0;
             };
         }
@@ -102,10 +106,17 @@ public final class MintMachineBlockEntity extends TyC2BlockEntityBase
         @Override
         public void set(int index, int value) {
             switch (index) {
-                case 0 -> storedEu = Math.max(0, value);
+                case 0 -> {
+                    int hi = ((int) Math.floor(storedEu)) & 0xFFFF0000;
+                    storedEu = Math.max(0, hi | (value & 0xFFFF));
+                }
                 case 2 -> progressTicks = Math.max(0, value);
                 case 3 -> totalTicks = Math.max(1, value);
                 case 4 -> batteryDischarging = value != 0;
+                case 8 -> {
+                    int lo = ((int) Math.floor(storedEu)) & 0xFFFF;
+                    storedEu = Math.max(0, ((value & 0xFFFF) << 16) | lo);
+                }
                 default -> {
                 }
             }
@@ -389,7 +400,7 @@ public final class MintMachineBlockEntity extends TyC2BlockEntityBase
         // Ejector upgrade: push minted coins from SLOT_OUTPUT
         List<Direction> ejectFaces = Ic2SoftBridge.resolveEjectorFaces(upgrades);
         ItemStack out = items.get(SLOT_OUTPUT);
-        if (!ejectFaces.isEmpty() && !out.isEmpty()) {
+        if (!ejectFaces.isEmpty() && !out.isEmpty() && Ic2SoftBridge.matchesUpgradeFilter(upgrades, true, out)) {
             for (Direction dir : ejectFaces) {
                 if (out.isEmpty()) {
                     break;
@@ -414,11 +425,12 @@ public final class MintMachineBlockEntity extends TyC2BlockEntityBase
                         worldPosition.relative(dir),
                         dir.getOpposite(),
                         16,
-                        stack -> TyC2DataLoader.mintRecipes().isValidInputItem(
-                                TyC2Native.itemId(stack),
-                                TyC2Native::itemIdHasTag,
-                                ModList.get()::isLoaded
-                        ) && canFitInInputSlots(stack)
+                        stack -> Ic2SoftBridge.matchesUpgradeFilter(upgrades, false, stack)
+                                && TyC2DataLoader.mintRecipes().isValidInputItem(
+                                        TyC2Native.itemId(stack),
+                                        TyC2Native::itemIdHasTag,
+                                        ModList.get()::isLoaded
+                                ) && canFitInInputSlots(stack)
                 );
                 if (!pulled.isEmpty()) {
                     ItemStack leftover = insertIntoInputSlots(pulled);
@@ -618,7 +630,7 @@ public final class MintMachineBlockEntity extends TyC2BlockEntityBase
 
     @Override
     public boolean canTakeItemThroughFace(int slot, ItemStack stack, Direction dir) {
-        return slot == SLOT_OUTPUT;
+        return slot == SLOT_OUTPUT || (slot == SLOT_FUEL && !isAcceptedBattery(stack));
     }
 
     @Override

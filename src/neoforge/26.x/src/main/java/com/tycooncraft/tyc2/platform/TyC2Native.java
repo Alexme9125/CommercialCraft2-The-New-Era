@@ -63,6 +63,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.CustomModelData;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
@@ -90,6 +91,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.transfer.access.ItemAccess;
 import net.neoforged.neoforge.transfer.energy.EnergyHandler;
 import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.item.VanillaContainerWrapper;
 import net.neoforged.neoforge.transfer.item.WorldlyContainerWrapper;
 import net.neoforged.neoforge.transfer.transaction.SnapshotJournal;
 import net.neoforged.neoforge.transfer.transaction.Transaction;
@@ -136,6 +138,27 @@ public final class TyC2Native {
     /** Returns the canonical qualified registry ID of a block state's block. */
     public static String blockId(BlockState state) {
         return state == null ? "" : blockId(state.getBlock());
+    }
+
+    /** Parses a qualified registry identifier into 26.x's {@link Identifier}. */
+    public static Object parseId(String qualifiedId) {
+        return qualifiedId == null ? null : Identifier.tryParse(qualifiedId.trim());
+    }
+
+    /**
+     * Syncs the CommTerminal charged visual flag on 26.x so {@code items/comm_terminal.json}
+     * switches cleanly between {@code item/comm_terminal} (charged) and
+     * {@code item/comm_terminal_empty} (0 EU).
+     */
+    public static void syncTerminalChargeVisual(ItemStack stack, boolean charged) {
+        if (stack == null || stack.isEmpty()) {
+            return;
+        }
+        if (charged) {
+            stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(List.of(), List.of(true), List.of(), List.of()));
+        } else {
+            stack.remove(DataComponents.CUSTOM_MODEL_DATA);
+        }
     }
 
     /** Looks up a registered item by qualified ID. */
@@ -359,13 +382,13 @@ public final class TyC2Native {
             event.registerBlockEntity(
                     Capabilities.Item.BLOCK,
                     TyC2Registries.PRIMITIVE_MINT_MACHINE_BE.get(),
-                    (be, side) -> new WorldlyContainerWrapper(be, side == null ? Direction.UP : side)
+                    (be, side) -> side == null ? VanillaContainerWrapper.of(be) : new WorldlyContainerWrapper(be, side)
             );
 
             event.registerBlockEntity(
                     Capabilities.Item.BLOCK,
                     TyC2Registries.MINT_MACHINE_BE.get(),
-                    (be, side) -> new WorldlyContainerWrapper(be, side == null ? Direction.UP : side)
+                    (be, side) -> side == null ? VanillaContainerWrapper.of(be) : new WorldlyContainerWrapper(be, side)
             );
             event.registerBlockEntity(
                     Capabilities.Energy.BLOCK,
@@ -637,9 +660,14 @@ public final class TyC2Native {
 
     // --- Villager & Entity Shims (net.minecraft.world.entity.npc.villager.Villager in 26.x) ---
 
-    /** Returns {@code true} if {@code entity} is a vanilla Minecraft Villager. */
+    /** Returns {@code true} if {@code entity} is a vanilla Minecraft Villager (including subclasses). */
     public static boolean isVillager(Entity entity) {
         return entity instanceof Villager;
+    }
+
+    /** Returns {@code true} strictly for exact vanilla {@link Villager} instances (excludes modded NPC subclasses). */
+    public static boolean isExactVanillaVillager(Entity entity) {
+        return entity != null && entity.getClass() == Villager.class;
     }
 
     /** Returns {@code true} if {@code entity} is a living adult Villager. */
@@ -688,30 +716,34 @@ public final class TyC2Native {
             entries.sort(Comparator.comparing(e -> e.getKey().identifier().toString()));
 
             for (Map.Entry<ResourceKey<VillagerProfession>, VillagerProfession> entry : entries) {
-                ResourceKey<VillagerProfession> key = entry.getKey();
-                Identifier id = key.identifier();
-                String profId = id.toString().toLowerCase(Locale.ROOT);
-                VillagerProfession prof = entry.getValue();
-                if (prof == null
-                        || VillagerProfession.NONE.equals(key)
-                        || VillagerProfession.NITWIT.equals(key)
-                        || "minecraft:none".equals(profId)
-                        || "minecraft:nitwit".equals(profId)) {
-                    continue;
+                try {
+                    ResourceKey<VillagerProfession> key = entry.getKey();
+                    Identifier id = key.identifier();
+                    String profId = id.toString().toLowerCase(Locale.ROOT);
+                    VillagerProfession prof = entry.getValue();
+                    if (prof == null
+                            || VillagerProfession.NONE.equals(key)
+                            || VillagerProfession.NITWIT.equals(key)
+                            || "minecraft:none".equals(profId)
+                            || "minecraft:nitwit".equals(profId)) {
+                        continue;
+                    }
+                    String workstationBlockId = findWorkstationBlockId(prof, poiHolders);
+                    if (workstationBlockId == null || workstationBlockId.isBlank()) {
+                        continue;
+                    }
+                    Component nameComp = prof.name();
+                    String rawName = nameComp == null ? "" : nameComp.getString();
+                    String fallback = (!rawName.isBlank()
+                            && !rawName.startsWith("entity.")
+                            && !rawName.contains(":")
+                            && !rawName.equals(id.getPath()))
+                            ? rawName.trim()
+                            : "";
+                    discovered.add(new DiscoveredProfession(profId, workstationBlockId, fallback));
+                } catch (Throwable ignored) {
+                    // Isolate malformed third-party VillagerProfession registrations
                 }
-                String workstationBlockId = findWorkstationBlockId(prof, poiHolders);
-                if (workstationBlockId == null || workstationBlockId.isBlank()) {
-                    continue;
-                }
-                Component nameComp = prof.name();
-                String rawName = nameComp == null ? "" : nameComp.getString();
-                String fallback = (!rawName.isBlank()
-                        && !rawName.startsWith("entity.")
-                        && !rawName.contains(":")
-                        && !rawName.equals(id.getPath()))
-                        ? rawName.trim()
-                        : "";
-                discovered.add(new DiscoveredProfession(profId, workstationBlockId, fallback));
             }
         } catch (Throwable ex) {
             LOGGER.warn("Failed to scan villager professions for dynamic discovery: {}", ex.getMessage());
@@ -753,23 +785,31 @@ public final class TyC2Native {
             return null;
         }
         for (Holder.Reference<PoiType> poi : matches) {
-            String bestBlock = null;
-            for (BlockState state : poi.value().matchingStates()) {
-                if (state == null || state.isAir()) {
+            try {
+                PoiType poiVal = poi.value();
+                if (poiVal == null || poiVal.matchingStates() == null) {
                     continue;
                 }
-                String bid = blockId(state).toLowerCase(Locale.ROOT);
-                if (bid.isBlank() || "minecraft:air".equals(bid)
-                        || "minecraft:cave_air".equals(bid)
-                        || "minecraft:void_air".equals(bid)) {
-                    continue;
+                String bestBlock = null;
+                for (BlockState state : poiVal.matchingStates()) {
+                    if (state == null || state.isAir() || state.getBlock().asItem() == Items.AIR) {
+                        continue;
+                    }
+                    String bid = blockId(state).toLowerCase(Locale.ROOT);
+                    if (bid.isBlank() || "minecraft:air".equals(bid)
+                            || "minecraft:cave_air".equals(bid)
+                            || "minecraft:void_air".equals(bid)) {
+                        continue;
+                    }
+                    if (bestBlock == null || bid.compareTo(bestBlock) < 0) {
+                        bestBlock = bid;
+                    }
                 }
-                if (bestBlock == null || bid.compareTo(bestBlock) < 0) {
-                    bestBlock = bid;
+                if (bestBlock != null) {
+                    return bestBlock;
                 }
-            }
-            if (bestBlock != null) {
-                return bestBlock;
+            } catch (Throwable ignored) {
+                // Skip broken third-party PoiType definitions
             }
         }
         return null;
@@ -790,6 +830,7 @@ public final class TyC2Native {
                 || !(villager instanceof Villager v)
                 || !v.isAlive()
                 || v.isBaby()
+                || v.getVillagerXp() > 0
                 || isNitwitVillager(v)
                 || workstationPos == null
                 || professionId == null

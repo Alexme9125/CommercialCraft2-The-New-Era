@@ -32,6 +32,12 @@ public enum CurrencyDenomination {
     /** IC2 coin item identifier unified with {@link #X1}. */
     public static final String IC2_COIN_ID = "ic2:coin";
 
+    /**
+     * Maximum IC allowed in a single physical cash withdrawal (64 full stacks of 1000x coins = 4,096,000 IC)
+     * to prevent world item entity flooding or integer overflow in {@link #decompose(long)}.
+     */
+    public static final long MAX_SINGLE_WITHDRAWAL_IC = 4_096_000L;
+
     private static final List<CurrencyDenomination> DESCENDING = Collections.unmodifiableList(
             Arrays.asList(X1000, X500, X200, X100, X50, X20, X10, X5, X1)
     );
@@ -184,6 +190,17 @@ public enum CurrencyDenomination {
      */
     public static List<CurrencyDenomination> descendingOrder() {
         return DESCENDING;
+    }
+
+    /**
+     * Returns whether {@code amount} is within the safe single physical cash withdrawal bound
+     * ({@code 1 .. MAX_SINGLE_WITHDRAWAL_IC}).
+     *
+     * @param amount requested IC withdrawal
+     * @return {@code true} if safe to dispense as physical coins
+     */
+    public static boolean isWithinSingleWithdrawalLimit(long amount) {
+        return amount > 0L && amount <= MAX_SINGLE_WITHDRAWAL_IC;
     }
 
     /**

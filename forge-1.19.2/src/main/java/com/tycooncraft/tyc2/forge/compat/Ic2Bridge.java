@@ -115,4 +115,21 @@ public final class Ic2Bridge {
         }
         return Arrays.asList(Direction.values());
     }
+
+    /**
+     * Checks whether {@code candidate} passes installed IC2 basic/advanced ejector or pulling upgrade
+     * filters (returns {@code true} if any basic upgrade is installed, IC2 is absent, or any installed
+     * advanced upgrade filter matches).
+     */
+    public static boolean matchesUpgradeFilter(
+            List<ItemStack> upgrades,
+            String basicUpgradeId,
+            String advancedUpgradeId,
+            ItemStack candidate
+    ) {
+        if (!isLoaded() || candidate == null || candidate.isEmpty() || upgrades == null || upgrades.isEmpty()) {
+            return true;
+        }
+        return Ic2LoadedBridge.matchesUpgradeFilter(upgrades, basicUpgradeId, advancedUpgradeId, candidate);
+    }
 }

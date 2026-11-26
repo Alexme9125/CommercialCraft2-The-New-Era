@@ -91,7 +91,12 @@ public class AtmMachineScreen extends AbstractContainerScreen<AtmMachineMenu> {
         denomBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
                 leftPos + 48, topPos + 97, 46, 12, Component.translatable("gui.tyc2.atm.withdraw_denom", 100),
                 btn -> {
-                    long cnt = Math.max(1L, Math.min(64L, parseAmount(1L)));
+                    CurrencyDenomination denom = CurrencyDenomination.values()[selectedDenomIndex];
+                    long raw = parseAmount(1L);
+                    long cnt = (raw >= denom.value() && raw % denom.value() == 0L)
+                            ? (raw / denom.value())
+                            : raw;
+                    cnt = Math.max(1L, Math.min(64L, cnt));
                     TyC2ForgeNetwork.sendToServer(new C2SAtmActionPacket(
                             menu.getAtmPos(), C2SAtmActionPacket.Action.WITHDRAW_DENOM, cnt, selectedDenomIndex, "", ""
                     ));

@@ -1,6 +1,7 @@
 package com.tycooncraft.tyc2.compat;
 
 import com.tycooncraft.tyc2.TyC2Constants;
+import com.tycooncraft.tyc2.platform.TyC2Native;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.List;
@@ -53,7 +54,8 @@ public final class TopSoftBridge {
                     new Class<?>[]{blockProviderIface},
                     (proxy, method, args) -> {
                         if ("getID".equals(method.getName())) {
-                            return TyC2Constants.MOD_ID + ":hud_provider";
+                            String rawId = TyC2Constants.MOD_ID + ":hud_provider";
+                            return method.getReturnType() == String.class ? rawId : TyC2Native.parseId(rawId);
                         }
                         if ("addProbeInfo".equals(method.getName()) && args != null && args.length >= 6) {
                             // addProbeInfo(ProbeMode, IProbeInfo, Player, Level, BlockState, IProbeHitData)
@@ -77,7 +79,8 @@ public final class TopSoftBridge {
                     new Class<?>[]{entityProviderIface},
                     (proxy, method, args) -> {
                         if ("getID".equals(method.getName())) {
-                            return TyC2Constants.MOD_ID + ":mayor_provider";
+                            String rawId = TyC2Constants.MOD_ID + ":mayor_provider";
+                            return method.getReturnType() == String.class ? rawId : TyC2Native.parseId(rawId);
                         }
                         if ("addProbeEntityInfo".equals(method.getName()) && args != null && args.length >= 5) {
                             // addProbeEntityInfo(ProbeMode, IProbeInfo, Player, Level, Entity, IProbeHitEntityData)

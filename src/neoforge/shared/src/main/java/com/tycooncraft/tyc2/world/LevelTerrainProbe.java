@@ -110,7 +110,41 @@ public final class LevelTerrainProbe implements TerrainProbe {
             return true;
         }
         String id = TyC2Native.blockId(state);
-        if (id.startsWith("tyc2:") || id.startsWith("ic2:") || id.startsWith("lc2:")) {
+        if (!id.isEmpty() && !id.startsWith("minecraft:")) {
+            return true;
+        }
+        return isExistingStructureBlock(state, id);
+    }
+
+    @Override
+    public boolean isProtectedUnderwater(int x, int y, int z) {
+        if (y < minY || y >= maxY || !level.hasChunk(x >> 4, z >> 4)) {
+            return true;
+        }
+        if (savedData.isPlayerPlaced(dimensionId, x, y, z)) {
+            return true;
+        }
+        BlockPos pos = new BlockPos(x, y, z);
+        if (level.getBlockEntity(pos) != null) {
+            return true;
+        }
+        BlockState state = level.getBlockState(pos);
+        if (state.isAir()) {
+            return false;
+        }
+        if (state.getFluidState().is(FluidTags.LAVA)) {
+            return true;
+        }
+        if (state.getFluidState().is(FluidTags.WATER)) {
+            // Waterlogged mod/player structures or kelp/seagrass check: only allow plain water or natural aquatic plants
+            if (state.is(Blocks.WATER) || state.is(Blocks.KELP) || state.is(Blocks.KELP_PLANT)
+                    || state.is(Blocks.SEAGRASS) || state.is(Blocks.TALL_SEAGRASS)) {
+                return false;
+            }
+            return true;
+        }
+        String id = TyC2Native.blockId(state);
+        if (!id.isEmpty() && !id.startsWith("minecraft:")) {
             return true;
         }
         return isExistingStructureBlock(state, id);

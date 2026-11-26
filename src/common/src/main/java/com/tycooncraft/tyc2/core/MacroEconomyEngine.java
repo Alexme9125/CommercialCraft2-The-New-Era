@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Macro-economic simulation engine modeling global money supply, rolling goods
@@ -76,11 +77,13 @@ public final class MacroEconomyEngine {
          * @return parsed snapshot
          */
         public static PriceSnapshot fromDataMap(Map<String, Object> map) {
+            double cpi = JsonLite.getDouble(map, "cpiIndex", 1.0);
+            double goods = JsonLite.getDouble(map, "goodsCirculation", 0.0);
             return new PriceSnapshot(
                     JsonLite.getLong(map, "timestamp", 0L),
-                    JsonLite.getDouble(map, "cpiIndex", 1.0),
-                    JsonLite.getLong(map, "moneySupply", 0L),
-                    JsonLite.getDouble(map, "goodsCirculation", 0.0)
+                    Double.isFinite(cpi) && cpi > 0.0 ? cpi : 1.0,
+                    Math.max(0L, JsonLite.getLong(map, "moneySupply", 0L)),
+                    Double.isFinite(goods) && goods >= 0.0 ? goods : 0.0
             );
         }
     }
@@ -117,6 +120,7 @@ public final class MacroEconomyEngine {
     private long cumulativeSinks;
     private double rollingGoodsCirculation;
     private int partneredVillageCount = 1;
+    private long lastDemandCycleTick = Long.MIN_VALUE;
     private final Map<String, Double> netSupplyFlow = new LinkedHashMap<>();
     private final Deque<PriceSnapshot> history = new ArrayDeque<>(MAX_HISTORY_SNAPSHOTS);
 
@@ -160,8 +164,8 @@ public final class MacroEconomyEngine {
         if (faceValueTotal <= 0L) {
             return;
         }
-        totalMintedNet = Math.addExact(totalMintedNet, faceValueTotal);
-        cumulativeMinted = Math.addExact(cumulativeMinted, faceValueTotal);
+        totalMintedNet = saturatedAdd(totalMintedNet, faceValueTotal);
+        cumulativeMinted = saturatedAdd(cumulativeMinted, faceValueTotal);
     }
 
     /**
@@ -175,7 +179,7 @@ public final class MacroEconomyEngine {
             return;
         }
         totalMintedNet = Math.max(0L, totalMintedNet - amount);
-        playerAndGuildBankTotal = Math.addExact(playerAndGuildBankTotal, amount);
+        playerAndGuildBankTotal = saturatedAdd(playerAndGuildBankTotal, amount);
     }
 
     /**
@@ -189,7 +193,36 @@ public final class MacroEconomyEngine {
             return;
         }
         playerAndGuildBankTotal = Math.max(0L, playerAndGuildBankTotal - amount);
-        totalMintedNet = Math.addExact(totalMintedNet, amount);
+        totalMintedNet = saturatedAdd(totalMintedNet, amount);
+    }
+
+    /**
+     * Shifts physical cash paid by a player into a village treasury (e.g. cash partnership signup
+     * or cash sell-order purchase) from {@code totalMintedNet} into {@code villageBankTotal}
+     * without distorting total active money supply {@code M}.
+     *
+     * @param amount positive IC amount paid in cash to a village
+     */
+    public void recordCashPaidToVillage(long amount) {
+        if (amount <= 0L) {
+            return;
+        }
+        totalMintedNet = Math.max(0L, totalMintedNet - amount);
+        villageBankTotal = saturatedAdd(villageBankTotal, amount);
+    }
+
+    /**
+     * Shifts currency paid in physical cash by a village to a player (e.g. cash buy-order payout)
+     * from {@code villageBankTotal} back into {@code totalMintedNet} without distorting {@code M}.
+     *
+     * @param amount positive IC amount paid in cash by a village
+     */
+    public void recordVillagePaidCash(long amount) {
+        if (amount <= 0L) {
+            return;
+        }
+        villageBankTotal = Math.max(0L, villageBankTotal - amount);
+        totalMintedNet = saturatedAdd(totalMintedNet, amount);
     }
 
     /**
@@ -227,7 +260,7 @@ public final class MacroEconomyEngine {
         if (amount <= 0L) {
             return;
         }
-        cumulativeSinks = Math.addExact(cumulativeSinks, amount);
+        cumulativeSinks = saturatedAdd(cumulativeSinks, amount);
         long remaining = amount;
         if (totalMintedNet > 0L) {
             long fromCash = Math.min(totalMintedNet, remaining);
@@ -249,7 +282,7 @@ public final class MacroEconomyEngine {
         if (amount <= 0L) {
             return;
         }
-        cumulativeSinks = Math.addExact(cumulativeSinks, amount);
+        cumulativeSinks = saturatedAdd(cumulativeSinks, amount);
         villageBankTotal = Math.max(0L, villageBankTotal - amount);
     }
 
@@ -263,7 +296,7 @@ public final class MacroEconomyEngine {
         if (amount <= 0L) {
             return;
         }
-        cumulativeSinks = Math.addExact(cumulativeSinks, amount);
+        cumulativeSinks = saturatedAdd(cumulativeSinks, amount);
         playerAndGuildBankTotal = Math.max(0L, playerAndGuildBankTotal - amount);
     }
 
@@ -281,7 +314,7 @@ public final class MacroEconomyEngine {
         }
         long reversed = Math.min(cumulativeSinks, amount);
         cumulativeSinks = Math.max(0L, cumulativeSinks - reversed);
-        totalMintedNet = Math.addExact(totalMintedNet, reversed);
+        totalMintedNet = saturatedAdd(totalMintedNet, reversed);
     }
 
     /**
@@ -297,7 +330,7 @@ public final class MacroEconomyEngine {
         }
         long reversed = Math.min(cumulativeSinks, amount);
         cumulativeSinks = Math.max(0L, cumulativeSinks - reversed);
-        playerAndGuildBankTotal = Math.addExact(playerAndGuildBankTotal, reversed);
+        playerAndGuildBankTotal = saturatedAdd(playerAndGuildBankTotal, reversed);
     }
 
     /**
@@ -330,14 +363,39 @@ public final class MacroEconomyEngine {
             return;
         }
         double tradeBaseValue = (double) quantity * baseUnitPrice;
-        rollingGoodsCirculation += tradeBaseValue;
+        if (Double.isFinite(tradeBaseValue) && tradeBaseValue > 0.0) {
+            double nextQ = rollingGoodsCirculation + tradeBaseValue;
+            rollingGoodsCirculation = Double.isFinite(nextQ) ? Math.min(nextQ, 1.0e15) : 1.0e15;
+        }
 
         if (itemId != null && !itemId.isBlank()) {
             String key = itemId.trim().toLowerCase(Locale.ROOT);
             double normalizedDelta = quantity / ITEM_FLOW_BATCH_SIZE;
             double signedDelta = playerSoldToVillage ? normalizedDelta : -normalizedDelta;
-            netSupplyFlow.merge(key, signedDelta, Double::sum);
+            netSupplyFlow.merge(key, signedDelta, (a, b) -> {
+                double sum = a + b;
+                return Double.isFinite(sum) ? clamp(sum, -250.0, 250.0) : 0.0;
+            });
         }
+    }
+
+    /**
+     * Executes end-of-cycle economic decay only when at least {@code minIntervalTicks} have elapsed
+     * since the last global demand cycle, preventing N staggered partnered villages from decaying
+     * global {@code Q} N times per cycle.
+     *
+     * @param timestamp current world game tick
+     * @param minIntervalTicks minimum tick interval between global decays (e.g. {@code config.demandRefreshTicks()})
+     * @return recorded snapshot if decay ran, otherwise empty
+     */
+    public Optional<PriceSnapshot> advanceDemandCycleIfDue(long timestamp, long minIntervalTicks) {
+        long interval = Math.max(1L, minIntervalTicks);
+        if (lastDemandCycleTick != Long.MIN_VALUE
+                && timestamp >= lastDemandCycleTick
+                && (timestamp - lastDemandCycleTick) < interval) {
+            return Optional.empty();
+        }
+        return Optional.of(advanceDemandCycle(timestamp));
     }
 
     /**
@@ -348,8 +406,12 @@ public final class MacroEconomyEngine {
      * @return newly recorded snapshot
      */
     public PriceSnapshot advanceDemandCycle(long timestamp) {
+        lastDemandCycleTick = timestamp;
+        if (!Double.isFinite(rollingGoodsCirculation) || rollingGoodsCirculation < 0.0) {
+            rollingGoodsCirculation = 0.0;
+        }
         rollingGoodsCirculation *= (1.0 - config.goodsCirculationDecay());
-        if (rollingGoodsCirculation < 1e-4) {
+        if (!Double.isFinite(rollingGoodsCirculation) || rollingGoodsCirculation < 1e-4) {
             rollingGoodsCirculation = 0.0;
         }
 
@@ -357,8 +419,9 @@ public final class MacroEconomyEngine {
         Iterator<Map.Entry<String, Double>> it = netSupplyFlow.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, Double> entry = it.next();
-            double decayed = entry.getValue() * retain;
-            if (Math.abs(decayed) < 1e-4) {
+            Double rawVal = entry.getValue();
+            double decayed = (rawVal == null || !Double.isFinite(rawVal)) ? 0.0 : rawVal * retain;
+            if (!Double.isFinite(decayed) || Math.abs(decayed) < 1e-4) {
                 it.remove();
             } else {
                 entry.setValue(decayed);
@@ -393,9 +456,10 @@ public final class MacroEconomyEngine {
      * @return total active money supply in IC
      */
     public long totalMoneySupply() {
-        return Math.max(0L, totalMintedNet)
-                + Math.max(0L, playerAndGuildBankTotal)
-                + Math.max(0L, villageBankTotal);
+        long sum = Math.max(0L, totalMintedNet);
+        sum = saturatedAdd(sum, Math.max(0L, playerAndGuildBankTotal));
+        sum = saturatedAdd(sum, Math.max(0L, villageBankTotal));
+        return sum;
     }
 
     /**
@@ -415,9 +479,12 @@ public final class MacroEconomyEngine {
      */
     public double computeCpi() {
         double m = totalMoneySupply();
-        double q = Math.max(0.0, rollingGoodsCirculation);
-        double damper = 0.5 * baselineMoneySupply();
+        double q = Double.isFinite(rollingGoodsCirculation) ? Math.max(0.0, rollingGoodsCirculation) : 0.0;
+        double damper = Math.max(1.0, 0.5 * baselineMoneySupply());
         double ratio = (m + damper) / (q + damper);
+        if (!Double.isFinite(ratio) || ratio <= 0.0) {
+            return clamp(1.0, config.minPriceMultiplier(), config.maxPriceMultiplier());
+        }
         double raw = Math.pow(ratio, config.cpiExponent());
         return clamp(raw, config.minPriceMultiplier(), config.maxPriceMultiplier());
     }
@@ -570,6 +637,12 @@ public final class MacroEconomyEngine {
         double rawCombined = cpi * fVillage * fSupply * fSeason * fBiome;
         double clamped = clamp(rawCombined, config.minPriceMultiplier(), config.maxPriceMultiplier());
         long finalPrice = Math.max(1L, Math.round(good.basePrice() * clamped));
+        if (!isVillageBuying) {
+            long mintFloor = mintingArbitrageFloor(good.itemId());
+            if (mintFloor > finalPrice) {
+                finalPrice = mintFloor;
+            }
+        }
         return new PriceQuote(finalPrice, good.basePrice(), clamped, cpi, fVillage, fSupply, fSeason, fBiome);
     }
 
@@ -658,8 +731,11 @@ public final class MacroEconomyEngine {
         map.put("villageBankTotal", villageBankTotal);
         map.put("cumulativeMinted", cumulativeMinted);
         map.put("cumulativeSinks", cumulativeSinks);
-        map.put("rollingGoodsCirculation", rollingGoodsCirculation);
+        map.put("rollingGoodsCirculation", Double.isFinite(rollingGoodsCirculation) ? rollingGoodsCirculation : 0.0);
         map.put("partneredVillageCount", partneredVillageCount);
+        if (lastDemandCycleTick != Long.MIN_VALUE) {
+            map.put("lastDemandCycleTick", lastDemandCycleTick);
+        }
         map.put("netSupplyFlow", new LinkedHashMap<>(netSupplyFlow));
 
         List<Map<String, Object>> snaps = new ArrayList<>(history.size());
@@ -696,14 +772,21 @@ public final class MacroEconomyEngine {
         engine.villageBankTotal = Math.max(0L, JsonLite.getLong(map, "villageBankTotal", 0L));
         engine.cumulativeMinted = Math.max(0L, JsonLite.getLong(map, "cumulativeMinted", 0L));
         engine.cumulativeSinks = Math.max(0L, JsonLite.getLong(map, "cumulativeSinks", 0L));
-        engine.rollingGoodsCirculation = Math.max(0.0, JsonLite.getDouble(map, "rollingGoodsCirculation", 0.0));
+        double loadedQ = JsonLite.getDouble(map, "rollingGoodsCirculation", 0.0);
+        engine.rollingGoodsCirculation = (Double.isFinite(loadedQ) && loadedQ >= 0.0) ? loadedQ : 0.0;
         engine.partneredVillageCount = Math.max(1, JsonLite.getInt(map, "partneredVillageCount", 1));
+        if (map.containsKey("lastDemandCycleTick")) {
+            engine.lastDemandCycleTick = JsonLite.getLong(map, "lastDemandCycleTick", Long.MIN_VALUE);
+        }
 
         Map<String, Object> flows = JsonLite.asObject(map.get("netSupplyFlow"));
         if (flows != null) {
             for (Map.Entry<String, Object> entry : flows.entrySet()) {
                 if (entry.getValue() instanceof Number) {
-                    engine.netSupplyFlow.put(entry.getKey(), ((Number) entry.getValue()).doubleValue());
+                    double v = ((Number) entry.getValue()).doubleValue();
+                    if (Double.isFinite(v)) {
+                        engine.netSupplyFlow.put(entry.getKey(), clamp(v, -250.0, 250.0));
+                    }
                 }
             }
         }
@@ -735,6 +818,44 @@ public final class MacroEconomyEngine {
     }
 
     private static double clamp(double value, double min, double max) {
+        if (!Double.isFinite(value)) {
+            return Math.max(min, Math.min(max, 1.0));
+        }
         return Math.max(min, Math.min(max, value));
+    }
+
+    private static long saturatedAdd(long a, long b) {
+        if (b <= 0L) {
+            return Math.max(0L, a + b);
+        }
+        if (a <= 0L) {
+            return b;
+        }
+        return Long.MAX_VALUE - a < b ? Long.MAX_VALUE : a + b;
+    }
+
+    /**
+     * Returns a hard minimum village sell price for mintable raw metals/alloys so deflationary
+     * CPI multipliers can never drop a village sell price below its coin-minting face value
+     * (preventing infinite buy-then-mint credit loops).
+     */
+    private static long mintingArbitrageFloor(String itemId) {
+        if (itemId == null) {
+            return 1L;
+        }
+        return switch (itemId.trim().toLowerCase(Locale.ROOT)) {
+            case "minecraft:netherite_scrap", "minecraft:ancient_debris" -> 460L;
+            case "minecraft:netherite_ingot" -> 1_050L;
+            case "minecraft:diamond" -> 170L;
+            case "minecraft:emerald" -> 65L;
+            case "minecraft:gold_ingot" -> 22L;
+            case "minecraft:iron_ingot" -> 6L;
+            case "minecraft:copper_ingot", "ic2:tin_ingot" -> 2L;
+            case "ic2:bronze_ingot", "ic2:refined_iron_ingot" -> 11L;
+            case "ic2:steel_ingot", "ic2:silver_ingot" -> 22L;
+            case "ic2:alloy", "ic2:iridium_shard" -> 120L;
+            case "ic2:iridium" -> 1_050L;
+            default -> 1L;
+        };
     }
 }

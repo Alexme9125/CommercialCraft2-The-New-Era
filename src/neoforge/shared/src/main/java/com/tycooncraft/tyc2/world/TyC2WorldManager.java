@@ -18,6 +18,7 @@ import com.tycooncraft.tyc2.core.TriModePowerMath;
 import com.tycooncraft.tyc2.core.TyC2Config;
 import com.tycooncraft.tyc2.item.CommTerminalItem;
 import com.tycooncraft.tyc2.item.CooperationHubBlockItem;
+import com.tycooncraft.tyc2.menu.CooperationHubMenu;
 import com.tycooncraft.tyc2.menu.MayorNegotiationMenu;
 import com.tycooncraft.tyc2.network.TyC2ActionPayload;
 import com.tycooncraft.tyc2.network.TyC2SyncPayload;
@@ -71,22 +72,28 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.ExplosionEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import org.slf4j.Logger;
@@ -168,6 +175,29 @@ public final class TyC2WorldManager {
         gameBus.addListener(PlayerEvent.PlayerLoggedOutEvent.class, event -> {
             if (event.getEntity() instanceof ServerPlayer sp) {
                 endAllNegotiationsForPlayer(sp);
+            }
+        });
+
+        gameBus.addListener(ExplosionEvent.Detonate.class, event -> {
+            Level lvl = event.getLevel();
+            event.getAffectedBlocks().removeIf(
+                    bp -> lvl.getBlockState(bp).is(TyC2Registries.COOPERATION_HUB_BLOCK.get())
+            );
+        });
+
+        gameBus.addListener(ServerStartedEvent.class, event -> {
+            MinecraftServer server = event.getServer();
+            ServerLevel overworld = server.overworld();
+            if (overworld == null) {
+                return;
+            }
+            TycoonSavedData data = getData(overworld);
+            for (VillageRecord v : data.allVillages()) {
+                if (v.isPartnered() && v.isChunkLoaderInstalled()) {
+                    ServerLevel targetLevel = resolveDimensionLevel(server, v.getDimensionId(), overworld);
+                    ChunkPos cp = new ChunkPos(v.getHubPos().x() >> 4, v.getHubPos().z() >> 4);
+                    TyC2ChunkTickets.holdArea3x3(targetLevel, cp);
+                }
             }
         });
     }
@@ -255,6 +285,21 @@ public final class TyC2WorldManager {
         }
         data.putVillage(v);
         return v;
+    }
+
+    /**
+     * Restores a partnered village's Cooperation Hub block and block entity at its canonical
+     * coordinates (used by OP recovery command {@code /tyc2 restore_hub}).
+     */
+    public static BlockPos restoreHubBlock(ServerLevel fallbackLevel, VillageRecord v) {
+        ServerLevel targetLevel = resolveDimensionLevel(fallbackLevel.getServer(), v.getDimensionId(), fallbackLevel);
+        BlockPos hubPos = new BlockPos(v.getHubPos().x(), v.getHubPos().y(), v.getHubPos().z());
+        targetLevel.setBlock(hubPos, TyC2Registries.COOPERATION_HUB_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+        if (targetLevel.getBlockEntity(hubPos) instanceof CooperationHubBlockEntity be) {
+            be.setVillageId(v.getVillageId());
+        }
+        getData(targetLevel).setDirty();
+        return hubPos;
     }
 
     // =========================================================================
@@ -423,7 +468,7 @@ public final class TyC2WorldManager {
             long totalUpkeep = 0L;
             for (VillageRecord v : data.allVillages()) {
                 if (v.isPartnered()) {
-                    long upkeep = v.applyMunicipalUpkeep();
+                    long upkeep = v.applyMunicipalUpkeep(cfg.municipalUpkeepRate());
                     if (upkeep > 0L) {
                         data.economy().recordVillageMoneySink(upkeep);
                         totalUpkeep += upkeep;
@@ -438,7 +483,6 @@ public final class TyC2WorldManager {
         // 3. Per-village virtual timers (run even when Hub chunks are unloaded!)
         boolean runAutoFulfill = (gameTime % cfg.autoFulfillIntervalTicks()) == 0L;
         boolean runAidTick = (gameTime % 20L) == 0L;
-        boolean recordedCycleSnapshot = false;
 
         for (VillageRecord v : data.allVillages()) {
             if (!v.isPartnered()) {
@@ -459,10 +503,7 @@ public final class TyC2WorldManager {
                         || (gameTime - v.getLastDemandRefreshTick()) >= effectiveRefreshTicks
                         || allDone;
                 if (refreshDue) {
-                    if (!recordedCycleSnapshot) {
-                        data.economy().advanceDemandCycle(gameTime);
-                        recordedCycleSnapshot = true;
-                    }
+                    data.economy().advanceDemandCycleIfDue(gameTime, cfg.demandRefreshTicks());
                     refreshVillageOrders(overworld, data, v, gameTime);
                 }
             }
@@ -547,8 +588,11 @@ public final class TyC2WorldManager {
                     current = updated;
                 }
             }
-            if (current.allMaterialsDelivered()) {
-                tryLaunchExpansionFromDesire(overworld, data, v, gameTime, null);
+            if (current.allMaterialsDelivered() && gameTime >= v.getNextAutoExpansionRetryTick()) {
+                boolean launched = tryLaunchExpansionFromDesire(overworld, data, v, gameTime, null);
+                if (!launched && v.getVillageBalance() >= current.constructionBudgetCost()) {
+                    v.setNextAutoExpansionRetryTick(gameTime + 400L);
+                }
             }
         }
     }
@@ -645,14 +689,23 @@ public final class TyC2WorldManager {
             return;
         }
         ConstructionJob job = jobOpt.get();
-        BlockPos originBlock = new BlockPos(job.getOrigin().x(), job.getOrigin().y(), job.getOrigin().z());
-        if (!level.hasChunkAt(originBlock)) {
-            return;
+        Aabb3i box = job.getBoundingBox();
+        int minCx = box.minX() >> 4;
+        int maxCx = box.maxX() >> 4;
+        int minCz = box.minZ() >> 4;
+        int maxCz = box.maxZ() >> 4;
+        for (int cx = minCx; cx <= maxCx; cx++) {
+            for (int cz = minCz; cz <= maxCz; cz++) {
+                if (!level.hasChunk(cx, cz)) {
+                    return;
+                }
+            }
         }
         ConstructionJob.StepResult step = job.tick();
         if (step.placedBlocks().isEmpty() && !step.completedNow()) {
             return;
         }
+        int placementFlags = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
         for (WorldBlockPlacement wp : step.placedBlocks()) {
             BlockPos bp = new BlockPos(wp.pos().x(), wp.pos().y(), wp.pos().z());
             if (!level.hasChunkAt(bp)) {
@@ -664,7 +717,7 @@ public final class TyC2WorldManager {
                 continue;
             }
             BlockState targetState = BlockStateSpecParser.parse(wp.blockStateSpec());
-            level.setBlock(bp, targetState, Block.UPDATE_ALL);
+            level.setBlock(bp, targetState, placementFlags);
             level.sendParticles(
                     ParticleTypes.CLOUD,
                     bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5,
@@ -675,6 +728,20 @@ public final class TyC2WorldManager {
             );
         }
         if (step.completedNow()) {
+            for (WorldBlockPlacement wp : job.getPlacements()) {
+                if (!WorldBlockPlacement.isFragileOrAttached(wp.blockStateSpec())) {
+                    continue;
+                }
+                BlockPos bp = new BlockPos(wp.pos().x(), wp.pos().y(), wp.pos().z());
+                if (level.hasChunkAt(bp)
+                        && level.getBlockState(bp).isAir()
+                        && !data.isPlayerPlaced(v.getDimensionId(), bp.getX(), bp.getY(), bp.getZ())) {
+                    BlockState targetState = BlockStateSpecParser.parse(wp.blockStateSpec());
+                    if (!targetState.isAir()) {
+                        level.setBlock(bp, targetState, placementFlags);
+                    }
+                }
+            }
             handleConstructionCompleted(level, data, v, job, step.spawnMarkersToTrigger());
             v.pruneCompletedConstructionJobs();
         }
@@ -1011,7 +1078,7 @@ public final class TyC2WorldManager {
             return;
         }
         Entity target = event.getTarget();
-        if (!TyC2Native.isVillager(target)) {
+        if (!TyC2Native.isExactVanillaVillager(target)) {
             return;
         }
         if (!(event.getEntity() instanceof ServerPlayer player)
@@ -1044,6 +1111,9 @@ public final class TyC2WorldManager {
         }
 
         boolean isMayor = taggedMayor || target.getUUID().equals(village.getMayorState().getMayorEntityUuid());
+        if (!isMayor && Math.abs(target.blockPosition().getY() - village.getHubPos().y()) > 24) {
+            return;
+        }
 
         if (village.isPartnered()) {
             // Cancel vanilla emerald trading inside ALL partnered villages!
@@ -1405,31 +1475,46 @@ public final class TyC2WorldManager {
                 long total = 0L;
                 ItemStack slotStack = atm.getItem(AtmMachineBlockEntity.SLOT_DEPOSIT);
                 Optional<CurrencyDenomination> slotDenom = CurrencyDenomination.valueOfItemId(TyC2Native.itemId(slotStack));
-                if (slotDenom.isPresent() && !slotStack.isEmpty()) {
+                boolean hasSlotCoins = slotDenom.isPresent() && !slotStack.isEmpty();
+                if (hasSlotCoins) {
                     total += slotDenom.get().value() * slotStack.getCount();
-                    atm.setItem(AtmMachineBlockEntity.SLOT_DEPOSIT, ItemStack.EMPTY);
                 }
+                List<Integer> coinSlots = new ArrayList<>();
                 for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
                     ItemStack invStack = player.getInventory().getItem(i);
                     Optional<CurrencyDenomination> d = CurrencyDenomination.valueOfItemId(TyC2Native.itemId(invStack));
                     if (d.isPresent() && !invStack.isEmpty()) {
                         total += d.get().value() * invStack.getCount();
-                        player.getInventory().setItem(i, ItemStack.EMPTY);
+                        coinSlots.add(i);
                     }
                 }
                 if (total > 0L) {
-                    bank.deposit(player.getUUID(), total, now, "ATM Deposit All");
-                    data.economy().recordCashDepositedToBank(total);
-                    data.setDirty();
-                    statusComp = Component.translatable(
-                            "status.tyc2.atm.deposited", total, activeAccountLabelComponent(bank, player.getUUID())
-                    );
+                    BankAccountManager.BankResult res = bank.deposit(player.getUUID(), total, now, "ATM Deposit All");
+                    if (res.success()) {
+                        if (hasSlotCoins) {
+                            atm.setItem(AtmMachineBlockEntity.SLOT_DEPOSIT, ItemStack.EMPTY);
+                        }
+                        for (int idx : coinSlots) {
+                            player.getInventory().setItem(idx, ItemStack.EMPTY);
+                        }
+                        data.economy().recordCashDepositedToBank(total);
+                        data.setDirty();
+                        statusComp = Component.translatable(
+                                "status.tyc2.atm.deposited", total, activeAccountLabelComponent(bank, player.getUUID())
+                        );
+                    } else if (res.errorKey() != null) {
+                        statusComp = Component.translatable(res.errorKey());
+                    }
                 }
             }
             case "WITHDRAW_AMOUNT" -> {
                 long amount = JsonLite.getLong(args, "amount", 0L);
                 if (amount <= 0L) {
                     statusComp = Component.translatable("status.tyc2.atm.invalid_amount");
+                } else if (!CurrencyDenomination.isWithinSingleWithdrawalLimit(amount)) {
+                    statusComp = Component.translatable(
+                            "status.tyc2.atm.withdraw_limit", CurrencyDenomination.MAX_SINGLE_WITHDRAWAL_IC
+                    );
                 } else {
                     BankAccountManager.BankResult res = bank.withdraw(player.getUUID(), amount, now, "ATM Withdraw");
                     if (res.success()) {
@@ -1463,13 +1548,24 @@ public final class TyC2WorldManager {
             }
             case "CREATE_COMPANY" -> {
                 String name = JsonLite.getString(args, "name", "").trim();
+                if (name.length() > BankAccountManager.MAX_COMPANY_NAME_LENGTH) {
+                    name = name.substring(0, BankAccountManager.MAX_COMPANY_NAME_LENGTH).trim();
+                }
                 if (!name.isEmpty()) {
-                    BankAccountManager.CompanyAccount co = bank.createCompany(
-                            player.getUUID(), player.getName().getString(), name
-                    );
-                    bank.setActiveCompany(player.getUUID(), co.companyId());
-                    data.setDirty();
-                    statusComp = Component.translatable("status.tyc2.atm.company_created", co.name(), co.inviteCode());
+                    if (!bank.canJoinAnotherCompany(player.getUUID())) {
+                        statusComp = Component.translatable("status.tyc2.atm.company_limit");
+                    } else {
+                        try {
+                            BankAccountManager.CompanyAccount co = bank.createCompany(
+                                    player.getUUID(), player.getName().getString(), name
+                            );
+                            bank.setActiveCompany(player.getUUID(), co.companyId());
+                            data.setDirty();
+                            statusComp = Component.translatable("status.tyc2.atm.company_created", co.name(), co.inviteCode());
+                        } catch (IllegalStateException ex) {
+                            statusComp = Component.translatable("status.tyc2.atm.company_limit");
+                        }
+                    }
                 }
             }
             case "JOIN_COMPANY" -> {
@@ -1613,6 +1709,12 @@ public final class TyC2WorldManager {
         TycoonSavedData data = getData(level);
         boolean useCash = JsonLite.getBoolean(args, "cashMode", false);
 
+        if (!"REQUEST_SYNC".equals(action) && !canAccessVillage(player, data, village)) {
+            TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED));
+            sendHubSync(player, level, pos, hub, args);
+            return;
+        }
+
         if ("WAREHOUSE_CLICK".equals(action)) {
             int slot = JsonLite.getInt(args, "slot", -1);
             boolean shift = JsonLite.getBoolean(args, "shift", false);
@@ -1632,9 +1734,12 @@ public final class TyC2WorldManager {
                 TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED));
                 return;
             }
+            if (!level.getBlockState(pos).is(TyC2Registries.COOPERATION_HUB_BLOCK.get())
+                    || !level.removeBlock(pos, false)) {
+                return;
+            }
             ItemStack packed = new ItemStack(TyC2Registries.COOPERATION_HUB_ITEM.get());
             CooperationHubBlockItem.setBoundVillage(packed, village.getVillageId(), village.getVillageName());
-            level.removeBlock(pos, false);
             if (!player.getInventory().add(packed)) {
                 player.drop(packed, false);
             }
@@ -1648,9 +1753,39 @@ public final class TyC2WorldManager {
                 return;
             }
             String vName = village.getVillageName();
+            BankAccountManager bank = data.bank();
+            BankAccountManager.AccountRef fallbackRef = bank.resolveSettlementAccount(player.getUUID());
+            long now = level.getGameTime();
+            for (AidConstructionProject proj : new ArrayList<>(village.getAidProjects())) {
+                if (proj.reservedZone() != null) {
+                    village.removeOccupiedZone(proj.reservedZone());
+                }
+                if (proj.canCancel() && proj.paidIc() > 0L) {
+                    BankAccountManager.AccountRef refundRef = resolveAidRefundAccount(bank, proj, fallbackRef);
+                    bank.creditAccount(
+                            refundRef,
+                            proj.paidIc(),
+                            BankAccountManager.TransactionType.SYSTEM_ADJUST,
+                            now,
+                            vName,
+                            "Aid Refund (Termination)"
+                    );
+                    data.economy().refundBankMoneySink(proj.paidIc());
+                }
+            }
+            village.clearAidProjects();
+            village.clearConstructionQueue();
+            village.setChunkLoaderInstalled(false);
             village.terminatePartnership();
             data.setDirty();
-            level.setBlock(pos, Blocks.BELL.defaultBlockState(), Block.UPDATE_ALL);
+            if (level.getBlockState(pos).is(TyC2Registries.COOPERATION_HUB_BLOCK.get())) {
+                BlockState bell = Blocks.BELL.defaultBlockState();
+                if (bell.canSurvive(level, pos)) {
+                    level.setBlock(pos, bell, Block.UPDATE_ALL);
+                } else {
+                    level.removeBlock(pos, false);
+                }
+            }
             player.closeContainer();
             TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.partnership_terminated", vName).withStyle(ChatFormatting.YELLOW));
             return;
@@ -1707,6 +1842,11 @@ public final class TyC2WorldManager {
             sendTerminalSync(player, level, term);
             return;
         }
+        if (!"REQUEST_SYNC".equals(action) && !canAccessVillage(player, data, villageOpt.get())) {
+            TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED));
+            sendTerminalSync(player, level, term);
+            return;
+        }
 
         executeVillageAction(player, level, data, villageOpt.get(), null, action, args, false, true, term);
         sendTerminalSync(player, level, term);
@@ -1742,7 +1882,9 @@ public final class TyC2WorldManager {
                 int actualQty = Math.min(qty, order.remainingQty());
                 long totalCost = order.totalPriceFor(actualQty);
                 String nbtMeta = order.enchantSpec().isBlank() ? "" : ("enchant:" + order.enchantSpec());
-                int maxStack = order.enchantSpec().isBlank() ? 64 : 1;
+                int maxStack = order.enchantSpec().isBlank()
+                        ? Math.max(1, TyC2Native.stack(order.itemId(), 1).getMaxStackSize())
+                        : 1;
 
                 // Validate Outbound capacity & player funds BEFORE deducting Comm Terminal 50 EU
                 if (!village.getStorage().canFitInOutbound(order.itemId(), actualQty, nbtMeta, maxStack)) {
@@ -1777,7 +1919,9 @@ public final class TyC2WorldManager {
                     TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.outbound_full").withStyle(ChatFormatting.RED));
                     return;
                 }
-                if (!useCash || hub == null) {
+                if (useCash && hub != null) {
+                    data.economy().recordCashPaidToVillage(res.totalCurrency());
+                } else {
                     bank.debitAccount(activeRef, res.totalCurrency(), BankAccountManager.TransactionType.TRADE_BUY, now, village.getVillageName(), order.itemId());
                 }
                 long basePrice = TyC2DataLoader.goodsCatalog().findByItemId(order.itemId()).map(g -> g.basePrice()).orElse(order.unitPrice());
@@ -1864,6 +2008,7 @@ public final class TyC2WorldManager {
                 }
                 if (useCash && hub != null) {
                     giveChangeCoins(player, res.totalCurrency());
+                    data.economy().recordVillagePaidCash(res.totalCurrency());
                 } else {
                     bank.creditAccount(activeRef, res.totalCurrency(), BankAccountManager.TransactionType.TRADE_SELL, now, village.getVillageName(), order.itemId());
                 }
@@ -2182,6 +2327,14 @@ public final class TyC2WorldManager {
             return;
         }
         AidConstructionProject proj = projOpt.get();
+        boolean isPayer = player.getUUID().equals(proj.payerPlayerUuid());
+        if (!isPayer && !canManageVillage(player, data, village)) {
+            TyC2Native.sendActionBar(
+                    player,
+                    Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED)
+            );
+            return;
+        }
         if (!proj.canCancel()) {
             TyC2Native.sendActionBar(
                     player,
@@ -2197,7 +2350,7 @@ public final class TyC2WorldManager {
 
         long refundIc = proj.paidIc();
         if (refundIc > 0L) {
-            boolean refundToCash = proj.paidWithCash() && !isTerminal;
+            boolean refundToCash = proj.paidWithCash() && !isTerminal && isPayer;
             if (refundToCash) {
                 giveChangeCoins(player, refundIc);
             } else {
@@ -2382,6 +2535,18 @@ public final class TyC2WorldManager {
         if (!"SIGN_PARTNERSHIP".equals(action) || village.isPartnered()) {
             return;
         }
+        if (!(player.containerMenu instanceof MayorNegotiationMenu negMenu)
+                || !villageId.equals(negMenu.villageId())
+                || !TyC2Native.dimensionId(level).equals(village.getDimensionId())) {
+            return;
+        }
+        UUID mayorUuid = negMenu.mayorEntityUuid() != null
+                ? negMenu.mayorEntityUuid()
+                : village.getMayorState().getMayorEntityUuid();
+        Entity mayorEntity = mayorUuid != null ? level.getEntity(mayorUuid) : null;
+        if (mayorEntity == null || !mayorEntity.isAlive() || mayorEntity.distanceToSqr(player) > 100.0) {
+            return;
+        }
 
         TyC2Config cfg = TyC2DataLoader.config();
         NegotiationCheck check = evaluateNegotiation(player, data, cfg);
@@ -2394,7 +2559,7 @@ public final class TyC2WorldManager {
             return;
         }
 
-        // 1. Deduct startup currency (prefer bank account, else physical cash in inventory)
+        // 1. Deduct startup currency (prefer bank account, else physical cash in inventory with exact change)
         long costIc = cfg.negotiationCostIc();
         if (costIc > 0L) {
             BankAccountManager.AccountRef ref = data.bank().resolveSettlementAccount(player.getUUID());
@@ -2404,7 +2569,11 @@ public final class TyC2WorldManager {
                         level.getGameTime(), village.getVillageName(), "Village Partnership"
                 );
             } else {
-                consumeCoinsFromInventory(player, costIc);
+                long collected = consumeCoinsFromInventory(player, costIc);
+                if (collected > costIc) {
+                    giveChangeCoins(player, collected - costIc);
+                }
+                data.economy().recordCashPaidToVillage(costIc);
             }
         }
 
@@ -2419,15 +2588,17 @@ public final class TyC2WorldManager {
                 .orElse(null);
         village.establishPartnership(player.getUUID(), activeCo, costIc);
 
+        ServerLevel targetLevel = resolveDimensionLevel(level.getServer(), village.getDimensionId(), level);
         BlockPos hubPos = new BlockPos(village.getHubPos().x(), village.getHubPos().y(), village.getHubPos().z());
-        level.setBlock(hubPos, TyC2Registries.COOPERATION_HUB_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
-        if (level.getBlockEntity(hubPos) instanceof CooperationHubBlockEntity be) {
+        targetLevel.setBlock(hubPos, TyC2Registries.COOPERATION_HUB_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+        if (targetLevel.getBlockEntity(hubPos) instanceof CooperationHubBlockEntity be) {
             be.setVillageId(village.getVillageId());
         }
 
-        // Register initial Hub core zone so expansion stays cleanly outside existing buildings
+        // Register initial Hub core zone & existing village houses so expansion stays cleanly outside
         village.addOccupiedZone(Aabb3i.singleBlock(village.getHubPos()).padHorizontal(4));
-        refreshVillageOrders(level, data, village, level.getGameTime());
+        registerExistingVillageZones(targetLevel, village, hubPos);
+        refreshVillageOrders(targetLevel, data, village, targetLevel.getGameTime());
         data.setDirty();
 
         endAllNegotiationsForPlayer(player);
@@ -2480,8 +2651,14 @@ public final class TyC2WorldManager {
             ItemStack out = TyC2Native.fromSlotStack(taken.get(), registries);
             if (shift || !carried.isEmpty()) {
                 if (!player.getInventory().add(out)) {
-                    // Put back if player inventory is completely full
-                    storage.setSlotRaw(slot, taken.get());
+                    // Inventory.add mutates 'out' in-place on partial insertion; return ONLY leftovers!
+                    if (!out.isEmpty()) {
+                        SlotStack remaining = TyC2Native.toSlotStack(out, registries);
+                        if (remaining != null) {
+                            storage.setSlotRaw(slot, remaining);
+                        }
+                    }
+                    data.setDirty();
                     return;
                 }
             } else {
@@ -2604,8 +2781,22 @@ public final class TyC2WorldManager {
                 || TyC2Native.itemIdHasTag(itemId, "minecraft:" + clean);
     }
 
+    private static Container resolveHubCashBox(ServerPlayer player, CooperationHubBlockEntity hub) {
+        if (player != null && player.containerMenu instanceof CooperationHubMenu hubMenu) {
+            return hubMenu.cashContainer();
+        }
+        return hub.localContainer();
+    }
+
+    private static int resolveHubCashSlotIndex(ServerPlayer player) {
+        return (player != null && player.containerMenu instanceof CooperationHubMenu)
+                ? 0
+                : CooperationHubBlockEntity.LOCAL_SLOT_CASH;
+    }
+
     private static boolean canAffordCash(ServerPlayer player, CooperationHubBlockEntity hub, long requiredIc) {
-        ItemStack cashSlot = hub.localContainer().getItem(CooperationHubBlockEntity.LOCAL_SLOT_CASH);
+        Container cashBox = resolveHubCashBox(player, hub);
+        ItemStack cashSlot = cashBox.getItem(resolveHubCashSlotIndex(player));
         long slotVal = CurrencyDenomination.valueOfItemId(TyC2Native.itemId(cashSlot))
                 .map(d -> d.value() * cashSlot.getCount()).orElse(0L);
         return slotVal + countCoinsInInventory(player) >= requiredIc;
@@ -2867,6 +3058,14 @@ public final class TyC2WorldManager {
             if (st.isPresent()) {
                 sm.put("itemId", st.get().itemId());
                 sm.put("count", st.get().count());
+                String nbt = st.get().nbtJson();
+                if (nbt != null && !nbt.isBlank()) {
+                    String hint = nbt.startsWith("enchant:") ? nbt.substring("enchant:".length()) : "NBT";
+                    if (hint.length() > 48) {
+                        hint = hint.substring(0, 48);
+                    }
+                    sm.put("metaHint", hint);
+                }
             } else {
                 sm.put("itemId", "");
                 sm.put("count", 0);
@@ -3035,7 +3234,9 @@ public final class TyC2WorldManager {
     }
 
     private static boolean consumeCashPayment(ServerPlayer player, CooperationHubBlockEntity hub, long requiredIc) {
-        ItemStack cashSlot = hub.localContainer().getItem(CooperationHubBlockEntity.LOCAL_SLOT_CASH);
+        Container cashBox = resolveHubCashBox(player, hub);
+        int cashIdx = resolveHubCashSlotIndex(player);
+        ItemStack cashSlot = cashBox.getItem(cashIdx);
         long slotVal = CurrencyDenomination.valueOfItemId(TyC2Native.itemId(cashSlot))
                 .map(d -> d.value() * cashSlot.getCount()).orElse(0L);
         long invVal = countCoinsInInventory(player);
@@ -3048,7 +3249,9 @@ public final class TyC2WorldManager {
             int needed = (int) Math.min(cashSlot.getCount(), (requiredIc - collected + d.value() - 1) / d.value());
             cashSlot.shrink(needed);
             if (cashSlot.isEmpty()) {
-                hub.localContainer().setItem(CooperationHubBlockEntity.LOCAL_SLOT_CASH, ItemStack.EMPTY);
+                cashBox.setItem(cashIdx, ItemStack.EMPTY);
+            } else {
+                cashBox.setChanged();
             }
             collected += needed * d.value();
         }
@@ -3125,6 +3328,58 @@ public final class TyC2WorldManager {
                     player.getInventory().setItem(i, ItemStack.EMPTY);
                 }
                 rem -= take;
+            }
+        }
+    }
+
+    /**
+     * Checks whether {@code player} is permitted to operate {@code village}'s Cooperation Hub,
+     * warehouse, orders, aid queue, or remote terminal bindings (owner, partner company member,
+     * server OP, or any player while unpartnered).
+     */
+    public static boolean canAccessVillage(ServerPlayer player, TycoonSavedData data, VillageRecord village) {
+        if (player == null || village == null) {
+            return false;
+        }
+        if (!village.isPartnered() || TyC2Native.hasOpPermission(player)) {
+            return true;
+        }
+        if (player.getUUID().equals(village.getOwnerPlayerUuid())) {
+            return true;
+        }
+        if (village.getCompanyAccountId() != null) {
+            return data.bank().getCompany(village.getCompanyAccountId())
+                    .map(co -> co.isMember(player.getUUID()))
+                    .orElse(false);
+        }
+        return false;
+    }
+
+    private static void registerExistingVillageZones(ServerLevel level, VillageRecord village, BlockPos center) {
+        int r = 32;
+        int minY = Math.max(TyC2Native.minBuildY(level), center.getY() - 8);
+        int maxY = Math.min(TyC2Native.maxBuildY(level) - 1, center.getY() + 14);
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        int registered = 0;
+        for (int dx = -r; dx <= r && registered < 24; dx += 2) {
+            for (int dz = -r; dz <= r && registered < 24; dz += 2) {
+                int wx = center.getX() + dx;
+                int wz = center.getZ() + dz;
+                if (!level.hasChunk(wx >> 4, wz >> 4)) {
+                    continue;
+                }
+                for (int y = minY; y <= maxY && registered < 24; y++) {
+                    cursor.set(wx, y, wz);
+                    Block b = level.getBlockState(cursor).getBlock();
+                    if (b instanceof BedBlock || b instanceof DoorBlock) {
+                        Aabb3i zone = new Aabb3i(wx - 4, y - 1, wz - 4, wx + 4, y + 5, wz + 4);
+                        boolean overlapsExisting = village.getOccupiedZones().stream().anyMatch(z -> z.intersects(zone));
+                        if (!overlapsExisting) {
+                            village.addOccupiedZone(zone);
+                            registered++;
+                        }
+                    }
+                }
             }
         }
     }

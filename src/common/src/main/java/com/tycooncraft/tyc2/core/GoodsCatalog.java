@@ -420,7 +420,7 @@ public final class GoodsCatalog {
         add(TradeGood.builder("tyc2:ic2_bronze_ingot", "ic2:bronze_ingot", GoodsCategory.METAL, 14)
                 .optionalTag("#ingots/bronze").requiredModId("ic2")
                 .levelRange(4, 9).industrialTier(IndustrialTier.TIER_1)
-                .sellable(true).buyable(true).quantityRange(6, 18).build());
+                .sellable(false).buyable(true).quantityRange(6, 18).build());
         add(TradeGood.builder("tyc2:ic2_silver_ingot", "ic2:silver_ingot", GoodsCategory.METAL, 20)
                 .optionalTag("#ingots/silver").requiredModId("ic2")
                 .levelRange(4, 8).industrialTier(IndustrialTier.TIER_1)
@@ -428,7 +428,7 @@ public final class GoodsCatalog {
         add(TradeGood.builder("tyc2:ic2_steel_ingot", "ic2:steel_ingot", GoodsCategory.RARE_ALLOY, 26)
                 .optionalTag("#ingots/steel").requiredModId("ic2")
                 .levelRange(4, 10).industrialTier(IndustrialTier.TIER_2)
-                .sellable(true).buyable(true).quantityRange(4, 14).build());
+                .sellable(false).buyable(true).quantityRange(4, 14).build());
         add(TradeGood.builder("tyc2:ic2_circuit", "ic2:circuit", GoodsCategory.INDUSTRIAL, 34)
                 .requiredModId("ic2").levelRange(4, 7).industrialTier(IndustrialTier.TIER_1)
                 .sellable(false).buyable(true).quantityRange(2, 8).build());
