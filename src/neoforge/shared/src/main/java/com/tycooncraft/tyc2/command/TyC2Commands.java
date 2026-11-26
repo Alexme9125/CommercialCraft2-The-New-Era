@@ -265,7 +265,7 @@ public final class TyC2Commands {
         }
         TycoonSavedData data = TyC2WorldManager.getData(level);
         v.setLevel(v.getLevel() + 1);
-        TyC2WorldManager.refreshVillageOrders(level, data, v, level.getGameTime());
+        TyC2WorldManager.refreshVillageOrders(level, data, v, TyC2Native.dayTime(level));
         data.setDirty();
         src.sendSuccess(() -> Component.literal(
                 "[TyC2] Elevated " + v.getVillageName() + " to Lv." + v.getLevel()
@@ -282,7 +282,7 @@ public final class TyC2Commands {
             return 0;
         }
         TycoonSavedData data = TyC2WorldManager.getData(level);
-        TyC2WorldManager.refreshVillageOrders(level, data, nearest.get(), level.getGameTime());
+        TyC2WorldManager.refreshVillageOrders(level, data, nearest.get(), TyC2Native.dayTime(level));
         src.sendSuccess(() -> Component.literal(
                 "[TyC2] Refreshed trade orders for " + nearest.get().getVillageName()
                         + " (" + nearest.get().getActiveOrders().size() + " active orders)."

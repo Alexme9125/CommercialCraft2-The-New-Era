@@ -458,7 +458,7 @@ class AidConstructionAndEmploymentTest {
         assertFalse(emptyStats.isLowUnemploymentBonusActive(cfg));
         assertEquals(0.0, emptyStats.bonusIntensity(cfg), 1e-9);
         assertEquals(1.0, emptyStats.restockSpeedMultiplier(cfg), 1e-9);
-        assertEquals(12_000, emptyStats.effectiveDemandRefreshTicks(cfg));
+        assertEquals(168_000, emptyStats.effectiveDemandRefreshTicks(cfg));
         assertEquals(1.0, emptyStats.tradeQuantityMultiplier(cfg), 1e-9);
         assertEquals(1.0, emptyStats.rareTradeQuantityMultiplier(cfg), 1e-9);
 
@@ -489,7 +489,7 @@ class AidConstructionAndEmploymentTest {
         assertEquals(1.30, stats.restockSpeedMultiplier(cfg), 1e-9);
         assertEquals(1.30, stats.tradeQuantityMultiplier(cfg), 1e-9);
         assertEquals(1.12, stats.rareTradeQuantityMultiplier(cfg), 1e-9);
-        assertEquals(9_230, stats.effectiveDemandRefreshTicks(cfg));
+        assertEquals(129_230, stats.effectiveDemandRefreshTicks(cfg));
 
         // 3. Exact 25% boundary (1/4) -> NOT active
         VillageEmploymentStats atBoundary = new VillageEmploymentStats(4, 3, 1, true, Map.of(), 600L);
@@ -498,7 +498,7 @@ class AidConstructionAndEmploymentTest {
         assertEquals(1.0, atBoundary.restockSpeedMultiplier(cfg), 1e-9);
         assertEquals(1.0, atBoundary.tradeQuantityMultiplier(cfg), 1e-9);
 
-        // 4. 0% unemployment -> maximum bonus (1.50x restock, 1.50x qty, 1.20x rare, 8000 refresh ticks)
+        // 4. 0% unemployment -> maximum bonus (1.50x restock, 1.50x qty, 1.20x rare, 112,000 refresh ticks ~4.67d)
         VillageEmploymentStats fullEmp = new VillageEmploymentStats(8, 8, 0, true, Map.of(), 700L);
         assertEquals(0.0, fullEmp.unemploymentRate(), 1e-9);
         assertTrue(fullEmp.isLowUnemploymentBonusActive(cfg));
@@ -506,7 +506,7 @@ class AidConstructionAndEmploymentTest {
         assertEquals(1.50, fullEmp.restockSpeedMultiplier(cfg), 1e-9);
         assertEquals(1.50, fullEmp.tradeQuantityMultiplier(cfg), 1e-9);
         assertEquals(1.20, fullEmp.rareTradeQuantityMultiplier(cfg), 1e-9);
-        assertEquals(8_000, fullEmp.effectiveDemandRefreshTicks(cfg));
+        assertEquals(112_000, fullEmp.effectiveDemandRefreshTicks(cfg));
     }
 
     @Test

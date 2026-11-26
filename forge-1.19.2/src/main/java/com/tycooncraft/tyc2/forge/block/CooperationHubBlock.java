@@ -1,6 +1,9 @@
 package com.tycooncraft.tyc2.forge.block;
 
+import com.tycooncraft.tyc2.core.BankAccountManager;
+import com.tycooncraft.tyc2.core.TyC2Config;
 import com.tycooncraft.tyc2.forge.TyC2ForgeRegistries;
+import com.tycooncraft.tyc2.forge.data.TyC2RuntimeData;
 import com.tycooncraft.tyc2.forge.item.CommTerminalItem;
 import com.tycooncraft.tyc2.forge.item.TyC2BlockItem;
 import com.tycooncraft.tyc2.forge.util.TyC2Ids;
@@ -120,9 +123,21 @@ public class CooperationHubBlock extends Block implements EntityBlock {
                     TyC2Ids.toCore(pos),
                     style
             );
-            rec.establishPartnership(player.getUUID(), null, 100L);
+            TyC2Config cfg = TyC2RuntimeData.config();
+            data.bank().getOrCreatePersonal(player.getUUID(), player.getGameProfile().getName());
+            BankAccountManager.AccountRef activeRef = data.bank().resolveSettlementAccount(player.getUUID());
+            String activeCo = activeRef.scope() == BankAccountManager.AccountScope.COMPANY
+                    ? activeRef.accountId() : null;
+            rec.establishPartnershipWithWorkingCapital(
+                    player.getUUID(), activeCo, cfg.negotiationCostIc(), cfg.initialVillageWorkingCapital()
+            );
             rec.setPopulation(2);
             data.putVillage(rec);
+            TycoonForgeWorldManager.refreshVillageOrders(
+                    serverLevel, data, rec, serverLevel.getServer().overworld().getDayTime()
+            );
+            data.syncMacroAccountTotals();
+            data.setDirty();
             hub.setVillageId(rec.getVillageId());
         }
     }

@@ -808,9 +808,9 @@ final class TyC2LiveClientDriver {
                     return;
                 }
                 qa.check("client.screenshot." + shot, true, "saved " + capturedScreenshots.get(shot));
-                // Click Sub-tab 1 (Stock: leftPos + 78 + 40 + 20, topPos + 30)
+                // Click Sub-tab 1 (Stock: leftPos + 78 + 40 + 20, topPos + 49)
                 CommTerminalScreen screen = (CommTerminalScreen) mc.screen;
-                screen.mouseClicked(screen.getGuiLeft() + 138.0, screen.getGuiTop() + 30.0, 0);
+                screen.mouseClicked(screen.getGuiLeft() + 138.0, screen.getGuiTop() + 49.0, 0);
                 subStep = 4;
                 dirTicks = 0;
             }
@@ -829,9 +829,9 @@ final class TyC2LiveClientDriver {
                     return;
                 }
                 qa.check("client.screenshot." + shot, true, "saved " + capturedScreenshots.get(shot));
-                // Click Sub-tab 2 (CPI: leftPos + 78 + 2*40 + 20, topPos + 30)
+                // Click Sub-tab 2 (CPI: leftPos + 78 + 2*40 + 20, topPos + 49)
                 CommTerminalScreen screen = (CommTerminalScreen) mc.screen;
-                screen.mouseClicked(screen.getGuiLeft() + 178.0, screen.getGuiTop() + 30.0, 0);
+                screen.mouseClicked(screen.getGuiLeft() + 178.0, screen.getGuiTop() + 49.0, 0);
                 subStep = 6;
                 dirTicks = 0;
             }
@@ -850,9 +850,9 @@ final class TyC2LiveClientDriver {
                     return;
                 }
                 qa.check("client.screenshot." + shot, true, "saved " + capturedScreenshots.get(shot));
-                // Click Sub-tab 3 (Growth: leftPos + 78 + 3*40 + 20, topPos + 30)
+                // Click Sub-tab 3 (Growth: leftPos + 78 + 3*40 + 20, topPos + 49)
                 CommTerminalScreen screen = (CommTerminalScreen) mc.screen;
-                screen.mouseClicked(screen.getGuiLeft() + 218.0, screen.getGuiTop() + 30.0, 0);
+                screen.mouseClicked(screen.getGuiLeft() + 218.0, screen.getGuiTop() + 49.0, 0);
                 subStep = 8;
                 dirTicks = 0;
             }

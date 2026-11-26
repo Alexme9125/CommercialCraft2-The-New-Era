@@ -183,7 +183,7 @@ public final class TyC2ClientLiveServer {
         TyC2QaPlatform.spawnAdultVillager(level, hubPos.getX() - 1.5, surfaceY, hubPos.getZ() - 2.0);
         TyC2QaPlatform.spawnAdultVillager(level, hubPos.getX() + 1.5, surfaceY, hubPos.getZ() - 2.0);
         TyC2QaPlatform.spawnAdultVillager(level, hubPos.getX() + 0.5, surfaceY, hubPos.getZ() - 3.0);
-        TyC2WorldManager.refreshVillageOrders(level, data, metro, level.getGameTime());
+        TyC2WorldManager.refreshVillageOrders(level, data, metro, TyC2Native.dayTime(level));
 
         if (level.getBlockEntity(hubPos) instanceof CooperationHubBlockEntity hubBe) {
             hubBe.setVillageId(partneredVillageId);

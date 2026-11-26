@@ -31,7 +31,11 @@ public final class TyC2Config {
     private double itemSupplyFlowDecay = 0.10;
     private double municipalUpkeepRate = 0.02;
 
-    private int demandRefreshTicks = 12_000;
+    private int demandRefreshTicks = 168_000;
+    private double weeklyQuantityMultiplier = 3.5;
+    private double weeklyRareQuantityMultiplier = 1.75;
+    private long initialVillageWorkingCapital = 500L;
+    private double weeklyMunicipalStipendRatio = 0.45;
     private int expansionIntervalTicks = 18_000;
     private int autoFulfillIntervalTicks = 40;
     private int minExpansionRadius = 10;
@@ -141,6 +145,10 @@ public final class TyC2Config {
         map.put("itemSupplyFlowDecay", itemSupplyFlowDecay);
         map.put("municipalUpkeepRate", municipalUpkeepRate);
         map.put("demandRefreshTicks", demandRefreshTicks);
+        map.put("weeklyQuantityMultiplier", weeklyQuantityMultiplier);
+        map.put("weeklyRareQuantityMultiplier", weeklyRareQuantityMultiplier);
+        map.put("initialVillageWorkingCapital", initialVillageWorkingCapital);
+        map.put("weeklyMunicipalStipendRatio", weeklyMunicipalStipendRatio);
         map.put("expansionIntervalTicks", expansionIntervalTicks);
         map.put("autoFulfillIntervalTicks", autoFulfillIntervalTicks);
         map.put("minExpansionRadius", minExpansionRadius);
@@ -191,6 +199,14 @@ public final class TyC2Config {
         c.municipalUpkeepRate = clamp(JsonLite.getDouble(map, "municipalUpkeepRate", c.municipalUpkeepRate), 0.0, 0.25);
 
         c.demandRefreshTicks = Math.max(200, JsonLite.getInt(map, "demandRefreshTicks", c.demandRefreshTicks));
+        c.weeklyQuantityMultiplier = clamp(
+                JsonLite.getDouble(map, "weeklyQuantityMultiplier", c.weeklyQuantityMultiplier), 0.5, 20.0);
+        c.weeklyRareQuantityMultiplier = clamp(
+                JsonLite.getDouble(map, "weeklyRareQuantityMultiplier", c.weeklyRareQuantityMultiplier), 0.5, 10.0);
+        c.initialVillageWorkingCapital = clampLong(
+                JsonLite.getLong(map, "initialVillageWorkingCapital", c.initialVillageWorkingCapital), 0L, 100_000L);
+        c.weeklyMunicipalStipendRatio = clamp(
+                JsonLite.getDouble(map, "weeklyMunicipalStipendRatio", c.weeklyMunicipalStipendRatio), 0.0, 1.0);
         c.expansionIntervalTicks = Math.max(200, JsonLite.getInt(map, "expansionIntervalTicks", c.expansionIntervalTicks));
         c.autoFulfillIntervalTicks = Math.max(10, JsonLite.getInt(map, "autoFulfillIntervalTicks", c.autoFulfillIntervalTicks));
         c.minExpansionRadius = Math.max(6, JsonLite.getInt(map, "minExpansionRadius", c.minExpansionRadius));
@@ -230,6 +246,13 @@ public final class TyC2Config {
     }
 
     private static double clamp(double value, double min, double max) {
+        if (!Double.isFinite(value)) {
+            return min;
+        }
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private static long clampLong(long value, long min, long max) {
         return Math.max(min, Math.min(max, value));
     }
 
@@ -346,14 +369,58 @@ public final class TyC2Config {
         return this;
     }
 
-    /** @return ticks between demand refreshes (default 12,000) */
+    /** @return dayTime ticks between weekly demand refreshes (default 168,000 = 7 game days) */
     public int demandRefreshTicks() {
         return demandRefreshTicks;
     }
 
-    /** @param value refresh period in ticks */
+    /** @param value refresh period in ticks (min 200) */
     public TyC2Config setDemandRefreshTicks(int value) {
         this.demandRefreshTicks = Math.max(200, value);
+        return this;
+    }
+
+    /** @return weekly batch quantity multiplier for standard goods (default 3.5) */
+    public double weeklyQuantityMultiplier() {
+        return weeklyQuantityMultiplier;
+    }
+
+    /** @param value weekly quantity multiplier clamped to [0.5, 20.0] */
+    public TyC2Config setWeeklyQuantityMultiplier(double value) {
+        this.weeklyQuantityMultiplier = clamp(value, 0.5, 20.0);
+        return this;
+    }
+
+    /** @return weekly batch quantity multiplier for rare ENCHANTED_BOOK/ENDGAME goods (default 1.75) */
+    public double weeklyRareQuantityMultiplier() {
+        return weeklyRareQuantityMultiplier;
+    }
+
+    /** @param value weekly rare quantity multiplier clamped to [0.5, 10.0] */
+    public TyC2Config setWeeklyRareQuantityMultiplier(double value) {
+        this.weeklyRareQuantityMultiplier = clamp(value, 0.5, 10.0);
+        return this;
+    }
+
+    /** @return minimum municipal working capital floor upon establishing partnership (default 500 IC) */
+    public long initialVillageWorkingCapital() {
+        return initialVillageWorkingCapital;
+    }
+
+    /** @param value initial village working capital floor clamped to [0, 100,000] */
+    public TyC2Config setInitialVillageWorkingCapital(long value) {
+        this.initialVillageWorkingCapital = clampLong(value, 0L, 100_000L);
+        return this;
+    }
+
+    /** @return weekly municipal stipend threshold ratio relative to target reserve (default 0.45) */
+    public double weeklyMunicipalStipendRatio() {
+        return weeklyMunicipalStipendRatio;
+    }
+
+    /** @param value stipend threshold ratio clamped to [0.0, 1.0] (0.0 disables stipend) */
+    public TyC2Config setWeeklyMunicipalStipendRatio(double value) {
+        this.weeklyMunicipalStipendRatio = clamp(value, 0.0, 1.0);
         return this;
     }
 

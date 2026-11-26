@@ -238,9 +238,13 @@ public final class DemandGenerator {
                 level, biomeId, villageBalance, maxUnlockedTier, season, seasonalActive,
                 qtyScale, empQtyMult, empRareQtyMult, profCountByCategory, economy, liveGoods, rng
         );
+        Set<String> soldItemIds = new HashSet<>(sellOrders.size());
+        for (GeneratedOrder sell : sellOrders) {
+            soldItemIds.add(sell.itemId());
+        }
         List<GeneratedOrder> buyOrders = generateBuyOrders(
                 level, biomeId, villageBalance, maxUnlockedTier, season, seasonalActive,
-                qtyScale, empQtyMult, empRareQtyMult, profCountByCategory, economy, liveGoods, rng
+                qtyScale, empQtyMult, empRareQtyMult, profCountByCategory, soldItemIds, economy, liveGoods, rng
         );
 
         return new GeneratedDemand(
@@ -277,6 +281,10 @@ public final class DemandGenerator {
             if (good.industrialTierRequired().level() > maxUnlockedTier) {
                 continue;
             }
+            // Geographical biome exclusivity: biome-exclusive supplies are ONLY sold in matching biomes
+            if (good.isBiomeExclusive() && !good.hasBiomeAffinity(biomeId)) {
+                continue;
+            }
             // Strict Seasonal Arbitrage Rule: agrarian villages NEVER sell off-season crops!
             if (seasonalActive && good.isSeasonalCrop() && good.isOffSeason(season)) {
                 continue;
@@ -289,7 +297,7 @@ public final class DemandGenerator {
             }
             boolean biomeMatch = good.hasBiomeAffinity(biomeId);
             if (biomeMatch) {
-                weight *= 1.5;
+                weight *= 2.2;
             }
             if (level <= 3 && (good.category() == GoodsCategory.TEXTILE
                     || good.category() == GoodsCategory.MONSTER_DROP
@@ -305,10 +313,37 @@ public final class DemandGenerator {
                 }
             }
             weight *= professionCategoryWeight(good.category(), profCountByCategory);
-            pool.add(new WeightedCandidate(good, weight, inSeasonCrop, biomeMatch));
+            pool.add(new WeightedCandidate(good, weight, inSeasonCrop, biomeMatch, false, false));
         }
 
-        List<WeightedCandidate> chosen = pickWeightedDistinct(pool, targetCount, rng, false);
+        List<WeightedCandidate> chosen = new ArrayList<>(targetCount);
+        Set<String> usedGoods = new HashSet<>();
+
+        // Guarantee at least 1 local biome specialty sell order when matching sellables exist for this level
+        if (targetCount > 0) {
+            List<WeightedCandidate> biomePool = new ArrayList<>();
+            for (WeightedCandidate wc : pool) {
+                if (wc.biomeMatch) {
+                    biomePool.add(wc);
+                }
+            }
+            if (!biomePool.isEmpty()) {
+                WeightedCandidate guaranteed = pickOneWeighted(biomePool, rng);
+                chosen.add(guaranteed);
+                usedGoods.add(guaranteed.good.id());
+            }
+        }
+
+        if (chosen.size() < targetCount) {
+            List<WeightedCandidate> remainingPool = new ArrayList<>();
+            for (WeightedCandidate wc : pool) {
+                if (!usedGoods.contains(wc.good.id())) {
+                    remainingPool.add(wc);
+                }
+            }
+            chosen.addAll(pickWeightedDistinct(remainingPool, targetCount - chosen.size(), rng, false));
+        }
+
         List<GeneratedOrder> orders = new ArrayList<>(chosen.size());
         int idx = 1;
         for (WeightedCandidate wc : chosen) {
@@ -316,7 +351,9 @@ public final class DemandGenerator {
             MacroEconomyEngine.PriceQuote quote = economy.quotePrice(
                     good, level, villageBalance, biomeId, season, false
             );
-            int qty = rollQuantity(good, qtyScale, wc.seasonalHighlight, empQtyMult, empRareQtyMult, rng);
+            double biomeQtyMult = wc.biomeMatch ? 1.25 : 1.0;
+            double seasonalQtyMult = wc.seasonalHighlight ? 1.5 : 1.0;
+            int qty = rollQuantity(good, qtyScale, biomeQtyMult, seasonalQtyMult, empQtyMult, empRareQtyMult, rng);
             orders.add(new GeneratedOrder(
                     "sell_" + level + "_" + idx++,
                     OrderSide.VILLAGE_SELLS,
@@ -346,6 +383,7 @@ public final class DemandGenerator {
             double empQtyMult,
             double empRareQtyMult,
             Map<GoodsCategory, Integer> profCountByCategory,
+            Set<String> soldItemIds,
             MacroEconomyEngine economy,
             List<TradeGood> liveGoods,
             Random rng
@@ -358,19 +396,41 @@ public final class DemandGenerator {
             if (good.industrialTierRequired().level() > maxUnlockedTier) {
                 continue;
             }
+            if (soldItemIds.contains(good.itemId())) {
+                continue;
+            }
             boolean normalBuy = good.isBuyableByVillage() && good.matchesLevel(level);
+            if (normalBuy && good.isBiomeExclusive()
+                    && !good.demandBiomes().isEmpty()
+                    && !good.hasDemandBiome(biomeId)) {
+                normalBuy = false;
+            }
+            // Anti-hassle seasonal crop guardrail: off-season crop buy orders ONLY select crops
+            // that are universally accessible (!biomeExclusive) OR native to this village's biome.
+            boolean biomeAccessibleCrop = !good.isBiomeExclusive() || good.hasBiomeAffinity(biomeId);
             boolean offSeasonArbitrage = seasonalActive
                     && good.isSeasonalCrop()
                     && good.isOffSeason(season)
-                    && good.minLevel() <= level;
+                    && good.minLevel() <= level
+                    && biomeAccessibleCrop;
 
             if (!normalBuy && !offSeasonArbitrage) {
                 continue;
             }
 
+            boolean demandBiomeMatch = good.hasDemandBiome(biomeId);
+            boolean demandSeasonMatch = seasonalActive && !good.isSeasonalCrop() && good.hasDemandSeason(season);
+            boolean seasonalHighlight = offSeasonArbitrage || demandSeasonMatch;
+
             double weight = 1.0;
             if (offSeasonArbitrage) {
                 weight *= 2.4;
+            }
+            if (demandSeasonMatch) {
+                weight *= 1.9;
+            }
+            if (demandBiomeMatch) {
+                weight *= 2.0;
             }
             if (level <= 3 && (good.category() == GoodsCategory.MINING || good.category() == GoodsCategory.METAL)) {
                 weight *= 1.6;
@@ -386,7 +446,9 @@ public final class DemandGenerator {
                 weight *= 0.05;
             }
 
-            WeightedCandidate candidate = new WeightedCandidate(good, weight, offSeasonArbitrage, good.hasBiomeAffinity(biomeId));
+            WeightedCandidate candidate = new WeightedCandidate(
+                    good, weight, seasonalHighlight, demandBiomeMatch, offSeasonArbitrage, demandSeasonMatch
+            );
             WeightedCandidate existing = byItem.get(good.itemId());
             if (existing == null || (good.matchesLevel(level) && !existing.good.matchesLevel(level))) {
                 byItem.put(good.itemId(), candidate);
@@ -396,12 +458,29 @@ public final class DemandGenerator {
         List<WeightedCandidate> pool = new ArrayList<>(byItem.values());
         List<WeightedCandidate> chosen = new ArrayList<>(targetCount);
         Set<String> usedGoods = new HashSet<>();
+        int maxOffSeasonCrops = (level <= 4) ? 1 : 2;
+        int offSeasonCropCount = 0;
 
-        // Guarantee at least 1 off-season premium buy order when active season creates off-season scarcity
-        if (seasonalActive && targetCount > 0) {
+        // 1. At Lv 1-6, guarantee at least 1 locally accessible staple buy order so players are never stuck
+        if (level <= 6 && targetCount > 0) {
+            List<WeightedCandidate> staplePool = new ArrayList<>();
+            for (WeightedCandidate wc : pool) {
+                if (!wc.offSeasonCrop && isAccessibleStapleCategory(wc.good.category())) {
+                    staplePool.add(wc);
+                }
+            }
+            if (!staplePool.isEmpty()) {
+                WeightedCandidate guaranteedStaple = pickOneWeighted(staplePool, rng);
+                chosen.add(guaranteedStaple);
+                usedGoods.add(guaranteedStaple.good.id());
+            }
+        }
+
+        // 2. Guarantee at least 1 accessible off-season crop buy order when active season creates scarcity
+        if (seasonalActive && chosen.size() < targetCount && offSeasonCropCount < maxOffSeasonCrops) {
             List<WeightedCandidate> offSeasonPool = new ArrayList<>();
             for (WeightedCandidate wc : pool) {
-                if (wc.seasonalHighlight) {
+                if (wc.offSeasonCrop && !usedGoods.contains(wc.good.id())) {
                     offSeasonPool.add(wc);
                 }
             }
@@ -409,10 +488,11 @@ public final class DemandGenerator {
                 WeightedCandidate guaranteed = pickOneWeighted(offSeasonPool, rng);
                 chosen.add(guaranteed);
                 usedGoods.add(guaranteed.good.id());
+                offSeasonCropCount++;
             }
         }
 
-        // At Lv 7-10, guarantee strong representation of Fine Cuisine / High-Quality Food
+        // 3. At Lv 7-10, guarantee strong representation of Fine Cuisine / High-Quality Food
         if (level >= 7 && chosen.size() < targetCount) {
             List<WeightedCandidate> fineFoodPool = new ArrayList<>();
             for (WeightedCandidate wc : pool) {
@@ -428,14 +508,30 @@ public final class DemandGenerator {
             }
         }
 
-        if (chosen.size() < targetCount) {
-            List<WeightedCandidate> remainingPool = new ArrayList<>();
+        // 4. Fill remaining slots while capping off-season crop buy orders to <= 1 (Lv 1-4) / <= 2 (Lv 5-10)
+        while (chosen.size() < targetCount) {
+            List<WeightedCandidate> eligible = new ArrayList<>();
+            List<WeightedCandidate> overflowOffSeason = new ArrayList<>();
             for (WeightedCandidate wc : pool) {
-                if (!usedGoods.contains(wc.good.id())) {
-                    remainingPool.add(wc);
+                if (usedGoods.contains(wc.good.id())) {
+                    continue;
+                }
+                if (wc.offSeasonCrop && offSeasonCropCount >= maxOffSeasonCrops) {
+                    overflowOffSeason.add(wc);
+                } else {
+                    eligible.add(wc);
                 }
             }
-            chosen.addAll(pickWeightedDistinct(remainingPool, targetCount - chosen.size(), rng, false));
+            List<WeightedCandidate> pickFrom = !eligible.isEmpty() ? eligible : overflowOffSeason;
+            if (pickFrom.isEmpty()) {
+                break;
+            }
+            WeightedCandidate picked = pickOneWeighted(pickFrom, rng);
+            chosen.add(picked);
+            usedGoods.add(picked.good.id());
+            if (picked.offSeasonCrop) {
+                offSeasonCropCount++;
+            }
         }
 
         List<GeneratedOrder> orders = new ArrayList<>(chosen.size());
@@ -445,7 +541,9 @@ public final class DemandGenerator {
             MacroEconomyEngine.PriceQuote quote = economy.quotePrice(
                     good, level, villageBalance, biomeId, season, true
             );
-            int qty = rollQuantity(good, qtyScale, false, empQtyMult, empRareQtyMult, rng);
+            double biomeQtyMult = wc.biomeMatch ? 1.20 : 1.0;
+            double seasonalQtyMult = wc.demandSeasonMatch ? 1.20 : 1.0;
+            int qty = rollQuantity(good, qtyScale, biomeQtyMult, seasonalQtyMult, empQtyMult, empRareQtyMult, rng);
             // Respect village liquidity: village cannot offer a Buy Order exceeding its balance when funded
             if (villageBalance > 0L) {
                 long maxAffordable = villageBalance / quote.finalUnitPrice();
@@ -471,6 +569,13 @@ public final class DemandGenerator {
             ));
         }
         return orders;
+    }
+
+    private static boolean isAccessibleStapleCategory(GoodsCategory category) {
+        return category == GoodsCategory.MINING
+                || category == GoodsCategory.METAL
+                || category == GoodsCategory.BUILDING
+                || category == GoodsCategory.FOOD_BASIC;
     }
 
     private static Map<GoodsCategory, Integer> countProfessionsByCategory(
@@ -501,10 +606,11 @@ public final class DemandGenerator {
         return Math.min(MAX_PROFESSION_WEIGHT_MULT, 1.0 + PROFESSION_WEIGHT_STEP * matchingCount);
     }
 
-    private static int rollQuantity(
+    private int rollQuantity(
             TradeGood good,
             double qtyScale,
-            boolean inSeasonDouble,
+            double biomeQtyMult,
+            double seasonalQtyMult,
             double empQtyMult,
             double empRareQtyMult,
             Random rng) {
@@ -517,8 +623,11 @@ public final class DemandGenerator {
         double effectiveScale = rare
                 ? Math.min(2.0, 1.0 + (qtyScale - 1.0) * 0.15)
                 : qtyScale;
+        double weeklyMult = rare
+                ? config.weeklyRareQuantityMultiplier()
+                : config.weeklyQuantityMultiplier();
         double empMult = rare ? empRareQtyMult : empQtyMult;
-        double scaled = baseRoll * effectiveScale * (inSeasonDouble ? 2.0 : 1.0) * empMult;
+        double scaled = baseRoll * effectiveScale * weeklyMult * biomeQtyMult * seasonalQtyMult * empMult;
         return Math.max(1, (int) Math.round(scaled));
     }
 
@@ -568,12 +677,22 @@ public final class DemandGenerator {
         final double weight;
         final boolean seasonalHighlight;
         final boolean biomeMatch;
+        final boolean offSeasonCrop;
+        final boolean demandSeasonMatch;
 
-        WeightedCandidate(TradeGood good, double weight, boolean seasonalHighlight, boolean biomeMatch) {
+        WeightedCandidate(
+                TradeGood good,
+                double weight,
+                boolean seasonalHighlight,
+                boolean biomeMatch,
+                boolean offSeasonCrop,
+                boolean demandSeasonMatch) {
             this.good = good;
             this.weight = weight;
             this.seasonalHighlight = seasonalHighlight;
             this.biomeMatch = biomeMatch;
+            this.offSeasonCrop = offSeasonCrop;
+            this.demandSeasonMatch = demandSeasonMatch;
         }
     }
 }

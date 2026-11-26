@@ -175,8 +175,8 @@ final class AuditFixesRegressionTest {
         );
         v.establishPartnership(UUID.randomUUID(), null, 1_000L);
         long upkeep = v.applyMunicipalUpkeep(0.05);
-        assertEquals(40L, upkeep);
-        assertEquals(960L, v.getVillageBalance());
+        assertEquals(32L, upkeep);
+        assertEquals(968L, v.getVillageBalance());
 
         assertFalse(v.isChunkLoaderInstalled());
         v.setChunkLoaderInstalled(true);

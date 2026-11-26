@@ -26,6 +26,9 @@ public final class VillageRecord {
     /** Municipal excess-reserve upkeep burn rate per day (2% from Design Section 7.2). */
     public static final double DAILY_EXCESS_UPKEEP_RATE = 0.02;
 
+    /** Default weekly municipal stipend threshold ratio relative to target reserve (45%). */
+    public static final double DEFAULT_WEEKLY_STIPEND_RATIO = 0.45;
+
     /**
      * Structured outcome code for village trade order execution.
      */
@@ -382,6 +385,41 @@ public final class VillageRecord {
     }
 
     /**
+     * Establishes a formal cooperation partnership, crediting {@code initialCapital} and ensuring
+     * the municipal treasury starts with at least {@code workingCapitalFloor} IC so early Lv 1–3
+     * villages do not immediately stall on weekly buy orders.
+     *
+     * @param ownerPlayerUuid player UUID who negotiated the partnership
+     * @param companyAccountId optional guild/company account ID (nullable)
+     * @param initialCapital seed IC transferred from player/company ({@code >= 0})
+     * @param workingCapitalFloor minimum starting treasury balance in IC ({@code >= 0})
+     * @return extra municipal working capital top-up added beyond {@code initialCapital} ({@code >= 0})
+     */
+    public long establishPartnershipWithWorkingCapital(
+            UUID ownerPlayerUuid,
+            String companyAccountId,
+            long initialCapital,
+            long workingCapitalFloor) {
+        establishPartnership(ownerPlayerUuid, companyAccountId, initialCapital);
+        return ensureInitialWorkingCapital(workingCapitalFloor);
+    }
+
+    /**
+     * Tops up {@link #getVillageBalance()} to at least {@code workingCapitalFloor} if currently below it.
+     *
+     * @param workingCapitalFloor minimum municipal working capital floor in IC ({@code >= 0})
+     * @return IC amount added to reach the floor ({@code 0} if already at or above floor)
+     */
+    public long ensureInitialWorkingCapital(long workingCapitalFloor) {
+        if (workingCapitalFloor <= 0L || this.villageBalance >= workingCapitalFloor) {
+            return 0L;
+        }
+        long added = workingCapitalFloor - this.villageBalance;
+        this.villageBalance = workingCapitalFloor;
+        return added;
+    }
+
+    /**
      * Terminates cooperation partnership while retaining storage contents intact until cleared or relocated.
      */
     public void terminatePartnership() {
@@ -489,6 +527,37 @@ public final class VillageRecord {
             villageBalance -= upkeep;
         }
         return upkeep;
+    }
+
+    /**
+     * Applies a gentle weekly municipal stipend when this village's balance falls below
+     * {@code targetReserve * stipendRatio}, preventing permanent 0-IC buy-order deadlock.
+     *
+     * <p>When {@code villageBalance < targetReserve * stipendRatio}, adds
+     * {@code min(deficit, max(150, round(targetReserve * 0.30)))} to {@link #getVillageBalance()}
+     * and returns the added amount so server managers can synchronize macro-economy totals cleanly.
+     *
+     * @param stipendRatio threshold fraction of {@link VillageLevelTable#targetReserve(int)} in {@code [0.0, 1.0]}
+     *                     ({@code <= 0.0} disables stipend)
+     * @return IC amount credited to this village ({@code >= 0})
+     */
+    public long applyWeeklyMunicipalStipend(double stipendRatio) {
+        if (!Double.isFinite(stipendRatio) || stipendRatio <= 0.0) {
+            return 0L;
+        }
+        double clampedRatio = Math.min(1.0, stipendRatio);
+        double target = VillageLevelTable.targetReserve(level);
+        long threshold = Math.round(target * clampedRatio);
+        if (villageBalance >= threshold) {
+            return 0L;
+        }
+        long deficit = threshold - villageBalance;
+        long cap = Math.max(150L, Math.round(target * 0.30));
+        long grant = Math.min(deficit, cap);
+        if (grant > 0L) {
+            villageBalance += grant;
+        }
+        return grant;
     }
 
     /**
@@ -1053,7 +1122,7 @@ public final class VillageRecord {
     }
 
     /**
-     * Returns the game tick of the last demand order refresh.
+     * Returns the {@code dayTime} tick anchor of the last demand order refresh.
      *
      * @return last demand refresh tick
      */
@@ -1062,12 +1131,29 @@ public final class VillageRecord {
     }
 
     /**
-     * Sets the game tick of the last demand order refresh.
+     * Sets the {@code dayTime} tick anchor of the last demand order refresh.
      *
      * @param lastDemandRefreshTick tick timestamp
      */
     public void setLastDemandRefreshTick(long lastDemandRefreshTick) {
         this.lastDemandRefreshTick = Math.max(0L, lastDemandRefreshTick);
+    }
+
+    /**
+     * Re-anchors {@link #getLastDemandRefreshTick()} via {@link SupplyCycleClock#normalizeRefreshAnchor(long, long)}
+     * when {@code currentDayTime} jumped backward (e.g., {@code /time set 0}) or a legacy save recorded
+     * a {@code gameTime} greater than {@code dayTime}.
+     *
+     * @param currentDayTime current overworld {@code dayTime} tick
+     * @return {@code true} if the stored anchor changed and should be marked dirty
+     */
+    public boolean normalizeDemandRefreshAnchor(long currentDayTime) {
+        long normalized = SupplyCycleClock.normalizeRefreshAnchor(currentDayTime, this.lastDemandRefreshTick);
+        if (normalized != this.lastDemandRefreshTick) {
+            this.lastDemandRefreshTick = normalized;
+            return true;
+        }
+        return false;
     }
 
     /**
