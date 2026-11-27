@@ -303,6 +303,14 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
         t.putInt("min_rad", v.getMinExpansionRadius());
         t.putInt("max_rad", v.getMaxExpansionRadius());
         t.putLong("last_demand_tick", v.getLastDemandRefreshTick());
+        t.putBoolean("orders_initialized", v.hasInitialOrdersGenerated());
+        t.putLong("last_stipend_tick", v.getLastStipendTick());
+        t.putBoolean("init_wc_granted", v.isInitialWorkingCapitalGranted());
+        t.putLong("last_term_tick", v.getLastTerminationTick());
+        t.putBoolean("hub_deployed", v.isHubDeployed());
+        if (!v.getCompletedAidCounts().isEmpty()) {
+            t.putString("aid_completed_json", JsonLite.toJson(new LinkedHashMap<>(v.getCompletedAidCounts())));
+        }
         t.putLong("last_exp_tick", v.getLastExpansionTick());
         t.putBoolean("chunk_loader", v.isChunkLoaderInstalled());
 
@@ -747,6 +755,9 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
             employmentStats = new VillageEmploymentStats(wf, emp, unemp, mayorEmp, profCounts, scanTick);
         }
 
+        long loadedDemandTick = t.contains("last_demand_tick")
+                ? TyC2Nbt.getLong(t, "last_demand_tick", -1L)
+                : -1L;
         VillageRecord record = new VillageRecord(
                 id,
                 dim,
@@ -769,12 +780,30 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
                 TyC2Nbt.getBoolean(t, "exp_paused", false),
                 TyC2Nbt.getInt(t, "min_rad", VillageRecord.MIN_CONFIGURABLE_RADIUS),
                 TyC2Nbt.getInt(t, "max_rad", VillageRecord.MAX_CONFIGURABLE_RADIUS),
-                TyC2Nbt.getLong(t, "last_demand_tick", 0L),
+                loadedDemandTick,
                 TyC2Nbt.getLong(t, "last_exp_tick", 0L),
                 jobs,
                 aidProjects,
                 employmentStats
         );
+        if (t.contains("orders_initialized")) {
+            record.setInitialOrdersGenerated(TyC2Nbt.getBoolean(t, "orders_initialized", false));
+        }
+        if (t.contains("last_stipend_tick")) {
+            record.setLastStipendTick(TyC2Nbt.getLong(t, "last_stipend_tick", -1L));
+        }
+        if (t.contains("init_wc_granted")) {
+            record.setInitialWorkingCapitalGranted(TyC2Nbt.getBoolean(t, "init_wc_granted", partnered));
+        }
+        if (t.contains("last_term_tick")) {
+            record.setLastTerminationTick(TyC2Nbt.getLong(t, "last_term_tick", -1L));
+        }
+        if (t.contains("hub_deployed")) {
+            record.setHubDeployed(TyC2Nbt.getBoolean(t, "hub_deployed", partnered));
+        }
+        if (t.contains("aid_completed_json")) {
+            record.setCompletedAidCounts(parseIntMap(TyC2Nbt.getString(t, "aid_completed_json", "{}")));
+        }
         record.setChunkLoaderInstalled(TyC2Nbt.getBoolean(t, "chunk_loader", false));
         return record;
     }

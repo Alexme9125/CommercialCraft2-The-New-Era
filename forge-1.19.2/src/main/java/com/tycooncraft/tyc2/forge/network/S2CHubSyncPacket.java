@@ -82,7 +82,8 @@ public final class S2CHubSyncPacket {
             int minLevelSmall,
             int minLevelLarge,
             boolean smallUnlocked,
-            boolean largeUnlocked
+            boolean largeUnlocked,
+            boolean aidLimitReached
     ) {
     }
 
@@ -309,9 +310,9 @@ public final class S2CHubSyncPacket {
         TyC2Config cfg = TyC2RuntimeData.config();
         VillageEmploymentStats emp = village.getEmploymentStats();
         long dayTime = player.getServer().overworld().getDayTime();
-        int effectiveRefreshTicks = emp.effectiveDemandRefreshTicks(cfg);
+        int refreshTicks = Math.max(200, cfg.demandRefreshTicks());
         long refreshRemainingTicks = SupplyCycleClock.remainingRefreshTicks(
-                dayTime, village.getLastDemandRefreshTick(), effectiveRefreshTicks
+                dayTime, village.getLastDemandRefreshTick(), refreshTicks
         );
         int refreshSecs = (int) Math.max(0L, refreshRemainingTicks / 20L);
 
@@ -385,8 +386,7 @@ public final class S2CHubSyncPacket {
         double liveCpi = econ.computeCpi();
         int unempPct = emp.workforceCount() <= 0 ? 0 : (int) Math.round(emp.unemploymentRate() * 100.0);
         boolean empBonusActive = emp.isLowUnemploymentBonusActive(cfg);
-        int restockBonusPct = empBonusActive
-                ? (int) Math.round((emp.restockSpeedMultiplier(cfg) - 1.0) * 100.0) : 0;
+        int restockBonusPct = 0;
         int qtyBonusPct = empBonusActive
                 ? (int) Math.round((emp.tradeQuantityMultiplier(cfg) - 1.0) * 100.0) : 0;
         double gatherSpeed = emp.gatherSpeedMultiplier(cfg);
@@ -394,17 +394,20 @@ public final class S2CHubSyncPacket {
 
         List<WorkplaceDto> workplaceDtos = new ArrayList<>();
         for (WorkplaceSpec spec : TyC2RuntimeData.workplaceCatalog().getAvailableWorkplaces(TyC2Ids::blockExists)) {
+            int priorBuilds = village.getTotalAidCountForProfession(spec.professionId());
+            boolean limitReached = !village.canStartAidForProfession(spec.professionId());
             workplaceDtos.add(new WorkplaceDto(
                     spec.professionId(),
                     spec.workstationBlockId(),
                     spec.archetype().name(),
                     spec.displayNameFallback(),
-                    WorkplaceCatalog.quoteCostIc(spec, WorkplaceSize.SMALL, liveCpi, cfg),
-                    WorkplaceCatalog.quoteCostIc(spec, WorkplaceSize.LARGE, liveCpi, cfg),
+                    WorkplaceCatalog.quoteCostIc(spec, WorkplaceSize.SMALL, liveCpi, cfg, priorBuilds),
+                    WorkplaceCatalog.quoteCostIc(spec, WorkplaceSize.LARGE, liveCpi, cfg, priorBuilds),
                     spec.minVillageLevelSmall(),
                     spec.minVillageLevelLarge(),
                     spec.isUnlockedAtLevel(village.getLevel(), WorkplaceSize.SMALL),
-                    spec.isUnlockedAtLevel(village.getLevel(), WorkplaceSize.LARGE)
+                    spec.isUnlockedAtLevel(village.getLevel(), WorkplaceSize.LARGE),
+                    limitReached
             ));
         }
 
@@ -445,7 +448,7 @@ public final class S2CHubSyncPacket {
                 hubBe != null && hubBe.isChunkLoaderActive(),
                 refreshSecs,
                 refreshRemainingTicks,
-                effectiveRefreshTicks,
+                refreshTicks,
                 playerBankBal,
                 orderDtos,
                 zone == CooperationHubStorage.Zone.OUTBOUND,
@@ -613,6 +616,7 @@ public final class S2CHubSyncPacket {
             buf.writeVarInt(wp.minLevelLarge());
             buf.writeBoolean(wp.smallUnlocked());
             buf.writeBoolean(wp.largeUnlocked());
+            buf.writeBoolean(wp.aidLimitReached());
         }
         int aidCount = Math.min(16, p.aidProjects.size());
         buf.writeVarInt(aidCount);
@@ -745,6 +749,7 @@ public final class S2CHubSyncPacket {
                     buf.readVarLong(),
                     buf.readVarInt(),
                     buf.readVarInt(),
+                    buf.readBoolean(),
                     buf.readBoolean(),
                     buf.readBoolean()
             ));

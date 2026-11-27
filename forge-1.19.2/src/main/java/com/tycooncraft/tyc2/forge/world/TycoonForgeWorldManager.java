@@ -130,6 +130,14 @@ public final class TycoonForgeWorldManager {
             "minecraft:sweet_berries", "minecraft:pumpkin_pie", "minecraft:golden_carrot"
     );
 
+    private static final Set<String> REJECTED_NEGOTIATION_FOODS = Set.of(
+            "minecraft:rotten_flesh",
+            "minecraft:spider_eye",
+            "minecraft:pufferfish",
+            "minecraft:poisonous_potato",
+            "minecraft:chorus_fruit"
+    );
+
     private static final ExpansionPlanner PLANNER = new ExpansionPlanner();
     private static final Random RNG = new Random();
 
@@ -259,6 +267,11 @@ public final class TycoonForgeWorldManager {
                 }
                 return;
             }
+            TycoonForgeSavedData hubData = TycoonForgeSavedData.get(level);
+            hubData.findVillageAtHub(level.dimension().location().toString(), event.getPos()).ifPresent(v -> {
+                v.setHubDeployed(false);
+                hubData.setDirty();
+            });
         }
         TycoonForgeSavedData data = TycoonForgeSavedData.get(level);
         if (data.placedBlocks().markRemoved(level.dimension().location().toString(), event.getPos())) {
@@ -677,12 +690,31 @@ public final class TycoonForgeWorldManager {
     ) {
         data.syncMacroAccountTotals();
         long dayTime = overworld.getDayTime();
-        long currentDay = dayTime / SupplyCycleClock.TICKS_PER_DAY;
+        // Match NeoForge: daily municipal upkeep uses monotonic gameTime so /time set cannot skip or trigger upkeep
+        long currentDay = gameTime / SupplyCycleClock.TICKS_PER_DAY;
         boolean runDailyUpkeep = currentDay > data.lastUpkeepDay() && data.lastUpkeepDay() >= 0L;
         if (data.lastUpkeepDay() < 0L) {
             data.setLastUpkeepDay(currentDay);
         }
 
+        // 1. Daily Municipal Upkeep sink runs on ALL villages with remaining treasury (prevents treasury cloaking)
+        if (runDailyUpkeep) {
+            long totalUpkeep = 0L;
+            for (VillageRecord v : data.allVillages()) {
+                if (v.getVillageBalance() > 0L) {
+                    long upkeep = v.applyMunicipalUpkeep(cfg.municipalUpkeepRate());
+                    if (upkeep > 0L) {
+                        data.economy().recordVillageMoneySink(upkeep);
+                        totalUpkeep += upkeep;
+                    }
+                }
+            }
+            if (totalUpkeep > 0L) {
+                data.setDirty();
+            }
+        }
+
+        int refreshTicks = Math.max(200, cfg.demandRefreshTicks());
         for (VillageRecord village : data.allVillages()) {
             if (!village.isPartnered()) {
                 continue;
@@ -690,48 +722,35 @@ public final class TycoonForgeWorldManager {
             ServerLevel exactLevel = resolveLevel(server, village.getDimensionId());
             ServerLevel dimLevel = exactLevel != null ? exactLevel : overworld;
 
-            // 1. Municipal Upkeep sink once per Minecraft day
-            if (runDailyUpkeep) {
-                long upkeep = village.applyMunicipalUpkeep(cfg.municipalUpkeepRate());
-                if (upkeep > 0L) {
-                    data.economy().recordVillageMoneySink(upkeep);
-                    data.setDirty();
-                }
-            }
-
             // 2. Auto-Fulfill Buy Orders & Expansion Desire from Inbound 0..499
             if (gameTime % Math.max(20, cfg.autoFulfillIntervalTicks()) == 0L) {
                 runAutoFulfill(data, village, gameTime);
             }
 
-            // 3. Weekly Calendar Demand Refresh (dayTime-based; runs even while chunk is unloaded!)
+            // 3. Fixed Weekly Calendar Demand Refresh (dayTime-based; never early-reset on all-orders-completed)
             if (village.normalizeDemandRefreshAnchor(dayTime)) {
                 data.setDirty();
             }
-            boolean hadOrdersBeforePrune = !village.getActiveOrders().isEmpty();
-            boolean allDone = hadOrdersBeforePrune
-                    && village.getActiveOrders().stream().allMatch(VillageTradeOrder::isCompleted);
-            int pruned = village.pruneFinishedOrExpiredOrders(dayTime);
-            if (pruned > 0) {
-                data.setDirty();
-            }
-            int effectiveRefreshTicks = village.getEmploymentStats().effectiveDemandRefreshTicks(cfg);
+            boolean neverInitialized = !village.hasInitialOrdersGenerated();
             boolean dueForRefresh = SupplyCycleClock.isRefreshDue(
                     dayTime,
                     village.getLastDemandRefreshTick(),
-                    effectiveRefreshTicks,
-                    village.getActiveOrders().isEmpty(),
-                    allDone
+                    refreshTicks,
+                    neverInitialized
             );
             if (dueForRefresh && village.canGenerateOrders()) {
-                if (hadOrdersBeforePrune) {
-                    long stipend = village.applyWeeklyMunicipalStipend(cfg.weeklyMunicipalStipendRatio());
+                if (!neverInitialized) {
+                    long stipend = village.applyWeeklyMunicipalStipendIfDue(
+                            cfg.weeklyMunicipalStipendRatio(), dayTime, refreshTicks
+                    );
                     if (stipend > 0L) {
                         data.syncMacroAccountTotals();
                         data.setDirty();
                     }
+                } else {
+                    village.anchorStipendIfUnset(dayTime);
                 }
-                data.economy().advanceDemandCycleIfDue(dayTime, effectiveRefreshTicks);
+                data.economy().advanceDemandCycleIfDue(dayTime, refreshTicks);
                 refreshVillageOrders(dimLevel, data, village, dayTime);
             }
 
@@ -987,6 +1006,7 @@ public final class TycoonForgeWorldManager {
         Optional<AidConstructionProject> aidOpt = village.findAidProjectByJobId(job.getJobId());
         if (aidOpt.isPresent()) {
             AidConstructionProject completedAid = aidOpt.get();
+            village.incrementCompletedAidCount(completedAid.professionId());
             village.removeAidProject(completedAid.projectId());
             Component wpName = TyC2VillagerHelpers.workplaceDisplayComponent(
                     completedAid.professionId(),
@@ -1033,8 +1053,8 @@ public final class TycoonForgeWorldManager {
                 TyC2RuntimeData.workplaceCatalog(),
                 RNG
         );
-        int effectiveRefreshTicks = village.getEmploymentStats().effectiveDemandRefreshTicks(TyC2RuntimeData.config());
-        long expires = safeDayTime + effectiveRefreshTicks;
+        int refreshTicks = Math.max(200, TyC2RuntimeData.config().demandRefreshTicks());
+        long expires = safeDayTime + refreshTicks;
         List<VillageTradeOrder> orders = new ArrayList<>();
         for (DemandGenerator.GeneratedOrder go : demand.allOrders()) {
             OrderSide side = go.side() == DemandGenerator.OrderSide.VILLAGE_SELLS
@@ -1119,6 +1139,19 @@ public final class TycoonForgeWorldManager {
         if (village.isPartnered()) {
             return new ActionFeedback(true, "status.tyc2.hub.partnership_signed", village.getVillageName());
         }
+        TyC2Config cfg = TyC2RuntimeData.config();
+        long dayTime = level.getServer().overworld().getDayTime();
+        long tick = level.getServer().overworld().getGameTime();
+        if (village.normalizeDemandRefreshAnchor(dayTime)) {
+            data.setDirty();
+        }
+        int refreshTicks = Math.max(200, cfg.demandRefreshTicks());
+        long resignCooldown = village.remainingResignCooldownTicks(tick, refreshTicks);
+        if (resignCooldown > 0L) {
+            return new ActionFeedback(
+                    false, "status.tyc2.negotiation.resign_cooldown", formatRemainingMcTime(resignCooldown)
+            );
+        }
         NegotiationStatus status = evaluateNegotiation(player, data);
         if (!status.allMet()) {
             return new ActionFeedback(false, "status.tyc2.negotiation.missing_requirements");
@@ -1126,7 +1159,6 @@ public final class TycoonForgeWorldManager {
 
         // 1. Deduct currency (bank first if preferred or cash first -> pay remainder from bank)
         long requiredIc = status.requiredIc();
-        long tick = level.getServer().overworld().getGameTime();
         long payFromCash = Math.min(requiredIc, status.cashIc());
         long payFromBank = requiredIc - payFromCash;
         if (payFromCash > 0L) {
@@ -1156,13 +1188,14 @@ public final class TycoonForgeWorldManager {
         consumeMatchingItems(player.getInventory(), s -> TyC2Ids.matchesItemOrTag(s, "#ingots/iron"), status.requiredIron());
         consumeMatchingItems(player.getInventory(), TycoonForgeWorldManager::isBasicNegotiationFood, status.requiredFood());
 
-        // 3. Establish partnership with working capital floor and register existing village structures as protected zones
+        // 3. Establish partnership with one-time working capital floor and register existing village structures as protected zones
         BankAccountManager.AccountRef activeRef = data.bank().resolveSettlementAccount(player.getUUID());
         String companyId = activeRef.scope() == BankAccountManager.AccountScope.COMPANY ? activeRef.accountId() : null;
-        TyC2Config cfg = TyC2RuntimeData.config();
         village.establishPartnershipWithWorkingCapital(
                 player.getUUID(), companyId, requiredIc, cfg.initialVillageWorkingCapital()
         );
+        village.setHubDeployed(true);
+        village.anchorStipendIfUnset(dayTime);
 
         ServerLevel villageLevel = resolveLevel(level.getServer(), village.getDimensionId());
         if (villageLevel == null) {
@@ -1180,9 +1213,11 @@ public final class TycoonForgeWorldManager {
             villageLevel.playSound(null, hubPos, SoundEvents.BELL_RESONATE, SoundSource.BLOCKS, 1.0F, 1.0F);
         }
 
-        // 5. Generate initial Lv 1 orders immediately (anchored to dayTime) & release negotiating Mayor
-        long dayTime = level.getServer().overworld().getDayTime();
-        refreshVillageOrders(villageLevel, data, village, dayTime);
+        // 5. Generate initial orders (or refresh only if weekly cycle is due) & release negotiating Mayor
+        if (SupplyCycleClock.isRefreshDue(
+                dayTime, village.getLastDemandRefreshTick(), refreshTicks, !village.hasInitialOrdersGenerated())) {
+            refreshVillageOrders(villageLevel, data, village, dayTime);
+        }
         endMayorNegotiation(player, village.getMayorState().getMayorEntityUuid());
         data.syncMacroAccountTotals();
         data.setDirty();
@@ -1722,9 +1757,15 @@ public final class TycoonForgeWorldManager {
         if (!spec.isUnlockedAtLevel(village.getLevel(), effectiveSize)) {
             return new ActionFeedback(false, "status.tyc2.aid.level_locked", spec.minVillageLevel(effectiveSize));
         }
+        if (!village.canStartAidForProfession(spec.professionId())) {
+            return new ActionFeedback(
+                    false, "status.tyc2.aid.profession_limit", WorkplaceCatalog.MAX_AID_BUILDS_PER_PROFESSION
+            );
+        }
 
         data.syncMacroAccountTotals();
-        long costIc = WorkplaceCatalog.quoteCostIc(spec, effectiveSize, data.economy().computeCpi(), cfg);
+        int priorBuilds = village.getTotalAidCountForProfession(spec.professionId());
+        long costIc = WorkplaceCatalog.quoteCostIc(spec, effectiveSize, data.economy().computeCpi(), cfg, priorBuilds);
         boolean payBank = terminalStack != null || useBank;
 
         // Validate player funds BEFORE site preview or Terminal 100 EU deduction
@@ -2086,6 +2127,8 @@ public final class TycoonForgeWorldManager {
         if (targetLevel.getBlockEntity(hubPos) instanceof CooperationHubBlockEntity hubBe) {
             hubBe.setVillageId(village.getVillageId());
         }
+        village.setHubDeployed(true);
+        village.anchorStipendIfUnset(targetLevel.getServer().overworld().getDayTime());
         TycoonForgeSavedData.get(targetLevel).setDirty();
         return hubPos;
     }
@@ -2117,6 +2160,9 @@ public final class TycoonForgeWorldManager {
         if (!canManageVillage(player, data, village)) {
             return new ActionFeedback(false, "status.tyc2.hub.not_owner");
         }
+        if (!player.getLevel().dimension().location().toString().equals(village.getDimensionId())) {
+            return new ActionFeedback(false, "status.tyc2.hub.wrong_dimension");
+        }
         ServerLevel dimLevel = resolveLevel(player.getServer(), village.getDimensionId());
         if (dimLevel == null) {
             return new ActionFeedback(false, "status.tyc2.hub.not_owner");
@@ -2132,6 +2178,7 @@ public final class TycoonForgeWorldManager {
         if (!dimLevel.removeBlock(oldPos, false)) {
             return new ActionFeedback(false, "status.tyc2.hub.not_owner");
         }
+        village.setHubDeployed(false);
         ItemStack boundHub = new ItemStack(TyC2ForgeRegistries.COOPERATION_HUB_ITEM.get());
         CompoundTag tag = boundHub.getOrCreateTag();
         tag.putUUID(TyC2BlockItem.TAG_BOUND_VILLAGE_ID, village.getVillageId());
@@ -2176,12 +2223,15 @@ public final class TycoonForgeWorldManager {
                         tick, name, "Aid Refund (Termination)"
                 );
                 data.economy().refundBankMoneySink(proj.paidIc());
+            } else if (!proj.canCancel()) {
+                // Already BUILDING: count toward per-profession aid cap so termination cannot reset build caps
+                village.incrementCompletedAidCount(proj.professionId());
             }
         }
         village.clearAidProjects();
         village.clearConstructionQueue();
         village.setChunkLoaderInstalled(false);
-        village.terminatePartnership();
+        village.terminatePartnership(tick);
         ServerLevel dimLevel = resolveLevel(player.getServer(), village.getDimensionId());
         if (dimLevel != null) {
             BlockPos hubPos = TyC2Ids.toMc(village.getHubPos());
@@ -2583,11 +2633,28 @@ public final class TycoonForgeWorldManager {
         if (stack.isEmpty()) {
             return false;
         }
-        if (BASIC_NEGOTIATION_FOODS.contains(TyC2Ids.itemId(stack))) {
+        String id = TyC2Ids.itemId(stack);
+        if (REJECTED_NEGOTIATION_FOODS.contains(id)) {
+            return false;
+        }
+        if (BASIC_NEGOTIATION_FOODS.contains(id)) {
             return true;
         }
         Item item = stack.getItem();
         return item.isEdible() && item.getFoodProperties() != null && item.getFoodProperties().getNutrition() >= 3;
+    }
+
+    private static Component formatRemainingMcTime(long remainingTicks) {
+        long clamped = Math.max(0L, remainingTicks);
+        long days = clamped / SupplyCycleClock.TICKS_PER_DAY;
+        long hours = (clamped % SupplyCycleClock.TICKS_PER_DAY) / 1_000L;
+        if (days > 0L && hours > 0L) {
+            return Component.translatable("gui.tyc2.hub.refresh_days_hours", days, hours);
+        }
+        if (days > 0L) {
+            return Component.translatable("gui.tyc2.hub.refresh_days", days);
+        }
+        return Component.translatable("gui.tyc2.hub.refresh_hours", Math.max(1L, hours));
     }
 
     private static int countMatchingItems(Inventory inv, java.util.function.Predicate<ItemStack> predicate) {

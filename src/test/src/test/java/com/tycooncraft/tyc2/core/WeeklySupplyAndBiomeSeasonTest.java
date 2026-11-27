@@ -58,8 +58,8 @@ class WeeklySupplyAndBiomeSeasonTest {
         assertEquals(168_000L, SupplyCycleClock.remainingRefreshTicks(anchor, anchor, 168_000));
         assertEquals(7L, SupplyCycleClock.remainingWholeDays(168_000L));
         assertEquals(0L, SupplyCycleClock.remainingWholeHoursInDay(168_000L));
-        assertFalse(SupplyCycleClock.isRefreshDue(anchor + 167_999L, anchor, 168_000, false, false));
-        assertTrue(SupplyCycleClock.isRefreshDue(anchor + 168_000L, anchor, 168_000, false, false));
+        assertFalse(SupplyCycleClock.isRefreshDue(anchor + 167_999L, anchor, 168_000, false));
+        assertTrue(SupplyCycleClock.isRefreshDue(anchor + 168_000L, anchor, 168_000, false));
         assertEquals(0L, SupplyCycleClock.remainingRefreshTicks(anchor + 168_000L, anchor, 168_000));
         assertEquals(0L, SupplyCycleClock.remainingRefreshTicks(anchor + 500_000L, anchor, 168_000));
 
@@ -68,9 +68,10 @@ class WeeklySupplyAndBiomeSeasonTest {
         assertEquals(9L, SupplyCycleClock.remainingWholeHoursInDay(129_230L));
         assertEquals(129L, SupplyCycleClock.remainingTotalHours(129_230L));
 
-        // Early restock when orders are empty OR all orders completed
-        assertTrue(SupplyCycleClock.isRefreshDue(anchor, anchor, 168_000, true, false));
-        assertTrue(SupplyCycleClock.isRefreshDue(anchor, anchor, 168_000, false, true));
+        // C1: Only first-time initialization (neverInitialized == true) triggers before full weekly period
+        assertTrue(SupplyCycleClock.isRefreshDue(anchor, -1L, 168_000, true));
+        assertTrue(SupplyCycleClock.isRefreshDue(anchor, anchor, 168_000, true));
+        assertFalse(SupplyCycleClock.isRefreshDue(anchor, anchor, 168_000, false));
 
         // Backward time jump (/time set 0) and old saves where lastRefreshTick > currentDayTime
         assertEquals(0L, SupplyCycleClock.normalizeRefreshAnchor(0L, 450_000L));
@@ -85,20 +86,84 @@ class WeeklySupplyAndBiomeSeasonTest {
         assertTrue(village.normalizeDemandRefreshAnchor(12_000L));
         assertEquals(12_000L, village.getLastDemandRefreshTick());
         assertFalse(village.normalizeDemandRefreshAnchor(12_000L));
-        assertFalse(SupplyCycleClock.isRefreshDue(12_000L + 167_999L, village.getLastDemandRefreshTick(), 168_000, false, false));
-        assertTrue(SupplyCycleClock.isRefreshDue(12_000L + 168_000L, village.getLastDemandRefreshTick(), 168_000, false, false));
+        assertFalse(SupplyCycleClock.isRefreshDue(12_000L + 167_999L, village.getLastDemandRefreshTick(), 168_000, false));
+        assertTrue(SupplyCycleClock.isRefreshDue(12_000L + 168_000L, village.getLastDemandRefreshTick(), 168_000, false));
 
-        // Low-unemployment bonus shortens weekly restock smoothly from 7d down to ~5.6d..~4.67d
+        // Task 2.3: Low-unemployment bonus keeps weekly restock pinned at full 168,000 ticks (7 MC days)
         VillageEmploymentStats fullEmp = new VillageEmploymentStats(8, 8, 0, true, Map.of(), 0L);
         int fullEmpPeriod = fullEmp.effectiveDemandRefreshTicks(cfg);
-        assertEquals(112_000, fullEmpPeriod); // ~4.67 days
-        assertFalse(SupplyCycleClock.isRefreshDue(anchor + 111_999L, anchor, fullEmpPeriod, false, false));
-        assertTrue(SupplyCycleClock.isRefreshDue(anchor + 112_000L, anchor, fullEmpPeriod, false, false));
+        assertEquals(168_000, fullEmpPeriod);
+        assertEquals(1.0, fullEmp.restockSpeedMultiplier(cfg), 1e-9);
+        assertFalse(SupplyCycleClock.isRefreshDue(anchor + 167_999L, anchor, fullEmpPeriod, false));
+        assertTrue(SupplyCycleClock.isRefreshDue(anchor + 168_000L, anchor, fullEmpPeriod, false));
 
         VillageEmploymentStats nearThreshold = new VillageEmploymentStats(100, 76, 24, true, Map.of(), 0L);
-        int nearThresholdPeriod = nearThreshold.effectiveDemandRefreshTicks(cfg);
-        assertTrue(nearThresholdPeriod <= 134_400 && nearThresholdPeriod >= 112_000,
-                "Low unemployment (<25%) must shorten weekly period to ~4.7..5.6 days, got " + nearThresholdPeriod);
+        assertEquals(168_000, nearThreshold.effectiveDemandRefreshTicks(cfg));
+    }
+
+    @Test
+    void weeklyStipendGateAndOneTimeWorkingCapitalResignCooldown() {
+        TyC2Config cfg = TyC2Config.defaults();
+        int period = cfg.demandRefreshTicks();
+        VillageRecord v = new VillageRecord(
+                UUID.randomUUID(), "minecraft:overworld", "AntiExploitBurg",
+                new BlockPos3i(10, 64, 10), BiomeStyle.PLAINS);
+
+        UUID owner = UUID.randomUUID();
+        long day0 = 24_000L;
+        assertFalse(v.isInitialWorkingCapitalGranted());
+        long topUp1 = v.establishPartnershipWithWorkingCapital(owner, null, 100L, 500L);
+        assertEquals(400L, topUp1);
+        assertEquals(500L, v.getVillageBalance());
+        assertTrue(v.isInitialWorkingCapitalGranted());
+        v.anchorStipendIfUnset(day0);
+
+        // Give active orders and simulate draining balance to 0
+        v.setActiveOrders(List.of(new VillageTradeOrder(
+                "ord-1", OrderSide.VILLAGE_SELLS, "minecraft:wheat", "tyc2:wheat", "",
+                10, 10, 2L, day0, day0 + period, false, false, false
+        )));
+        v.setLastDemandRefreshTick(day0);
+        v.setVillageBalance(0L);
+
+        // C1: Weekly stipend MUST NOT trigger before full weekly period elapses
+        assertEquals(0L, v.applyWeeklyMunicipalStipendIfDue(cfg.weeklyMunicipalStipendRatio(), day0 + period - 1L, period));
+        assertEquals(0L, v.getVillageBalance());
+        // Triggers exactly once at day0 + period, then refuses immediate second trigger
+        assertEquals(150L, v.applyWeeklyMunicipalStipendIfDue(cfg.weeklyMunicipalStipendRatio(), day0 + period, period));
+        assertEquals(150L, v.getVillageBalance());
+        v.setVillageBalance(0L);
+        assertEquals(0L, v.applyWeeklyMunicipalStipendIfDue(cfg.weeklyMunicipalStipendRatio(), day0 + period + 100L, period));
+        assertEquals(150L, v.applyWeeklyMunicipalStipendIfDue(cfg.weeklyMunicipalStipendRatio(), day0 + 2L * period, period));
+
+        // C2: Terminate partnership preserves active orders, clears hubDeployed, starts monotonic 1-week resign cooldown
+        v.setHubDeployed(true);
+        v.setVillageBalance(0L);
+        long gameTime0 = 500_000L;
+        v.terminatePartnership(gameTime0);
+        assertFalse(v.isPartnered());
+        assertFalse(v.isHubDeployed());
+        assertEquals(gameTime0, v.getLastTerminationTick());
+        assertEquals(1, v.getActiveOrders().size(), "Active orders must be preserved across terminate to stop reroll");
+        assertTrue(v.hasInitialOrdersGenerated());
+        assertEquals(period, v.remainingResignCooldownTicks(gameTime0, period));
+        assertEquals(1L, v.remainingResignCooldownTicks(gameTime0 + period - 1L, period));
+        assertEquals(0L, v.remainingResignCooldownTicks(gameTime0 + period, period));
+
+        // C2: /time set 0 (dayTime backward jump) MUST NOT mutate monotonic lastTerminationTick or cause lockout
+        v.normalizeDemandRefreshAnchor(0L);
+        assertEquals(gameTime0, v.getLastTerminationTick(),
+                "normalizeDemandRefreshAnchor(dayTime) must not overwrite monotonic gameTime lastTerminationTick");
+        assertEquals(period, v.remainingResignCooldownTicks(gameTime0, period));
+        // Legacy save guard: if stored tick > currentGameTime, never permanently lock out re-signing
+        assertEquals(0L, v.remainingResignCooldownTicks(100L, period));
+
+        // C2: Re-signing after cooldown clears lastTerminationTick and MUST NOT mint working capital top-up a second time
+        long topUp2 = v.establishPartnershipWithWorkingCapital(owner, null, 100L, 500L);
+        assertEquals(0L, topUp2);
+        assertEquals(100L, v.getVillageBalance());
+        assertEquals(-1L, v.getLastTerminationTick(), "Re-signing must clear lastTerminationTick back to -1");
+        assertEquals(0L, v.remainingResignCooldownTicks(gameTime0, period));
     }
 
     @Test

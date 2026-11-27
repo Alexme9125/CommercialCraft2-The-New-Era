@@ -131,8 +131,7 @@ public final class TyC2Commands {
             TyC2Config cfg = TyC2DataLoader.config();
             int unempPct = (int) Math.round(es.unemploymentRate() * 100.0);
             String bonusTag = es.isLowUnemploymentBonusActive(cfg)
-                    ? String.format(" [Bonus +%d%% spd / +%d%% qty]",
-                            Math.round((es.restockSpeedMultiplier(cfg) - 1.0) * 100.0),
+                    ? String.format(" [Bonus +%d%% qty]",
                             Math.round((es.tradeQuantityMultiplier(cfg) - 1.0) * 100.0))
                     : "";
             src.sendSuccess(() -> Component.literal(String.format(

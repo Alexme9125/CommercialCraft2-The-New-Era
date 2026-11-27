@@ -20,6 +20,9 @@ import com.tycooncraft.tyc2.core.Season;
 import com.tycooncraft.tyc2.core.TradeGood;
 import com.tycooncraft.tyc2.core.TyC2Config;
 import com.tycooncraft.tyc2.item.CommTerminalItem;
+import com.tycooncraft.tyc2.menu.AtmMachineMenu;
+import com.tycooncraft.tyc2.menu.CommTerminalMenu;
+import com.tycooncraft.tyc2.menu.CooperationHubMenu;
 import com.tycooncraft.tyc2.menu.MayorNegotiationMenu;
 import com.tycooncraft.tyc2.network.TyC2ActionPayload;
 import com.tycooncraft.tyc2.platform.TyC2Native;
@@ -72,6 +75,7 @@ import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
@@ -526,7 +530,13 @@ public final class TyC2QaHarness {
                     TycoonSavedData data = TyC2WorldManager.getData(level);
                     BankAccountManager bank = data.bank();
 
-                    // Deposit 1x coin_1000 into Alice's personal account via live ATM action handler
+                    // Deposit 1x coin_1000 into Alice's personal account via live ATM action handler (open ATM menu first)
+                    playerA.containerMenu = new AtmMachineMenu(
+                            10, playerA.getInventory(), atm, new SimpleContainerData(AtmMachineBlockEntity.DATA_COUNT)
+                    );
+                    playerB.containerMenu = new AtmMachineMenu(
+                            11, playerB.getInventory(), atm, new SimpleContainerData(AtmMachineBlockEntity.DATA_COUNT)
+                    );
                     atm.setItem(AtmMachineBlockEntity.SLOT_DEPOSIT, new ItemStack(TyC2Registries.COIN_1000.get(), 1));
                     TyC2WorldManager.handleActionPayload(playerA, level,
                             new TyC2ActionPayload("ATM", atmPos, "DEPOSIT_SLOT", "{}"));
@@ -832,6 +842,8 @@ public final class TyC2QaHarness {
                 TyC2QaPlatform.verifyHubCapabilityIsolation(level, bellPos, checks);
 
                 // Execute a Village Sell Order -> item lands in Outbound 500..999 -> external extract succeeds!
+                CooperationHubBlockEntity liveHub = (CooperationHubBlockEntity) level.getBlockEntity(bellPos);
+                playerA.containerMenu = new CooperationHubMenu(20, playerA.getInventory(), liveHub);
                 VillageTradeOrder sellOrder = village.getActiveOrders().stream()
                         .filter(o -> o.side() == OrderSide.VILLAGE_SELLS && !o.isCompleted())
                         .findFirst().orElseThrow(() -> new AssertionError("No Lv 1 VILLAGE_SELLS order generated"));
@@ -866,6 +878,7 @@ public final class TyC2QaHarness {
                 CommTerminalItem.setEnergyEu(errTerm, 5_000);
                 CommTerminalItem.toggleBindVillage(errTerm, villageId, village.getVillageName());
                 playerA.setItemInHand(InteractionHand.MAIN_HAND, errTerm);
+                playerA.containerMenu = new CommTerminalMenu(21, playerA.getInventory(), false);
                 TyC2QaPlatform.clearActionBarKey(playerA);
                 TyC2WorldManager.handleActionPayload(playerA, level,
                         new TyC2ActionPayload("TERMINAL", BlockPos.ZERO, "SELL_ORDER",
@@ -880,6 +893,7 @@ public final class TyC2QaHarness {
 
                 // (b) Hub SELL_ORDER when villageBalance < order.unitPrice() ->
                 //     MUST fail with status.tyc2.hub.village_low_funds_detail & NOT drain player inventory into Inbound!
+                playerA.containerMenu = new CooperationHubMenu(22, playerA.getInventory(), liveHub);
                 long savedVillageBal = village.getVillageBalance();
                 village.adjustVillageBalance(-savedVillageBal);
                 playerA.getInventory().clearContent();
@@ -1038,6 +1052,7 @@ public final class TyC2QaHarness {
                     CommTerminalItem.setEnergyEu(expTerm, 5_000);
                     CommTerminalItem.toggleBindVillage(expTerm, villageId, village.getVillageName());
                     playerA.setItemInHand(InteractionHand.MAIN_HAND, expTerm);
+                    playerA.containerMenu = new CommTerminalMenu(23, playerA.getInventory(), false);
                     TyC2QaPlatform.clearActionBarKey(playerA);
                     TyC2WorldManager.handleActionPayload(playerA, level,
                             new TyC2ActionPayload("TERMINAL", BlockPos.ZERO, "DELIVER_EXPANSION",
@@ -1052,6 +1067,9 @@ public final class TyC2QaHarness {
 
                     // (c) Deliver the 5th material (minecraft:white_wool x3) while village balance < budget ->
                     //     MUST fail with status.tyc2.expansion.low_funds, record all 5 materials delivered, keep autoFulfill=false!
+                    playerA.containerMenu = new CooperationHubMenu(
+                            24, playerA.getInventory(), (CooperationHubBlockEntity) level.getBlockEntity(bellPos)
+                    );
                     long savedExpBal = village.getVillageBalance();
                     village.adjustVillageBalance(-savedExpBal);
                     village.getStorage().insertExternal("minecraft:white_wool", 3, "", 64, false);
@@ -1072,6 +1090,7 @@ public final class TyC2QaHarness {
                     // Comm Terminal DELIVER_EXPANSION while allMaterialsDelivered() && villageBalance < budget ->
                     //     MUST fail with status.tyc2.expansion.low_funds AND deduct 0 EU!
                     playerA.setItemInHand(InteractionHand.MAIN_HAND, expTerm);
+                    playerA.containerMenu = new CommTerminalMenu(25, playerA.getInventory(), false);
                     TyC2QaPlatform.clearActionBarKey(playerA);
                     TyC2WorldManager.handleActionPayload(playerA, level,
                             new TyC2ActionPayload("TERMINAL", BlockPos.ZERO, "DELIVER_EXPANSION",
@@ -1082,6 +1101,9 @@ public final class TyC2QaHarness {
                             "key=" + TyC2QaPlatform.lastActionBarKey(playerA)
                                     + ", eu=" + CommTerminalItem.getEnergyEu(expTerm));
                     playerA.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                    playerA.containerMenu = new CooperationHubMenu(
+                            26, playerA.getInventory(), (CooperationHubBlockEntity) level.getBlockEntity(bellPos)
+                    );
 
                     // Verify LevelTerrainProbe treats new natural clutter (moss carpet, sweet berry bush) as replaceable
                     // while still strictly protecting player-placed Chests!
@@ -1479,11 +1501,11 @@ public final class TyC2QaHarness {
                                 aidUnemploymentBefore, statsAfter.unemploymentRate(),
                                 statsAfter.unemployedCount(), statsAfter.workforceCount()));
 
-                // (e) Low-unemployment (<25%) bonus: faster demand refresh + boosted trade quantity!
+                // (e) Low-unemployment (<25%) bonus: fixed weekly refresh interval + boosted trade quantity!
                 int effectiveRefresh = statsAfter.effectiveDemandRefreshTicks(cfg);
-                checks.check("employment_bonus.effective_refresh_faster_than_base",
-                        effectiveRefresh < cfg.demandRefreshTicks() && effectiveRefresh >= 200,
-                        "effective=" + effectiveRefresh + " < base=" + cfg.demandRefreshTicks());
+                checks.check("employment_bonus.refresh_interval_fixed_weekly",
+                        effectiveRefresh == Math.max(200, cfg.demandRefreshTicks()),
+                        "effective=" + effectiveRefresh + " == base=" + cfg.demandRefreshTicks());
 
                 DemandGenerator dg = TyC2DataLoader.demandGenerator();
                 int baselineQtySum = 0;
@@ -1511,14 +1533,14 @@ public final class TyC2QaHarness {
                                 statsAfter.tradeQuantityMultiplier(cfg), baselineQtySum, boostedQtySum,
                                 baselineQtySum > 0 ? (double) boostedQtySum / baselineQtySum : 0.0));
 
-                // Live order refresh on the village uses effectiveDemandRefreshTicks & boosted quantities
+                // Live order refresh on the village uses fixed weekly interval & boosted quantities
                 long refreshNow = TyC2Native.dayTime(level);
                 TyC2WorldManager.refreshVillageOrders(level, data, village, refreshNow);
-                boolean liveOrdersAccelerated = !village.getActiveOrders().isEmpty()
+                boolean liveOrdersFixedWeekly = !village.getActiveOrders().isEmpty()
                         && village.getActiveOrders().stream()
                         .allMatch(o -> (o.expiresTick() - refreshNow) == effectiveRefresh);
-                checks.check("employment_bonus.live_refresh_uses_accelerated_expiry",
-                        liveOrdersAccelerated,
+                checks.check("employment_bonus.live_refresh_uses_fixed_weekly_expiry",
+                        liveOrdersFixedWeekly,
                         "orders=" + village.getActiveOrders().size() + ", effectiveRefresh=" + effectiveRefresh);
 
                 // (f-2) Jade/TOP HUD bridge lines AFTER unemployment < 25% now emit employment_bonus!
@@ -1784,6 +1806,9 @@ public final class TyC2QaHarness {
                 level.setBlockAndUpdate(atmPos, TyC2Registries.ATM_MACHINE_BLOCK.get().defaultBlockState());
                 AtmMachineBlockEntity atm = (AtmMachineBlockEntity) level.getBlockEntity(atmPos);
                 playerA.setPos(atmPos.getX() + 1.0, surfaceY, atmPos.getZ());
+                playerA.containerMenu = new AtmMachineMenu(
+                        30, playerA.getInventory(), atm, new SimpleContainerData(AtmMachineBlockEntity.DATA_COUNT)
+                );
                 atm.setItem(AtmMachineBlockEntity.SLOT_DEPOSIT, TyC2Native.stack("ic2:coin", 5));
                 TyC2WorldManager.handleActionPayload(playerA, level,
                         new TyC2ActionPayload("ATM", atmPos, "DEPOSIT_SLOT", "{}"));

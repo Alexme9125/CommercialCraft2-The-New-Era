@@ -91,7 +91,6 @@ public final class TyC2ProbeHelper {
             tag.putInt("tyc2_workforce", es.workforceCount());
             if (es.isLowUnemploymentBonusActive(cfg)) {
                 tag.putBoolean("tyc2_emp_bonus", true);
-                tag.putInt("tyc2_restock_pct", (int) Math.round((es.restockSpeedMultiplier(cfg) - 1.0) * 100.0));
                 tag.putInt("tyc2_qty_pct", (int) Math.round((es.tradeQuantityMultiplier(cfg) - 1.0) * 100.0));
             }
             if (!v.getAidProjects().isEmpty()) {
@@ -191,7 +190,6 @@ public final class TyC2ProbeHelper {
                 if (TyC2Nbt.getBoolean(tag, "tyc2_emp_bonus", false)) {
                     lines.add(Component.translatable(
                             "hud.tyc2.hub.employment_bonus",
-                            TyC2Nbt.getInt(tag, "tyc2_restock_pct", 0),
                             TyC2Nbt.getInt(tag, "tyc2_qty_pct", 0)
                     ));
                 }

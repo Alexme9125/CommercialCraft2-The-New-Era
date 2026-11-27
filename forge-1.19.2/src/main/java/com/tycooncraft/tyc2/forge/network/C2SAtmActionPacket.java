@@ -3,6 +3,7 @@ package com.tycooncraft.tyc2.forge.network;
 import com.tycooncraft.tyc2.core.BankAccountManager;
 import com.tycooncraft.tyc2.core.CurrencyDenomination;
 import com.tycooncraft.tyc2.forge.block.AtmMachineBlockEntity;
+import com.tycooncraft.tyc2.forge.gui.AtmMachineMenu;
 import com.tycooncraft.tyc2.forge.world.TycoonForgeSavedData;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -76,7 +77,9 @@ public final class C2SAtmActionPacket {
     public static void handle(C2SAtmActionPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
         NetworkEvent.Context ctx = ctxSupplier.get();
         ServerPlayer player = ctx.getSender();
-        if (player == null) {
+        if (player == null
+                || !(player.containerMenu instanceof AtmMachineMenu atmMenu)
+                || !pkt.atmPos.equals(atmMenu.getAtmPos())) {
             ctx.setPacketHandled(true);
             return;
         }

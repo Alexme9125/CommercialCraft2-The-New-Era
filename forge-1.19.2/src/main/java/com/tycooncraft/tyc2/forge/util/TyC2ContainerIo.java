@@ -3,10 +3,12 @@ package com.tycooncraft.tyc2.forge.util;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.ToIntFunction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
+import net.minecraft.world.Containers;
 import net.minecraft.world.WorldlyContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.ChestBlock;
@@ -68,6 +70,29 @@ public final class TyC2ContainerIo {
             Predicate<BlockEntity> blockEntityFilter,
             java.util.function.UnaryOperator<ItemStack> receiver
     ) {
+        return pullFromAdjacent(
+                level, originPos, faces, excludedFaces, maxItems, itemFilter, blockEntityFilter, null, receiver
+        );
+    }
+
+    /**
+     * Pulls up to {@code maxItems} matching {@code itemFilter} from adjacent containers along {@code faces},
+     * clamping each extraction to {@code maxAccept} BEFORE extracting from the source container so items
+     * are never lost if the source refuses re-insertion (M2).
+     *
+     * @return total items moved
+     */
+    public static int pullFromAdjacent(
+            ServerLevel level,
+            BlockPos originPos,
+            List<Direction> faces,
+            Set<Direction> excludedFaces,
+            int maxItems,
+            Predicate<ItemStack> itemFilter,
+            Predicate<BlockEntity> blockEntityFilter,
+            ToIntFunction<ItemStack> maxAccept,
+            java.util.function.UnaryOperator<ItemStack> receiver
+    ) {
         if (maxItems <= 0 || faces == null || faces.isEmpty()) {
             return 0;
         }
@@ -90,6 +115,7 @@ public final class TyC2ContainerIo {
                     maxItems - totalMoved,
                     itemFilter,
                     blockEntityFilter,
+                    maxAccept,
                     receiver
             );
         }
@@ -131,6 +157,7 @@ public final class TyC2ContainerIo {
             int maxItems,
             Predicate<ItemStack> itemFilter,
             Predicate<BlockEntity> blockEntityFilter,
+            ToIntFunction<ItemStack> maxAccept,
             java.util.function.UnaryOperator<ItemStack> receiver
     ) {
         BlockEntity be = level.getBlockEntity(pos);
@@ -141,7 +168,7 @@ public final class TyC2ContainerIo {
         if (state.getBlock() instanceof ChestBlock chestBlock) {
             Container chest = ChestBlock.getContainer(chestBlock, state, level, pos, true);
             if (chest != null) {
-                return extractFromVanillaContainer(chest, accessSide, maxItems, itemFilter, receiver);
+                return extractFromVanillaContainer(level, pos, chest, accessSide, maxItems, itemFilter, maxAccept, receiver);
             }
         }
         IItemHandler handler = be.getCapability(ForgeCapabilities.ITEM_HANDLER, accessSide).orElse(null);
@@ -153,7 +180,13 @@ public final class TyC2ContainerIo {
                 if (preview.isEmpty() || (itemFilter != null && !itemFilter.test(preview))) {
                     continue;
                 }
-                ItemStack extracted = handler.extractItem(slot, preview.getCount(), false);
+                int acceptLimit = maxAccept == null
+                        ? preview.getCount()
+                        : Math.min(preview.getCount(), Math.max(0, maxAccept.applyAsInt(preview)));
+                if (acceptLimit <= 0) {
+                    continue;
+                }
+                ItemStack extracted = handler.extractItem(slot, acceptLimit, false);
                 if (extracted.isEmpty()) {
                     continue;
                 }
@@ -161,13 +194,16 @@ public final class TyC2ContainerIo {
                 ItemStack leftover = receiver.apply(extracted);
                 moved += before - leftover.getCount();
                 if (!leftover.isEmpty()) {
-                    ItemHandlerHelper.insertItemStacked(handler, leftover, false);
+                    ItemStack unreturned = ItemHandlerHelper.insertItemStacked(handler, leftover, false);
+                    if (!unreturned.isEmpty()) {
+                        Containers.dropItemStack(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, unreturned);
+                    }
                 }
             }
             return moved;
         }
         if (be instanceof Container container && TyC2Ids.blockId(state.getBlock()).startsWith("minecraft:")) {
-            return extractFromVanillaContainer(container, accessSide, maxItems, itemFilter, receiver);
+            return extractFromVanillaContainer(level, pos, container, accessSide, maxItems, itemFilter, maxAccept, receiver);
         }
         return 0;
     }
@@ -213,10 +249,13 @@ public final class TyC2ContainerIo {
     }
 
     private static int extractFromVanillaContainer(
+            ServerLevel level,
+            BlockPos pos,
             Container source,
             Direction side,
             int maxItems,
             Predicate<ItemStack> itemFilter,
+            ToIntFunction<ItemStack> maxAccept,
             java.util.function.UnaryOperator<ItemStack> receiver
     ) {
         int[] slots = source instanceof WorldlyContainer wc
@@ -235,7 +274,13 @@ public final class TyC2ContainerIo {
                 continue;
             }
             int budget = Math.min(maxItems - moved, stack.getCount());
-            ItemStack taken = source.removeItem(slot, budget);
+            int acceptLimit = maxAccept == null
+                    ? budget
+                    : Math.min(budget, Math.max(0, maxAccept.applyAsInt(stack)));
+            if (acceptLimit <= 0) {
+                continue;
+            }
+            ItemStack taken = source.removeItem(slot, acceptLimit);
             if (taken.isEmpty()) {
                 continue;
             }
@@ -244,13 +289,28 @@ public final class TyC2ContainerIo {
             moved += before - leftover.getCount();
             if (!leftover.isEmpty()) {
                 ItemStack cur = source.getItem(slot);
+                ItemStack unreturned = leftover;
                 if (cur.isEmpty()) {
                     source.setItem(slot, leftover);
+                    source.setChanged();
+                    unreturned = ItemStack.EMPTY;
+                } else if (ItemStack.isSameItemSameTags(cur, leftover)) {
+                    int limit = Math.min(source.getMaxStackSize(), cur.getMaxStackSize());
+                    int fit = Math.max(0, limit - cur.getCount());
+                    int add = Math.min(fit, leftover.getCount());
+                    if (add > 0) {
+                        cur.grow(add);
+                        source.setItem(slot, cur);
+                        source.setChanged();
+                        leftover.shrink(add);
+                    }
+                    unreturned = leftover.isEmpty() ? ItemStack.EMPTY : insertIntoVanillaContainer(source, side, leftover);
                 } else {
-                    cur.grow(leftover.getCount());
-                    source.setItem(slot, cur);
+                    unreturned = insertIntoVanillaContainer(source, side, leftover);
                 }
-                source.setChanged();
+                if (!unreturned.isEmpty()) {
+                    Containers.dropItemStack(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, unreturned);
+                }
             }
         }
         return moved;

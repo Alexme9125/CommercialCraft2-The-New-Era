@@ -228,9 +228,24 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
         flushLiveSlotCache();
         releaseChunkTickets(level);
         VillageRecord village = resolveVillage(level);
-        if (village != null && village.isChunkLoaderInstalled()) {
-            village.setChunkLoaderInstalled(false);
-            TyC2WorldManager.markDirty(level);
+        boolean isAuthoritativeHub = village != null
+                && TyC2Native.dimensionId(level).equals(village.getDimensionId())
+                && village.getHubPos().x() == pos.getX()
+                && village.getHubPos().y() == pos.getY()
+                && village.getHubPos().z() == pos.getZ();
+        if (isAuthoritativeHub) {
+            boolean dirty = false;
+            if (village.isChunkLoaderInstalled()) {
+                village.setChunkLoaderInstalled(false);
+                dirty = true;
+            }
+            if (village.isHubDeployed()) {
+                village.setHubDeployed(false);
+                dirty = true;
+            }
+            if (dirty) {
+                TyC2WorldManager.markDirty(level);
+            }
         }
         // Drop only local cash & upgrade items; the 1,000-slot warehouse remains safely in TycoonSavedData!
         Containers.dropContents(level, pos, localItems);
@@ -354,18 +369,19 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
                 if (level.getBlockEntity(neighbor) instanceof CooperationHubBlockEntity) {
                     continue;
                 }
-                ItemStack pulled = TyC2ItemAccess.pull(
+                final int pullBudget = budget;
+                ItemStack pulled = TyC2ItemAccess.pullCapped(
                         level,
                         neighbor,
                         dir.getOpposite(),
-                        budget,
+                        pullBudget,
                         stack -> {
                             if (!Ic2SoftBridge.matchesUpgradeFilter(upgrades, false, stack)) {
-                                return false;
+                                return 0;
                             }
                             SlotStack ss = TyC2Native.toSlotStack(stack, registries);
-                            return ss != null && storage.canFitInInbound(
-                                    ss.itemId(), ss.count(), ss.nbtJson(), stack.getMaxStackSize()
+                            return ss == null ? 0 : storage.maxInboundInsert(
+                                    ss.itemId(), pullBudget, ss.nbtJson(), stack.getMaxStackSize()
                             );
                         }
                 );
@@ -377,7 +393,18 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
                         );
                         budget -= (pulled.getCount() - rem);
                         if (rem > 0) {
-                            TyC2ItemAccess.push(level, neighbor, dir.getOpposite(), pulled.copyWithCount(rem));
+                            ItemStack leftover = pulled.copyWithCount(rem);
+                            int returned = TyC2ItemAccess.push(level, neighbor, dir.getOpposite(), leftover);
+                            int unreturned = rem - returned;
+                            if (unreturned > 0) {
+                                net.minecraft.world.Containers.dropItemStack(
+                                        level,
+                                        worldPosition.getX() + 0.5,
+                                        worldPosition.getY() + 0.5,
+                                        worldPosition.getZ() + 0.5,
+                                        pulled.copyWithCount(unreturned)
+                                );
+                            }
                         }
                         TyC2WorldManager.markDirty(level);
                     }
@@ -463,22 +490,21 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
                     }
                     liveSlotCache.remove(slot);
                 } else {
-                    String cachedId = TyC2Native.itemId(cached);
-                    boolean needsWrite = storedOpt.isEmpty()
-                            || storedOpt.get().count() != cached.getCount()
-                            || !storedOpt.get().itemId().equals(cachedId);
+                    SlotStack live = TyC2Native.toSlotStack(cached, registries);
+                    boolean needsWrite = live != null && (storedOpt.isEmpty()
+                            || storedOpt.get().count() != live.count()
+                            || !storedOpt.get().itemId().equals(live.itemId())
+                            || !storedOpt.get().nbtJson().equals(live.nbtJson()));
                     if (needsWrite) {
-                        SlotStack updated = TyC2Native.toSlotStack(cached, registries);
-                        storage.setSlotRaw(slot, updated);
+                        storage.setSlotRaw(slot, live);
                         mutated = true;
                     }
                 }
             }
-            if (mutated) {
-                cachedStorageRevision = storage.getRevision();
-                if (level instanceof ServerLevel serverLevel) {
-                    TyC2WorldManager.markDirty(serverLevel);
-                }
+            liveSlotCache.clear();
+            cachedStorageRevision = storage.getRevision();
+            if (mutated && level instanceof ServerLevel serverLevel) {
+                TyC2WorldManager.markDirty(serverLevel);
             }
         } finally {
             flushingLiveCache = false;
@@ -529,10 +555,10 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
     public ItemStack removeItem(int slot, int amount) {
         flushLiveSlotCache();
         CooperationHubStorage storage = resolveStorage();
-        if (storage == null || amount <= 0 || slot < 0 || slot >= CooperationHubStorage.TOTAL_SLOTS || level == null) {
+        if (storage == null || amount <= 0 || !CooperationHubStorage.Zone.OUTBOUND.containsSlot(slot) || level == null) {
             return ItemStack.EMPTY;
         }
-        Optional<SlotStack> taken = storage.playerExtract(slot, amount);
+        Optional<SlotStack> taken = storage.extractExternal(slot, amount, false);
         if (taken.isPresent()) {
             liveSlotCache.remove(slot);
             cachedStorageRevision = storage.getRevision();
@@ -583,15 +609,8 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
 
     @Override
     public void clearContent() {
+        // Never wipe the persistent SavedData 1,000-slot village warehouse when a container clear is invoked
         liveSlotCache.clear();
-        CooperationHubStorage storage = resolveStorage();
-        if (storage != null) {
-            storage.clearAll();
-            cachedStorageRevision = storage.getRevision();
-            if (level instanceof ServerLevel serverLevel) {
-                TyC2WorldManager.markDirty(serverLevel);
-            }
-        }
     }
 
     // --- MenuProvider ---

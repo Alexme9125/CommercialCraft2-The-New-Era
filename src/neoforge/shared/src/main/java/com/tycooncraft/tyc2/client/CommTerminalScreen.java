@@ -7,6 +7,7 @@ import com.tycooncraft.tyc2.menu.CommTerminalMenu;
 import com.tycooncraft.tyc2.network.TyC2ActionPayload;
 import com.tycooncraft.tyc2.platform.TyC2Native;
 import com.tycooncraft.tyc2.village.SupplyCycleClock;
+import com.tycooncraft.tyc2.village.WorkplaceCatalog;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,6 +40,8 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
     private boolean stockOutbound = false;
     private int aidProfIdx = 0;
     private boolean aidLarge = false;
+    private int lastSeenSyncRevision = -1;
+    private int ticksSinceSync = 0;
 
     private StyledButton stockZoneBtn;
     private StyledButton remoteAutoBtn;
@@ -66,8 +69,35 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
     @Override
     protected void init() {
         super.init();
+        lastSeenSyncRevision = menu.syncRevision();
+        ticksSinceSync = 0;
         rebuildControls();
         sendAction("REQUEST_SYNC", Map.of());
+    }
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        int rev = menu.syncRevision();
+        if (rev != lastSeenSyncRevision) {
+            lastSeenSyncRevision = rev;
+            ticksSinceSync = 0;
+        } else {
+            ticksSinceSync++;
+            if (ticksSinceSync % 40 == 0) {
+                sendAction("REQUEST_SYNC", Map.of());
+            }
+        }
+    }
+
+    private long liveRefreshRemaining(Map<String, Object> village) {
+        int rev = menu.syncRevision();
+        if (rev != lastSeenSyncRevision) {
+            lastSeenSyncRevision = rev;
+            ticksSinceSync = 0;
+        }
+        long base = JsonLite.getLong(village, "refreshRemainingTicks", SupplyCycleClock.TICKS_PER_WEEK);
+        return Math.max(0L, base - ticksSinceSync);
     }
 
     private void rebuildControls() {
@@ -352,7 +382,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         long vFunds = JsonLite.getLong(village, "villageBalance", 0L);
         String biomeKey = TyC2Theme.normalizeBiomeKey(JsonLite.getString(village, "biome", "plains"));
         String season = JsonLite.getString(village, "season", "NONE");
-        long refreshRem = JsonLite.getLong(village, "refreshRemainingTicks", SupplyCycleClock.TICKS_PER_WEEK);
+        long refreshRem = liveRefreshRemaining(village);
 
         // Line 1: LvX VillageName (80..202) — clear of Unbind button at (205, 23, 32x9)
         String titleLine = Component.translatable("gui.tyc2.terminal.level_prefix", level, vName).getString();
@@ -418,7 +448,8 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                 int maxQueue = village == null ? 3 : Math.max(1, JsonLite.getInt(village, "maxAidQueue", 3));
                 boolean depop = village != null && JsonLite.getBoolean(village, "depopPaused", false);
                 boolean unlocked = aidLarge ? largeUnlocked : smallUnlocked;
-                remoteAidStartBtn.active = village != null && spec != null && !depop && queueSize < maxQueue && unlocked;
+                boolean limitReached = spec != null && JsonLite.getBoolean(spec, "aidLimitReached", false);
+                remoteAidStartBtn.active = village != null && spec != null && !depop && queueSize < maxQueue && unlocked && !limitReached;
             }
         }
     }
@@ -681,7 +712,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         String biomeKey = TyC2Theme.normalizeBiomeKey(JsonLite.getString(village, "biome", "plains"));
         String season = JsonLite.getString(village, "season", "NONE");
         int tier = JsonLite.getInt(village, "industrialTier", 0);
-        long refreshRem = JsonLite.getLong(village, "refreshRemainingTicks", SupplyCycleClock.TICKS_PER_WEEK);
+        long refreshRem = liveRefreshRemaining(village);
 
         // Framed macro-economy telemetry box (78..238, 57..109) — Money(M) & Goods(Q) on separate clean lines!
         canvas.fill(78, 57, 238, 109, 0xFF0A1624);
@@ -886,7 +917,6 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         int unempCount = JsonLite.getInt(village, "unemployedCount", 0);
         int workforce = JsonLite.getInt(village, "workforceCount", 0);
         boolean bonusActive = JsonLite.getBoolean(village, "bonusActive", false);
-        int restockPct = JsonLite.getInt(village, "restockBonusPct", 0);
         int qtyPct = JsonLite.getInt(village, "qtyBonusPct", 0);
         int thresholdPct = JsonLite.getInt(village, "lowUnempThresholdPct", 25);
 
@@ -896,7 +926,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                 80, 70, 156, 0.56F, bonusActive ? TyC2Theme.MINT_TEXT : 0xFFE0ECF8
         );
         String bonusLine = bonusActive
-                ? Component.translatable("gui.tyc2.aid.bonus_active", restockPct, qtyPct).getString()
+                ? Component.translatable("gui.tyc2.aid.bonus_active", qtyPct).getString()
                 : Component.translatable("gui.tyc2.aid.bonus_inactive", thresholdPct).getString();
         TyC2Theme.drawFitString(canvas, bonusLine, 80, 79, 156, 0.50F, bonusActive ? 0xFF56EC8B : TyC2Theme.MUTED_TEXT);
 
@@ -1119,7 +1149,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             }
             // 4. Tactical header Weekly Calendar & Countdown tooltip
             if (pmx >= calX && pmx < 238 && pmy >= 29 && pmy < 41) {
-                long refreshRem = JsonLite.getLong(village, "refreshRemainingTicks", SupplyCycleClock.TICKS_PER_WEEK);
+                long refreshRem = liveRefreshRemaining(village);
                 canvas.drawTooltip(List.of(Component.translatable(
                         "gui.tyc2.hub.refresh_tooltip", TyC2Theme.formatRestockCountdown(refreshRem)
                 ).withStyle(ChatFormatting.GOLD)), mouseX, mouseY);
@@ -1163,8 +1193,19 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             }
         }
 
-        // 6. Remote Aid queue tooltips
+        // 6. Remote Aid queue & cap tooltips
         if (subTab == 3 && growthMode == 1 && village != null) {
+            Map<String, Object> spec = selectedWorkplace(village);
+            if (spec != null && JsonLite.getBoolean(spec, "aidLimitReached", false)
+                    && pmx >= 159 && pmx < 238 && pmy >= 105 && pmy < 119) {
+                int aidMax = JsonLite.getInt(spec, "aidMax", WorkplaceCatalog.MAX_AID_BUILDS_PER_PROFESSION);
+                canvas.drawTooltip(
+                        List.of(Component.translatable("status.tyc2.aid.profession_limit", aidMax)
+                                .withStyle(ChatFormatting.RED)),
+                        mouseX, mouseY
+                );
+                return;
+            }
             List<Map<String, Object>> queue = CooperationHubScreen.aidProjects(village);
             int shown = Math.min(3, queue.size());
             for (int i = 0; i < shown; i++) {

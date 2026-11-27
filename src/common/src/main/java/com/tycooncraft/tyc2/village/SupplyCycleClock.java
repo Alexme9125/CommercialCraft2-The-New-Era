@@ -71,30 +71,29 @@ public final class SupplyCycleClock {
     /**
      * Evaluates whether a village is due for a supply/demand order refresh.
      *
-     * <p>Returns {@code true} when:
+     * <p>Returns {@code true} ONLY when:
      * <ul>
-     *   <li>{@code ordersEmpty} is {@code true} (initial order generation), OR</li>
-     *   <li>{@code allOrdersCompleted} is {@code true} (early restock reward when player finishes all orders), OR</li>
-     *   <li>elapsed {@code dayTime} since the normalized anchor is {@code >= max(1, effectiveRefreshTicks)}.</li>
+     *   <li>{@code neverInitialized} is {@code true} or {@code lastRefreshTick < 0} (initial order generation
+     *       for a newly partnered village that has never had orders generated yet), OR</li>
+     *   <li>elapsed {@code dayTime} since the normalized anchor is {@code >= max(1, refreshPeriodTicks)}.</li>
      * </ul>
+     * Completing all orders early never bypasses the weekly calendar cycle.
      *
      * @param currentDayTime current overworld {@code dayTime} tick
-     * @param lastRefreshTick persisted last refresh tick anchor
-     * @param effectiveRefreshTicks effective refresh interval in ticks (after low-unemployment bonus)
-     * @param ordersEmpty {@code true} if the village currently has no active orders
-     * @param allOrdersCompleted {@code true} if all active orders are completed
+     * @param lastRefreshTick persisted last refresh tick anchor ({@code < 0} if never initialized)
+     * @param refreshPeriodTicks configured refresh interval in ticks (default {@code 168,000})
+     * @param neverInitialized {@code true} only if this village has never generated initial orders
      * @return {@code true} if a demand refresh should execute now
      */
     public static boolean isRefreshDue(
             long currentDayTime,
             long lastRefreshTick,
-            int effectiveRefreshTicks,
-            boolean ordersEmpty,
-            boolean allOrdersCompleted) {
-        if (ordersEmpty || allOrdersCompleted) {
+            int refreshPeriodTicks,
+            boolean neverInitialized) {
+        if (neverInitialized || lastRefreshTick < 0L) {
             return true;
         }
-        long period = Math.max(1L, effectiveRefreshTicks);
+        long period = Math.max(1L, refreshPeriodTicks);
         long safeNow = Math.max(0L, currentDayTime);
         long anchor = normalizeRefreshAnchor(safeNow, lastRefreshTick);
         return (safeNow - anchor) >= period;

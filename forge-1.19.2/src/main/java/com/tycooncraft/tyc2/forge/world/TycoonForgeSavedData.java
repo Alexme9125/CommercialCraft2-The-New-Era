@@ -190,9 +190,12 @@ public final class TycoonForgeSavedData extends SavedData {
         long villageSum = 0L;
         int partneredCount = 0;
         for (VillageRecord v : villages.values()) {
+            // Include unpartnered villages' remaining treasuries so terminating partnership cannot cloak money supply
+            if (v.getVillageBalance() > 0L) {
+                villageSum += v.getVillageBalance();
+            }
             if (v.isPartnered()) {
                 partneredCount++;
-                villageSum += v.getVillageBalance();
             }
         }
         economy().syncAccountTotals(bankAccounts.getTotalCombinedBalance(), villageSum, Math.max(1, partneredCount));
@@ -295,6 +298,18 @@ public final class TycoonForgeSavedData extends SavedData {
         t.putInt("MinRad", v.getMinExpansionRadius());
         t.putInt("MaxRad", v.getMaxExpansionRadius());
         t.putLong("LastDemandTick", v.getLastDemandRefreshTick());
+        t.putBoolean("OrdersInitialized", v.hasInitialOrdersGenerated());
+        t.putLong("LastStipendTick", v.getLastStipendTick());
+        t.putBoolean("InitWcGranted", v.isInitialWorkingCapitalGranted());
+        t.putLong("LastTermTick", v.getLastTerminationTick());
+        t.putBoolean("HubDeployed", v.isHubDeployed());
+        CompoundTag aidDoneTag = new CompoundTag();
+        for (Map.Entry<String, Integer> e : v.getCompletedAidCounts().entrySet()) {
+            if (e.getKey() != null && !e.getKey().isBlank() && e.getValue() != null && e.getValue() > 0) {
+                aidDoneTag.putInt(e.getKey(), e.getValue());
+            }
+        }
+        t.put("AidCompleted", aidDoneTag);
         t.putLong("LastExpTick", v.getLastExpansionTick());
 
         // MayorState
@@ -503,7 +518,7 @@ public final class TycoonForgeSavedData extends SavedData {
         boolean expPaused = t.getBoolean("ExpPaused");
         int minRad = t.contains("MinRad") ? t.getInt("MinRad") : VillageRecord.MIN_CONFIGURABLE_RADIUS;
         int maxRad = t.contains("MaxRad") ? t.getInt("MaxRad") : 24;
-        long lastDemandTick = t.getLong("LastDemandTick");
+        long lastDemandTick = t.contains("LastDemandTick") ? t.getLong("LastDemandTick") : -1L;
         long lastExpTick = t.getLong("LastExpTick");
 
         CompoundTag mTag = t.getCompound("Mayor");
@@ -757,12 +772,39 @@ public final class TycoonForgeSavedData extends SavedData {
             );
         }
 
-        return new VillageRecord(
+        VillageRecord rec = new VillageRecord(
                 id, dim, name, hubPos, biome, partnered, owner, companyId,
                 level, pop, vol, balance, mayor, storage, orders, expansion,
                 zones, pads, expPaused, minRad, maxRad, lastDemandTick, lastExpTick, jobs,
                 aidProjects, empStats
         );
+        if (t.contains("OrdersInitialized")) {
+            rec.setInitialOrdersGenerated(t.getBoolean("OrdersInitialized"));
+        }
+        if (t.contains("LastStipendTick")) {
+            rec.setLastStipendTick(t.getLong("LastStipendTick"));
+        }
+        if (t.contains("InitWcGranted")) {
+            rec.setInitialWorkingCapitalGranted(t.getBoolean("InitWcGranted"));
+        }
+        if (t.contains("LastTermTick")) {
+            rec.setLastTerminationTick(t.getLong("LastTermTick"));
+        }
+        if (t.contains("HubDeployed")) {
+            rec.setHubDeployed(t.getBoolean("HubDeployed"));
+        }
+        if (t.contains("AidCompleted", Tag.TAG_COMPOUND)) {
+            CompoundTag aidDoneTag = t.getCompound("AidCompleted");
+            Map<String, Integer> completedAid = new LinkedHashMap<>();
+            for (String k : aidDoneTag.getAllKeys()) {
+                int cnt = aidDoneTag.getInt(k);
+                if (cnt > 0) {
+                    completedAid.put(k, cnt);
+                }
+            }
+            rec.setCompletedAidCounts(completedAid);
+        }
+        return rec;
     }
 
     /** Safely stores arbitrarily long JSON strings in NBT without hitting the 65KB writeUTF limit. */

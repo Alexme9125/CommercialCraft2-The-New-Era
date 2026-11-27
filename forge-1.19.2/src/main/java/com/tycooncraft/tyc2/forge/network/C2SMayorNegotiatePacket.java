@@ -39,17 +39,14 @@ public final class C2SMayorNegotiatePacket {
     public static void handle(C2SMayorNegotiatePacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
         NetworkEvent.Context ctx = ctxSupplier.get();
         ServerPlayer player = ctx.getSender();
-        if (player == null) {
+        if (player == null
+                || !(player.containerMenu instanceof MayorNegotiationMenu menu)
+                || !pkt.villageId.equals(menu.getVillageId())) {
             ctx.setPacketHandled(true);
             return;
         }
         Component fb = Component.empty();
         if (pkt.sign) {
-            if (!(player.containerMenu instanceof MayorNegotiationMenu menu)
-                    || !pkt.villageId.equals(menu.getVillageId())) {
-                ctx.setPacketHandled(true);
-                return;
-            }
             TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
             Optional<VillageRecord> vOpt = data.getVillage(pkt.villageId);
             if (vOpt.isEmpty()

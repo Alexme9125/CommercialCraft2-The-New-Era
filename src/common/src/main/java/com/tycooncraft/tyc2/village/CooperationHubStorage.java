@@ -254,6 +254,24 @@ public final class CooperationHubStorage {
     }
 
     /**
+     * Computes the exact maximum number of items (up to {@code maxDesired}) that can currently
+     * fit into the Inbound zone ({@code 0..499}) without mutating storage.
+     *
+     * @param itemId namespaced item ID
+     * @param maxDesired upper bound to probe
+     * @param nbtJson optional NBT payload
+     * @param maxStackSize maximum stack size per slot ({@code >= 1})
+     * @return exact insertable count in {@code [0, max(0, maxDesired)]}
+     */
+    public int maxInboundInsert(String itemId, int maxDesired, String nbtJson, int maxStackSize) {
+        if (maxDesired <= 0 || itemId == null || itemId.isBlank()) {
+            return 0;
+        }
+        int rem = insertExternal(itemId, maxDesired, nbtJson, maxStackSize, true);
+        return Math.max(0, maxDesired - rem);
+    }
+
+    /**
      * Attempts an external slot-targeted insertion (for {@code IItemHandler.insertItem} adapters).
      * Rejects any slot outside Inbound {@code 0..499} by returning {@code count} unchanged.
      *

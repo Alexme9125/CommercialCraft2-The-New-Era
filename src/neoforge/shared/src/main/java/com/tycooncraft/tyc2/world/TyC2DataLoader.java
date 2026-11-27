@@ -3,6 +3,7 @@ package com.tycooncraft.tyc2.world;
 import com.tycooncraft.tyc2.core.DemandGenerator;
 import com.tycooncraft.tyc2.core.GoodsCatalog;
 import com.tycooncraft.tyc2.core.JsonLite;
+import com.tycooncraft.tyc2.core.MacroEconomyEngine;
 import com.tycooncraft.tyc2.core.MintRecipeRegistry;
 import com.tycooncraft.tyc2.core.TyC2Config;
 import com.tycooncraft.tyc2.platform.DiscoveredProfession;
@@ -110,6 +111,7 @@ public final class TyC2DataLoader {
         goodsCatalog = goods;
         workplaceCatalog = workplaces;
         demandGenerator = new DemandGenerator(goodsCatalog, config);
+        MacroEconomyEngine.setActiveMintRecipeRegistry(mintRecipes, TyC2Native::itemIdHasTag);
     }
 
     private static synchronized void beginDatapackReload() {
@@ -173,6 +175,7 @@ public final class TyC2DataLoader {
         levelTable = stagingLevels;
         workplaceCatalog = stagingWorkplaces;
         demandGenerator = new DemandGenerator(goodsCatalog, config);
+        MacroEconomyEngine.setActiveMintRecipeRegistry(mintRecipes, TyC2Native::itemIdHasTag);
 
         LOGGER.info(
                 "Loaded TyC2 data: {} mint recipes, {} trade goods, {} available workplaces, disableIc2MetalFormerCoinRecipe={}",

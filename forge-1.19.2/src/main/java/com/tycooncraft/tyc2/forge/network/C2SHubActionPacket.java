@@ -89,7 +89,9 @@ public final class C2SHubActionPacket {
     public static void handle(C2SHubActionPacket pkt, Supplier<NetworkEvent.Context> ctxSupplier) {
         NetworkEvent.Context ctx = ctxSupplier.get();
         ServerPlayer player = ctx.getSender();
-        if (player == null) {
+        if (player == null
+                || !(player.containerMenu instanceof CooperationHubMenu menu)
+                || !pkt.hubPos.equals(menu.getHubPos())) {
             ctx.setPacketHandled(true);
             return;
         }
@@ -111,17 +113,14 @@ public final class C2SHubActionPacket {
             return;
         }
         VillageRecord village = vOpt.get();
-        CooperationHubMenu menu = player.containerMenu instanceof CooperationHubMenu m ? m : null;
         if (pkt.action != Action.REQUEST_SYNC
                 && pkt.action != Action.SET_WAREHOUSE_VIEW
                 && !TycoonForgeWorldManager.canAccessVillage(player, data, village)) {
-            CooperationHubStorage.Zone zone = menu != null ? menu.getWarehouseZone() : CooperationHubStorage.Zone.INBOUND;
-            int page = menu != null ? menu.getWarehousePage() : 0;
-            String search = menu != null ? menu.getWarehouseSearch() : "";
             TyC2ForgeNetwork.sendToPlayer(
                     player,
                     S2CHubSyncPacket.buildFor(
-                            player, village, hubBe, zone, page, search,
+                            player, village, hubBe,
+                            menu.getWarehouseZone(), menu.getWarehousePage(), menu.getWarehouseSearch(),
                             Component.translatable("status.tyc2.hub.not_owner")
                     )
             );
@@ -136,7 +135,7 @@ public final class C2SHubActionPacket {
             case BUY_FROM_VILLAGE -> {
                 var res = TycoonForgeWorldManager.executeSellOrder(
                         player, vid, pkt.textArg, Math.max(1, pkt.intArgA),
-                        pkt.flagArg, menu != null ? menu.getCashContainer() : null
+                        pkt.flagArg, menu.getCashContainer()
                 );
                 feedback = res.toComponent();
             }
@@ -150,20 +149,18 @@ public final class C2SHubActionPacket {
                 TycoonForgeWorldManager.toggleOrderAutoFulfill(player.getServer(), vid, pkt.textArg);
             }
             case SET_WAREHOUSE_VIEW -> {
-                if (menu != null) {
-                    menu.setWarehouseView(
-                            pkt.flagArg ? CooperationHubStorage.Zone.OUTBOUND : CooperationHubStorage.Zone.INBOUND,
-                            pkt.intArgA,
-                            pkt.textArg
-                    );
-                }
+                menu.setWarehouseView(
+                        pkt.flagArg ? CooperationHubStorage.Zone.OUTBOUND : CooperationHubStorage.Zone.INBOUND,
+                        pkt.intArgA,
+                        pkt.textArg
+                );
             }
             case WAREHOUSE_SLOT_CLICK -> {
                 int absSlot = pkt.intArgA;
                 boolean rightClick = pkt.flagArg;
                 if (absSlot >= 0 && absSlot < CooperationHubStorage.TOTAL_SLOTS) {
                     CooperationHubStorage storage = village.getStorage();
-                    ItemStack carried = menu != null ? menu.getCarried() : ItemStack.EMPTY;
+                    ItemStack carried = menu.getCarried();
                     if (!carried.isEmpty() && CooperationHubStorage.Zone.INBOUND.containsSlot(absSlot)) {
                         int toPut = rightClick ? 1 : carried.getCount();
                         int rem = storage.playerInsertIntoInbound(
@@ -176,9 +173,7 @@ public final class C2SHubActionPacket {
                         int inserted = toPut - rem;
                         if (inserted > 0) {
                             carried.shrink(inserted);
-                            if (menu != null) {
-                                menu.setCarried(carried.isEmpty() ? ItemStack.EMPTY : carried);
-                            }
+                            menu.setCarried(carried.isEmpty() ? ItemStack.EMPTY : carried);
                             data.setDirty();
                         }
                     } else {
@@ -197,7 +192,7 @@ public final class C2SHubActionPacket {
                 }
             }
             case WAREHOUSE_DEPOSIT_HELD -> {
-                if (menu != null && !menu.getCarried().isEmpty()) {
+                if (!menu.getCarried().isEmpty()) {
                     ItemStack carried = menu.getCarried();
                     int rem = village.getStorage().insertExternal(
                             TyC2Ids.itemId(carried),
@@ -261,7 +256,7 @@ public final class C2SHubActionPacket {
                 WorkplaceSize size = pkt.intArgA == 1 ? WorkplaceSize.LARGE : WorkplaceSize.SMALL;
                 var res = TycoonForgeWorldManager.startAidConstruction(
                         player, vid, pkt.textArg, size, pkt.flagArg,
-                        menu != null ? menu.getCashContainer() : null, null
+                        menu.getCashContainer(), null
                 );
                 feedback = res.toComponent();
             }
@@ -274,12 +269,13 @@ public final class C2SHubActionPacket {
         if (closeScreen) {
             player.closeContainer();
         } else {
-            CooperationHubStorage.Zone zone = menu != null ? menu.getWarehouseZone() : CooperationHubStorage.Zone.INBOUND;
-            int page = menu != null ? menu.getWarehousePage() : 0;
-            String search = menu != null ? menu.getWarehouseSearch() : "";
             TyC2ForgeNetwork.sendToPlayer(
                     player,
-                    S2CHubSyncPacket.buildFor(player, village, hubBe, zone, page, search, feedback)
+                    S2CHubSyncPacket.buildFor(
+                            player, village, hubBe,
+                            menu.getWarehouseZone(), menu.getWarehousePage(), menu.getWarehouseSearch(),
+                            feedback
+                    )
             );
         }
         ctx.setPacketHandled(true);

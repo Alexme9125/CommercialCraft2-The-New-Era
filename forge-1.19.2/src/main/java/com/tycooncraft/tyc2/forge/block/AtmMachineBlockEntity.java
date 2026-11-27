@@ -22,6 +22,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.WorldlyContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -40,13 +41,14 @@ import net.minecraftforge.energy.IEnergyStorage;
  * deposit/withdrawal/exchange, player/company transfers, and a Tri-Mode powered Comm Terminal
  * charging dock (IC2 EU via optional subclass, Forge FE, or Vanilla fuel fallback).
  */
-public class AtmMachineBlockEntity extends BlockEntity implements Container, MenuProvider {
+public class AtmMachineBlockEntity extends BlockEntity implements WorldlyContainer, MenuProvider {
 
     public static final int SLOT_DEPOSIT = 0;
     public static final int SLOT_WITHDRAW = 1;
     public static final int SLOT_TERMINAL = 2;
     public static final int SLOT_FUEL = 3;
     public static final int TOTAL_SLOTS = 4;
+    private static final int[] SLOTS_NONE = new int[0];
 
     private final NonNullList<ItemStack> items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY);
     private double storedEu = 0.0;
@@ -440,6 +442,23 @@ public class AtmMachineBlockEntity extends BlockEntity implements Container, Men
             return feHandler.cast();
         }
         return super.getCapability(cap, side);
+    }
+
+    // --- WorldlyContainer (block hoppers/pipes from stealing deposit/withdraw/terminal slots) ---
+
+    @Override
+    public int[] getSlotsForFace(Direction side) {
+        return SLOTS_NONE;
+    }
+
+    @Override
+    public boolean canPlaceItemThroughFace(int slot, ItemStack stack, @Nullable Direction direction) {
+        return false;
+    }
+
+    @Override
+    public boolean canTakeItemThroughFace(int slot, ItemStack stack, Direction direction) {
+        return false;
     }
 
     // --- Container ---

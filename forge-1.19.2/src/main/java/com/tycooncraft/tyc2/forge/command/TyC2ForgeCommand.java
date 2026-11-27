@@ -61,6 +61,9 @@ public final class TyC2ForgeCommand {
                 .then(Commands.literal("levelup")
                         .requires(src -> src.hasPermission(2))
                         .executes(ctx -> forceLevelUp(ctx.getSource())))
+                .then(Commands.literal("refresh")
+                        .requires(src -> src.hasPermission(2))
+                        .executes(ctx -> forceRefresh(ctx.getSource())))
                 .then(Commands.literal("restore_hub")
                         .requires(src -> src.hasPermission(2))
                         .executes(ctx -> restoreHub(ctx.getSource())))
@@ -145,14 +148,13 @@ public final class TyC2ForgeCommand {
                 boolean bonus = emp.isLowUnemploymentBonusActive(cfg);
                 src.sendSuccess(Component.literal(String.format(
                         Locale.ROOT,
-                        "[TyC2] Nearest Village %s (Lv.%d): Unemp=%d%% (%d/%d) Bonus=%s (Restock %.2fx, Qty %.2fx, Gather %.2fx) AidQueue=%d/%d",
+                        "[TyC2] Nearest Village %s (Lv.%d): Unemp=%d%% (%d/%d) Bonus=%s (Qty %.2fx, Gather %.2fx) AidQueue=%d/%d",
                         v.getVillageName(),
                         v.getLevel(),
                         unempPct,
                         emp.unemployedCount(),
                         emp.workforceCount(),
                         bonus ? "ACTIVE" : "OFF",
-                        emp.restockSpeedMultiplier(cfg),
                         emp.tradeQuantityMultiplier(cfg),
                         emp.gatherSpeedMultiplier(cfg),
                         v.getAidProjects().size(),
@@ -297,6 +299,31 @@ public final class TyC2ForgeCommand {
             return 1;
         } catch (Exception e) {
             src.sendFailure(Component.literal("Player required"));
+            return 0;
+        }
+    }
+
+    private static int forceRefresh(CommandSourceStack src) {
+        try {
+            ServerLevel level = src.getLevel();
+            net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(src.getPosition());
+            TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
+            Optional<VillageRecord> vOpt = data.findNearestVillage(
+                    level.dimension().location().toString(), pos, 96
+            );
+            if (vOpt.isEmpty()) {
+                src.sendFailure(Component.literal("[TyC2] No TyC2 village within 96 blocks."));
+                return 0;
+            }
+            VillageRecord v = vOpt.get();
+            TycoonForgeWorldManager.refreshVillageOrders(level, data, v, src.getServer().overworld().getDayTime());
+            src.sendSuccess(Component.literal(
+                    "[TyC2] Refreshed trade orders for " + v.getVillageName()
+                            + " (" + v.getActiveOrders().size() + " active orders)."
+            ), true);
+            return 1;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("[TyC2] Refresh failed: " + e.getMessage()));
             return 0;
         }
     }

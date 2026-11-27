@@ -19,6 +19,17 @@ import java.util.Map;
  */
 public final class TyC2Config {
 
+    /** Current configuration schema version. */
+    public static final int CURRENT_CONFIG_VERSION = 2;
+
+    /** Legacy v1.0.0/v1.0.1 default refresh interval (12,000 ticks = 10 real min). */
+    public static final int LEGACY_DEMAND_REFRESH_TICKS = 12_000;
+
+    /** Canonical weekly demand refresh interval (168,000 dayTime ticks = 7 Minecraft days). */
+    public static final int DEFAULT_DEMAND_REFRESH_TICKS = 168_000;
+
+    private int configVersion = CURRENT_CONFIG_VERSION;
+
     private boolean disableIc2MetalFormerCoinRecipe = true;
     private boolean enforceIndustrialTierCap = true;
     private boolean enableSeasonalArbitrage = true;
@@ -31,7 +42,7 @@ public final class TyC2Config {
     private double itemSupplyFlowDecay = 0.10;
     private double municipalUpkeepRate = 0.02;
 
-    private int demandRefreshTicks = 168_000;
+    private int demandRefreshTicks = DEFAULT_DEMAND_REFRESH_TICKS;
     private double weeklyQuantityMultiplier = 3.5;
     private double weeklyRareQuantityMultiplier = 1.75;
     private long initialVillageWorkingCapital = 500L;
@@ -80,6 +91,11 @@ public final class TyC2Config {
     /**
      * Loads {@code general.json} from {@code path}, or writes a clean default file if absent.
      *
+     * <p>Automatically migrates pre-v2 configs ({@code configVersion < 2}) whose legacy
+     * {@code demandRefreshTicks} remained at {@code 12,000} ticks up to the canonical weekly
+     * {@code 168,000} ticks (7 MC days) while preserving every other user setting, then persists
+     * the migrated config back to disk.
+     *
      * @param path file path (e.g. {@code config/tyc2/general.json})
      * @return loaded or default configuration
      * @throws IOException if file I/O fails
@@ -87,7 +103,15 @@ public final class TyC2Config {
     public static TyC2Config loadOrCreate(Path path) throws IOException {
         if (Files.exists(path)) {
             String content = Files.readString(path, StandardCharsets.UTF_8);
-            return fromJson(content);
+            TyC2Config loaded = fromJson(content);
+            if (loaded.configVersion < CURRENT_CONFIG_VERSION) {
+                if (loaded.demandRefreshTicks == LEGACY_DEMAND_REFRESH_TICKS) {
+                    loaded.demandRefreshTicks = DEFAULT_DEMAND_REFRESH_TICKS;
+                }
+                loaded.configVersion = CURRENT_CONFIG_VERSION;
+                loaded.save(path);
+            }
+            return loaded;
         }
         TyC2Config config = defaults();
         config.save(path);
@@ -134,6 +158,7 @@ public final class TyC2Config {
      */
     public Map<String, Object> toDataMap() {
         Map<String, Object> map = new LinkedHashMap<>();
+        map.put("configVersion", configVersion);
         map.put("disableIc2MetalFormerCoinRecipe", disableIc2MetalFormerCoinRecipe);
         map.put("enforceIndustrialTierCap", enforceIndustrialTierCap);
         map.put("enableSeasonalArbitrage", enableSeasonalArbitrage);
@@ -186,6 +211,7 @@ public final class TyC2Config {
         if (map == null) {
             return c;
         }
+        c.configVersion = Math.max(0, JsonLite.getInt(map, "configVersion", 0));
         c.disableIc2MetalFormerCoinRecipe = JsonLite.getBoolean(map, "disableIc2MetalFormerCoinRecipe", c.disableIc2MetalFormerCoinRecipe);
         c.enforceIndustrialTierCap = JsonLite.getBoolean(map, "enforceIndustrialTierCap", c.enforceIndustrialTierCap);
         c.enableSeasonalArbitrage = JsonLite.getBoolean(map, "enableSeasonalArbitrage", c.enableSeasonalArbitrage);
@@ -254,6 +280,17 @@ public final class TyC2Config {
 
     private static long clampLong(long value, long min, long max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    /** @return persisted configuration schema version (current {@value #CURRENT_CONFIG_VERSION}) */
+    public int configVersion() {
+        return configVersion;
+    }
+
+    /** @param value configuration schema version ({@code >= 0}) */
+    public TyC2Config setConfigVersion(int value) {
+        this.configVersion = Math.max(0, value);
+        return this;
     }
 
     /** @return whether IC2 Metal Former cutting coin recipes are filtered out */

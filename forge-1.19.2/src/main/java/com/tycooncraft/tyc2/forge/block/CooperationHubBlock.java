@@ -14,8 +14,10 @@ import com.tycooncraft.tyc2.village.VillageRecord;
 import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nullable;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -76,6 +78,39 @@ public class CooperationHubBlock extends Block implements EntityBlock {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
+        if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
+            if (level.getBlockEntity(pos) instanceof CooperationHubBlockEntity hub) {
+                UUID vid = hub.resolveVillageId();
+                if (vid != null) {
+                    TycoonForgeSavedData data = TycoonForgeSavedData.get(serverLevel);
+                    Optional<VillageRecord> vOpt = data.getVillage(vid);
+                    if (vOpt.isPresent()) {
+                        VillageRecord v = vOpt.get();
+                        String dim = serverLevel.dimension().location().toString();
+                        if (dim.equals(v.getDimensionId()) && pos.equals(TyC2Ids.toMc(v.getHubPos()))) {
+                            boolean dirty = false;
+                            if (v.isChunkLoaderInstalled()) {
+                                v.setChunkLoaderInstalled(false);
+                                dirty = true;
+                            }
+                            if (v.isHubDeployed()) {
+                                v.setHubDeployed(false);
+                                dirty = true;
+                            }
+                            if (dirty) {
+                                data.setDirty();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        super.onRemove(state, level, pos, newState, isMoving);
+    }
+
+    @Override
     public void setPlacedBy(
             Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack
     ) {
@@ -92,21 +127,68 @@ public class CooperationHubBlock extends Block implements EntityBlock {
         if (tag != null && tag.hasUUID(TyC2BlockItem.TAG_BOUND_VILLAGE_ID)) {
             UUID boundId = tag.getUUID(TyC2BlockItem.TAG_BOUND_VILLAGE_ID);
             Optional<VillageRecord> existingOpt = data.getVillage(boundId);
-            if (existingOpt.isPresent()) {
-                VillageRecord existing = existingOpt.get();
+            if (existingOpt.isEmpty()) {
+                serverLevel.removeBlock(pos, false);
+                return;
+            }
+            VillageRecord existing = existingOpt.get();
+            if (!existing.isPartnered()) {
+                serverLevel.removeBlock(pos, false);
+                if (placer instanceof ServerPlayer sp) {
+                    sp.displayClientMessage(
+                            Component.translatable("status.tyc2.hub.protected").withStyle(ChatFormatting.RED),
+                            true
+                    );
+                }
+                return;
+            }
+            if (existing.isHubDeployed()) {
+                // Self-heal stale hubDeployed=true ONLY when the recorded Hub location is in a loaded chunk
+                // and has no live Cooperation Hub block (e.g., cleared via /setblock, /fill, or WorldEdit).
+                // Unloaded or live Hub locations remain strictly rejected to prevent duplicate aliasing (M4).
+                ServerLevel oldLevel = TycoonForgeWorldManager.resolveLevel(
+                        serverLevel.getServer(), existing.getDimensionId()
+                );
                 BlockPos oldPos = TyC2Ids.toMc(existing.getHubPos());
-                ServerLevel oldLevel = TycoonForgeWorldManager.resolveLevel(serverLevel.getServer(), existing.getDimensionId());
-                if (oldLevel != null
-                        && (!oldPos.equals(pos) || oldLevel != serverLevel)
+                boolean sameSpot = oldLevel == serverLevel && oldPos.equals(pos);
+                boolean staleFlag = sameSpot
+                        || (oldLevel != null
                         && oldLevel.isLoaded(oldPos)
-                        && oldLevel.getBlockState(oldPos).is(TyC2ForgeRegistries.COOPERATION_HUB_BLOCK.get())) {
-                    // Prevent duplicate Hub aliasing onto a village whose live Hub still exists
+                        && !oldLevel.getBlockState(oldPos).is(TyC2ForgeRegistries.COOPERATION_HUB_BLOCK.get()));
+                if (!staleFlag) {
+                    serverLevel.removeBlock(pos, false);
+                    if (placer instanceof ServerPlayer sp) {
+                        sp.displayClientMessage(
+                                Component.translatable("status.tyc2.hub.protected").withStyle(ChatFormatting.RED),
+                                true
+                        );
+                    }
                     return;
                 }
-                existing.setHubPos(TyC2Ids.toCore(pos));
-                existing.setDimensionId(dim);
+                existing.setHubDeployed(false);
                 data.setDirty();
             }
+            if (!dim.equals(existing.getDimensionId())) {
+                // Keep bound Hubs strictly inside their home village dimension
+                serverLevel.removeBlock(pos, false);
+                if (placer instanceof ServerPlayer sp) {
+                    sp.displayClientMessage(
+                            Component.translatable("status.tyc2.hub.wrong_dimension").withStyle(ChatFormatting.RED),
+                            true
+                    );
+                    if (!sp.isCreative()) {
+                        ItemStack refund = stack.copy();
+                        refund.setCount(1);
+                        if (!sp.getInventory().add(refund)) {
+                            sp.drop(refund, false);
+                        }
+                    }
+                }
+                return;
+            }
+            existing.setHubPos(TyC2Ids.toCore(pos));
+            existing.setHubDeployed(true);
+            data.setDirty();
             hub.setVillageId(boundId);
             return;
         }
@@ -131,11 +213,12 @@ public class CooperationHubBlock extends Block implements EntityBlock {
             rec.establishPartnershipWithWorkingCapital(
                     player.getUUID(), activeCo, cfg.negotiationCostIc(), cfg.initialVillageWorkingCapital()
             );
+            rec.setHubDeployed(true);
             rec.setPopulation(2);
+            long dayTime = serverLevel.getServer().overworld().getDayTime();
+            rec.anchorStipendIfUnset(dayTime);
             data.putVillage(rec);
-            TycoonForgeWorldManager.refreshVillageOrders(
-                    serverLevel, data, rec, serverLevel.getServer().overworld().getDayTime()
-            );
+            TycoonForgeWorldManager.refreshVillageOrders(serverLevel, data, rec, dayTime);
             data.syncMacroAccountTotals();
             data.setDirty();
             hub.setVillageId(rec.getVillageId());

@@ -343,6 +343,9 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
                         upgrades, "ic2:pulling_upgrade", "ic2:advanced_pulling_upgrade", s
                 ),
                 be -> be != this && !(be instanceof CooperationHubBlockEntity),
+                stack -> storage.maxInboundInsert(
+                        TyC2Ids.itemId(stack), Math.min(32, stack.getCount()), TyC2Ids.nbtJson(stack), stack.getMaxStackSize()
+                ),
                 stack -> {
                     int rem = storage.insertExternal(
                             TyC2Ids.itemId(stack), stack.getCount(), TyC2Ids.nbtJson(stack), stack.getMaxStackSize(), false

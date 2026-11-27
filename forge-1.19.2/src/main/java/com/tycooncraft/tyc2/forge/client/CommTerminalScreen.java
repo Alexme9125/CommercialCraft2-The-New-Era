@@ -11,6 +11,7 @@ import com.tycooncraft.tyc2.forge.network.S2CHubSyncPacket;
 import com.tycooncraft.tyc2.forge.network.S2CTerminalSyncPacket;
 import com.tycooncraft.tyc2.forge.network.TyC2ForgeNetwork;
 import com.tycooncraft.tyc2.forge.util.TyC2Ids;
+import com.tycooncraft.tyc2.village.WorkplaceCatalog;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -347,10 +348,45 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         TyC2ForgeNetwork.sendToServer(C2STerminalActionPacket.simple(C2STerminalActionPacket.Action.REQUEST_SYNC));
     }
 
+    private int ticksSinceSync = 0;
+    private Component activeFeedbackComponent = Component.empty();
+    private String activeFeedback = "";
+    private int feedbackTtlTicks = 0;
+
     public void onSync(S2CTerminalSyncPacket pkt) {
         this.sync = pkt;
+        this.ticksSinceSync = 0;
+        if (!pkt.feedback.isEmpty()) {
+            this.activeFeedbackComponent = pkt.feedbackComponent;
+            this.activeFeedback = pkt.feedback;
+            this.feedbackTtlTicks = 100;
+        }
         this.menu.setLatestSync(pkt);
         refreshWidgets();
+    }
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        if (feedbackTtlTicks > 0) {
+            feedbackTtlTicks--;
+            if (feedbackTtlTicks == 0) {
+                activeFeedbackComponent = Component.empty();
+                activeFeedback = "";
+            }
+        }
+        if (sync != null && sync.selectedVillage != null) {
+            ticksSinceSync++;
+            if (ticksSinceSync % 40 == 0) {
+                TyC2ForgeNetwork.sendToServer(C2STerminalActionPacket.simple(
+                        C2STerminalActionPacket.Action.REQUEST_SYNC
+                ));
+            }
+        }
+    }
+
+    private long liveRefreshRemaining(S2CHubSyncPacket v) {
+        return Math.max(0L, v.refreshRemainingTicks - ticksSinceSync);
     }
 
     private List<S2CHubSyncPacket.OrderDto> filteredOrders() {
@@ -581,7 +617,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         boolean sizeUnlocked = wp != null && (aidLargeSize ? wp.largeUnlocked() : wp.smallUnlocked());
         boolean queueOpen = hasSel && sync.selectedVillage.aidProjects.size() < sync.selectedVillage.maxQueuedAid;
         aidStartBtn.visible = t3Aid;
-        aidStartBtn.active = t3Aid && wp != null && sizeUnlocked && queueOpen
+        aidStartBtn.active = t3Aid && wp != null && sizeUnlocked && !wp.aidLimitReached() && queueOpen
                 && hasPowerUpg && !sync.selectedVillage.depopulatedPaused;
 
         for (int i = 0; i < MAX_AID_ROWS; i++) {
@@ -771,7 +807,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                 poseStack, font, fundsLine, 91, 33, 83, 0.74F, 0.48F, 0x6EF29E, false
         );
 
-        String countdown = TyC2UiWidgets.formatRefreshCountdown(v.refreshRemainingTicks);
+        String countdown = TyC2UiWidgets.formatRefreshCountdown(liveRefreshRemaining(v));
         TyC2UiWidgets.drawFittedStringScaled(
                 poseStack, font, countdown, 189, 29, 34, 0.80F, 0.50F, 0xFFE27A, false
         );
@@ -784,9 +820,9 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         }
 
         // Bottom tactical footer (inside y=184..197 strip)
-        boolean hasFeedback = !sync.feedback.isEmpty();
+        boolean hasFeedback = !activeFeedback.isEmpty();
         Component footerComp = hasFeedback
-                ? sync.feedbackComponent
+                ? activeFeedbackComponent
                 : Component.translatable(
                         "gui.tyc2.terminal.footer",
                         TyC2UiWidgets.compactIc(v.activeBankBalance),
@@ -973,7 +1009,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         ).getString();
         if (v.employmentBonusActive) {
             unempLine += "  " + Component.translatable(
-                    "gui.tyc2.hub.unemployment_bonus", v.restockBonusPct, v.qtyBonusPct
+                    "gui.tyc2.hub.unemployment_bonus", v.qtyBonusPct
             ).getString();
         }
         TyC2UiWidgets.drawFittedStringScaled(poseStack, font, unempLine, 82, 153, 152, 0.70F, 0.46F,
@@ -997,7 +1033,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                 Component.translatable("gui.tyc2.hub.unemployment", v.unemploymentPct, v.unemployedCount, v.workforceCount).getString(),
                 82, 74, 152, 0.74F, 0.50F, v.employmentBonusActive ? 0x66F298 : 0xFFCC66, false);
         String bonusLine = v.employmentBonusActive
-                ? Component.translatable("gui.tyc2.aid.bonus_active", v.restockBonusPct, v.qtyBonusPct).getString()
+                ? Component.translatable("gui.tyc2.aid.bonus_active", v.qtyBonusPct).getString()
                 : Component.translatable("gui.tyc2.aid.bonus_inactive", v.lowUnempThresholdPct).getString();
         TyC2UiWidgets.drawFittedStringScaled(poseStack, font, bonusLine,
                 82, 82, 152, 0.64F, 0.44F, v.employmentBonusActive ? 0x66FF99 : 0x8CA2B8, false);
@@ -1121,15 +1157,24 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                         hovered = wsIcon;
                     }
                 }
+                if (hovered.isEmpty() && wp.aidLimitReached()
+                        && relX >= 158 && relX < 236 && relY >= 106 && relY < 118) {
+                    hoveredTips = List.of(Component.translatable(
+                            "status.tyc2.aid.profession_limit",
+                            WorkplaceCatalog.MAX_AID_BUILDS_PER_PROFESSION
+                    ).withStyle(ChatFormatting.RED));
+                }
             }
-            int rows = Math.min(MAX_AID_ROWS, sync.selectedVillage.aidProjects.size());
-            for (int i = 0; i < rows; i++) {
-                S2CHubSyncPacket.AidProjectDto aid = sync.selectedVillage.aidProjects.get(i);
-                int ry = 138 + i * 14;
-                int maxHoverX = aid.canCancel() ? 200 : 235;
-                if (relX >= 81 && relX <= maxHoverX && relY >= ry && relY <= ry + 13) {
-                    hoveredTips = TyC2UiWidgets.buildAidMaterialsTooltip(aid);
-                    break;
+            if (hoveredTips == null) {
+                int rows = Math.min(MAX_AID_ROWS, sync.selectedVillage.aidProjects.size());
+                for (int i = 0; i < rows; i++) {
+                    S2CHubSyncPacket.AidProjectDto aid = sync.selectedVillage.aidProjects.get(i);
+                    int ry = 138 + i * 14;
+                    int maxHoverX = aid.canCancel() ? 200 : 235;
+                    if (relX >= 81 && relX <= maxHoverX && relY >= ry && relY <= ry + 13) {
+                        hoveredTips = TyC2UiWidgets.buildAidMaterialsTooltip(aid);
+                        break;
+                    }
                 }
             }
         }
@@ -1159,7 +1204,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                             Component.translatable("biome.tyc2." + v.biomeStyleId)).withStyle(ChatFormatting.GOLD));
                 } else if (relX >= 175 && relX <= 223) {
                     hoveredTips = List.of(Component.translatable("gui.tyc2.hub.refresh_tooltip",
-                            TyC2UiWidgets.formatRefreshCountdown(v.refreshRemainingTicks)).withStyle(ChatFormatting.YELLOW));
+                            TyC2UiWidgets.formatRefreshCountdown(liveRefreshRemaining(v))).withStyle(ChatFormatting.YELLOW));
                 } else if (relX >= 224 && relX <= 237 && TyC2UiWidgets.pdaSeasonU(v.seasonKey) >= 0) {
                     hoveredTips = List.of(Component.translatable("gui.tyc2.hub.season_tooltip",
                             Component.translatable("season.tyc2." + v.seasonKey)).withStyle(ChatFormatting.AQUA));
@@ -1177,9 +1222,9 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                     Component.translatable("gui.tyc2.terminal.battery", sync.batteryEu, sync.maxBatteryEu),
                     mouseX, mouseY
             );
-        } else if (sync != null && !sync.feedback.isEmpty()
+        } else if (sync != null && !activeFeedback.isEmpty()
                 && relX >= 78 && relX <= 238 && relY >= 183 && relY <= 197) {
-            renderTooltip(poseStack, font.split(sync.feedbackComponent, 220), mouseX, mouseY);
+            renderTooltip(poseStack, font.split(activeFeedbackComponent, 220), mouseX, mouseY);
         } else {
             renderTooltip(poseStack, mouseX, mouseY);
         }

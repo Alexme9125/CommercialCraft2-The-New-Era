@@ -143,6 +143,38 @@ class JsonConfigAndApiTest {
     }
 
     @Test
+    void configVersionMigrationUpgradesLegacy12000TicksPreservingCustomValues(@TempDir Path tempDir) throws Exception {
+        // 1. Legacy v1 config (missing configVersion) with old 12,000 default migrates to 168,000 and bumps to v2
+        Path legacyPath = tempDir.resolve("legacy_general.json");
+        Files.writeString(legacyPath,
+                "{\"demandRefreshTicks\": 12000, \"negotiationCostIc\": 350, \"enforceIndustrialTierCap\": false}");
+        TyC2Config migrated = TyC2Config.loadOrCreate(legacyPath);
+        assertEquals(TyC2Config.CURRENT_CONFIG_VERSION, migrated.configVersion());
+        assertEquals(TyC2Config.DEFAULT_DEMAND_REFRESH_TICKS, migrated.demandRefreshTicks());
+        assertEquals(350L, migrated.negotiationCostIc());
+        assertFalse(migrated.enforceIndustrialTierCap());
+        // Persisted back to disk as v2
+        String persistedJson = Files.readString(legacyPath);
+        assertTrue(persistedJson.contains("\"configVersion\": 2"));
+        assertTrue(persistedJson.contains("\"demandRefreshTicks\": 168000"));
+
+        // 2. Legacy config with custom non-12000 interval preserves the user's custom cadence
+        Path customLegacyPath = tempDir.resolve("custom_legacy.json");
+        Files.writeString(customLegacyPath, "{\"demandRefreshTicks\": 48000, \"negotiationCostIc\": 200}");
+        TyC2Config customMigrated = TyC2Config.loadOrCreate(customLegacyPath);
+        assertEquals(TyC2Config.CURRENT_CONFIG_VERSION, customMigrated.configVersion());
+        assertEquals(48_000, customMigrated.demandRefreshTicks());
+        assertEquals(200L, customMigrated.negotiationCostIc());
+
+        // 3. Explicit v2 config intentionally set to 12,000 is NOT overwritten
+        Path v2ExplicitPath = tempDir.resolve("v2_explicit.json");
+        Files.writeString(v2ExplicitPath, "{\"configVersion\": 2, \"demandRefreshTicks\": 12000}");
+        TyC2Config v2Loaded = TyC2Config.loadOrCreate(v2ExplicitPath);
+        assertEquals(2, v2Loaded.configVersion());
+        assertEquals(12_000, v2Loaded.demandRefreshTicks());
+    }
+
+    @Test
     void goodsCatalogJsonMergeAndSeasonalOverlay(@TempDir Path tempDir) throws Exception {
         GoodsCatalog catalog = GoodsCatalog.createDefault();
         Path customGoodsPath = tempDir.resolve("custom_goods.json");
