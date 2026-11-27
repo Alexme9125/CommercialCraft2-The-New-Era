@@ -1,5 +1,6 @@
 package com.tycooncraft.tyc2.forge.network;
 
+import com.tycooncraft.tyc2.core.CommonTagAliases;
 import com.tycooncraft.tyc2.core.MacroEconomyEngine;
 import com.tycooncraft.tyc2.core.Season;
 import com.tycooncraft.tyc2.core.TyC2Config;
@@ -59,7 +60,8 @@ public final class S2CHubSyncPacket {
             long unitPrice,
             boolean autoFulfill,
             boolean seasonalBonus,
-            boolean biomeSpecialty
+            boolean biomeSpecialty,
+            String optionalTag
     ) {
         public int remainingQty() {
             return Math.max(0, totalQty - fulfilledQty);
@@ -318,6 +320,8 @@ public final class S2CHubSyncPacket {
 
         List<OrderDto> orderDtos = new ArrayList<>();
         for (VillageTradeOrder o : village.getActiveOrders()) {
+            String optTag = TycoonForgeWorldManager.resolveOrderOptionalTag(o);
+            String displayTag = optTag == null ? "" : CommonTagAliases.displayTagLabel(optTag, true);
             orderDtos.add(new OrderDto(
                     o.orderId(),
                     o.side() == OrderSide.VILLAGE_BUYS,
@@ -328,7 +332,8 @@ public final class S2CHubSyncPacket {
                     o.unitPrice(),
                     o.autoFulfill(),
                     o.seasonalBonus(),
-                    o.biomeSpecialty()
+                    o.biomeSpecialty(),
+                    displayTag
             ));
         }
 
@@ -534,6 +539,7 @@ public final class S2CHubSyncPacket {
             buf.writeBoolean(o.autoFulfill());
             buf.writeBoolean(o.seasonalBonus());
             buf.writeBoolean(o.biomeSpecialty());
+            buf.writeUtf(clip(o.optionalTag(), 64), 64);
         }
 
         buf.writeBoolean(p.outboundZone);
@@ -675,7 +681,8 @@ public final class S2CHubSyncPacket {
                     buf.readVarLong(),
                     buf.readBoolean(),
                     buf.readBoolean(),
-                    buf.readBoolean()
+                    buf.readBoolean(),
+                    buf.readUtf(64)
             ));
         }
 

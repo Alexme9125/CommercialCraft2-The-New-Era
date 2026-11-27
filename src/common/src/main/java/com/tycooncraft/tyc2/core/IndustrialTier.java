@@ -30,6 +30,8 @@ public enum IndustrialTier {
     private static final Map<IndustrialTier, Set<String>> VANILLA_MILESTONES;
     private static final Map<String, IndustrialTier> IC2_LOOKUP;
     private static final Map<String, IndustrialTier> VANILLA_LOOKUP;
+    private static final Map<String, IndustrialTier> IC2_TAG_MILESTONES;
+    private static final Map<String, IndustrialTier> VANILLA_TAG_MILESTONES;
 
     static {
         Map<IndustrialTier, Set<String>> ic2 = new EnumMap<>(IndustrialTier.class);
@@ -109,6 +111,28 @@ public enum IndustrialTier {
             }
         }
         VANILLA_LOOKUP = Collections.unmodifiableMap(vanMap);
+
+        Map<String, IndustrialTier> ic2Tags = new LinkedHashMap<>();
+        ic2Tags.put("#plates/copper", TIER_1);
+        ic2Tags.put("#plates/tin", TIER_1);
+        ic2Tags.put("#plates/bronze", TIER_1);
+        ic2Tags.put("#circuits/basic", TIER_1);
+        ic2Tags.put("#cables/copper", TIER_1);
+        ic2Tags.put("#batteries", TIER_1);
+        ic2Tags.put("#ingots/steel", TIER_2);
+        ic2Tags.put("#circuits/advanced", TIER_2);
+        ic2Tags.put("#plates/advanced_alloy", TIER_3);
+        ic2Tags.put("#ingots/uranium", TIER_4);
+        ic2Tags.put("#ingots/iridium", TIER_5);
+        IC2_TAG_MILESTONES = Collections.unmodifiableMap(ic2Tags);
+
+        Map<String, IndustrialTier> vanTags = new LinkedHashMap<>();
+        vanTags.put("#ingots/iron", TIER_1);
+        vanTags.put("#gems/diamond", TIER_2);
+        vanTags.put("#rods/blaze", TIER_3);
+        vanTags.put("#gems/quartz", TIER_3);
+        vanTags.put("#ingots/netherite", TIER_4);
+        VANILLA_TAG_MILESTONES = Collections.unmodifiableMap(vanTags);
     }
 
     private final int level;
@@ -211,11 +235,39 @@ public enum IndustrialTier {
      * @return detected tier ({@link #TIER_0} if not a milestone)
      */
     public static IndustrialTier detectFromItemId(String itemId, boolean ic2Loaded) {
+        return detectFromItemId(itemId, ic2Loaded, null);
+    }
+
+    /**
+     * Detects the industrial tier unlocked by owning/crafting/placing a single item or block ID,
+     * checking both exact milestone IDs and common item tags when {@code tagMatcher} is provided.
+     *
+     * @param itemId item or block registry ID
+     * @param ic2Loaded whether IC2 is installed
+     * @param tagMatcher optional platform tag matcher (may be {@code null})
+     * @return detected tier ({@link #TIER_0} if not a milestone)
+     */
+    public static IndustrialTier detectFromItemId(
+            String itemId,
+            boolean ic2Loaded,
+            MintIngredient.TagMatcher tagMatcher) {
         if (itemId == null || itemId.isBlank()) {
             return TIER_0;
         }
         String normalized = itemId.trim().toLowerCase(Locale.ROOT);
         IndustrialTier builtIn = (ic2Loaded ? IC2_LOOKUP : VANILLA_LOOKUP).getOrDefault(normalized, TIER_0);
+        if (tagMatcher != null) {
+            Map<String, IndustrialTier> tagMap = ic2Loaded ? IC2_TAG_MILESTONES : VANILLA_TAG_MILESTONES;
+            for (Map.Entry<String, IndustrialTier> e : tagMap.entrySet()) {
+                if (e.getValue().level > builtIn.level
+                        && CommonTagAliases.matchesTagSpec(normalized, e.getKey(), tagMatcher)) {
+                    builtIn = e.getValue();
+                    if (builtIn == TIER_5) {
+                        break;
+                    }
+                }
+            }
+        }
         IndustrialTier custom = com.tycooncraft.tyc2.api.TyC2RegistryApi.resolveIndustrialTier(normalized, ic2Loaded);
         return max(builtIn, custom);
     }
@@ -228,12 +280,28 @@ public enum IndustrialTier {
      * @return highest detected tier
      */
     public static IndustrialTier evaluateHighestTier(Collection<String> itemIds, boolean ic2Loaded) {
+        return evaluateHighestTier(itemIds, ic2Loaded, null);
+    }
+
+    /**
+     * Evaluates the highest industrial tier represented across a collection of item/block IDs,
+     * checking both exact IDs and common item tags.
+     *
+     * @param itemIds item or block IDs owned/crafted by a player
+     * @param ic2Loaded whether IC2 is installed
+     * @param tagMatcher optional platform tag matcher (may be {@code null})
+     * @return highest detected tier
+     */
+    public static IndustrialTier evaluateHighestTier(
+            Collection<String> itemIds,
+            boolean ic2Loaded,
+            MintIngredient.TagMatcher tagMatcher) {
         IndustrialTier best = TIER_0;
         if (itemIds == null) {
             return best;
         }
         for (String id : itemIds) {
-            best = max(best, detectFromItemId(id, ic2Loaded));
+            best = max(best, detectFromItemId(id, ic2Loaded, tagMatcher));
             if (best == TIER_5) {
                 break;
             }
@@ -335,7 +403,25 @@ public enum IndustrialTier {
          * @return {@code true} if the player's tier increased
          */
         public boolean recordItemMilestone(UUID playerUuid, String itemId, boolean ic2Loaded) {
-            return recordTier(playerUuid, detectFromItemId(itemId, ic2Loaded));
+            return recordItemMilestone(playerUuid, itemId, ic2Loaded, null);
+        }
+
+        /**
+         * Inspects an item/block ID acquired or placed by a player (including common item tags) and
+         * promotes their tier if applicable.
+         *
+         * @param playerUuid player UUID
+         * @param itemId item or block registry ID
+         * @param ic2Loaded whether IC2 is installed
+         * @param tagMatcher optional platform tag matcher (may be {@code null})
+         * @return {@code true} if the player's tier increased
+         */
+        public boolean recordItemMilestone(
+                UUID playerUuid,
+                String itemId,
+                boolean ic2Loaded,
+                MintIngredient.TagMatcher tagMatcher) {
+            return recordTier(playerUuid, detectFromItemId(itemId, ic2Loaded, tagMatcher));
         }
 
         /**

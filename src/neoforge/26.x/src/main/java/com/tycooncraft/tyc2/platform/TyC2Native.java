@@ -3,6 +3,7 @@ package com.tycooncraft.tyc2.platform;
 import com.tycooncraft.tyc2.TyC2Constants;
 import com.tycooncraft.tyc2.TyC2Registries;
 import com.tycooncraft.tyc2.blockentity.TyC2FeSink;
+import com.tycooncraft.tyc2.core.CommonTagAliases;
 import com.tycooncraft.tyc2.core.TriModePowerMath;
 import com.tycooncraft.tyc2.item.CommTerminalItem;
 import com.tycooncraft.tyc2.village.SlotStack;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -211,17 +213,31 @@ public final class TyC2Native {
         return findItem(qualifiedId).map(item -> new ItemStack(item, count)).orElse(ItemStack.EMPTY);
     }
 
+    private static final Map<String, TagKey<Item>> ITEM_TAG_KEY_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, TagKey<Block>> BLOCK_TAG_KEY_CACHE = new ConcurrentHashMap<>();
+
+    private static TagKey<Item> itemTagKey(String rawTagId) {
+        return ITEM_TAG_KEY_CACHE.computeIfAbsent(rawTagId, key -> {
+            Identifier id = Identifier.tryParse(key);
+            return id == null ? null : TagKey.create(Registries.ITEM, id);
+        });
+    }
+
+    private static TagKey<Block> blockTagKey(String rawTagId) {
+        return BLOCK_TAG_KEY_CACHE.computeIfAbsent(rawTagId, key -> {
+            Identifier id = Identifier.tryParse(key);
+            return id == null ? null : TagKey.create(Registries.BLOCK, id);
+        });
+    }
+
     /** Checks whether {@code stack} belongs to item tag {@code tagId} (without leading {@code '#'}). */
     public static boolean itemHasTag(ItemStack stack, String tagId) {
         if (stack == null || stack.isEmpty() || tagId == null || tagId.isBlank()) {
             return false;
         }
-        String raw = tagId.startsWith("#") ? tagId.substring(1) : tagId;
-        Identifier id = Identifier.tryParse(raw);
-        if (id == null) {
-            return false;
-        }
-        return stack.is(TagKey.create(Registries.ITEM, id));
+        String raw = (tagId.startsWith("#") ? tagId.substring(1) : tagId).trim().toLowerCase(Locale.ROOT);
+        TagKey<Item> key = itemTagKey(raw);
+        return key != null && stack.is(key);
     }
 
     /** Checks whether a registered item ID belongs to item tag {@code tagId}. */
@@ -230,12 +246,35 @@ public final class TyC2Native {
         if (itemOpt.isEmpty() || tagId == null || tagId.isBlank()) {
             return false;
         }
-        String raw = tagId.startsWith("#") ? tagId.substring(1) : tagId;
-        Identifier id = Identifier.tryParse(raw);
-        if (id == null) {
-            return false;
+        String raw = (tagId.startsWith("#") ? tagId.substring(1) : tagId).trim().toLowerCase(Locale.ROOT);
+        TagKey<Item> key = itemTagKey(raw);
+        return key != null && itemOpt.get().builtInRegistryHolder().is(key);
+    }
+
+    /**
+     * Resolves the first registered non-air item ID belonging to {@code tagSpec} (expanding
+     * {@code c:}/{@code forge:} namespaces and Forge 1.19.2 &harr; NeoForge 1.21+ renames).
+     */
+    public static Optional<String> findFirstItemIdForTag(String tagSpec) {
+        if (tagSpec == null || tagSpec.isBlank()) {
+            return Optional.empty();
         }
-        return itemOpt.get().builtInRegistryHolder().is(TagKey.create(Registries.ITEM, id));
+        for (String candidate : CommonTagAliases.expandTagCandidates(tagSpec)) {
+            TagKey<Item> key = itemTagKey(candidate);
+            if (key == null) {
+                continue;
+            }
+            for (Holder<Item> holder : BuiltInRegistries.ITEM.getTagOrEmpty(key)) {
+                Item item = holder.value();
+                if (item != null && item != Items.AIR) {
+                    Identifier itemKey = BuiltInRegistries.ITEM.getKey(item);
+                    if (itemKey != null) {
+                        return Optional.of(itemKey.toString());
+                    }
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     /** Checks whether {@code state} belongs to block tag {@code tagId}. */
@@ -243,12 +282,9 @@ public final class TyC2Native {
         if (state == null || tagId == null || tagId.isBlank()) {
             return false;
         }
-        String raw = tagId.startsWith("#") ? tagId.substring(1) : tagId;
-        Identifier id = Identifier.tryParse(raw);
-        if (id == null) {
-            return false;
-        }
-        return state.is(TagKey.create(Registries.BLOCK, id));
+        String raw = (tagId.startsWith("#") ? tagId.substring(1) : tagId).trim().toLowerCase(Locale.ROOT);
+        TagKey<Block> key = blockTagKey(raw);
+        return key != null && state.is(key);
     }
 
     /** Returns the namespaced dimension ID string of a Level. */

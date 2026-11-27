@@ -234,6 +234,7 @@
   "gui.tyc2.order.tag.biome_sell": "特产",
   "gui.tyc2.order.tag.season_buy": "季需",
   "gui.tyc2.order.tag.season_sell": "当季",
+  "gui.tyc2.order.tooltip.accepts_tag": "接受同标签物品：%s",
   "gui.tyc2.order.tooltip.biome_buy": "当地紧缺需求：收购量提升，单价享 +15% 溢价",
   "gui.tyc2.order.tooltip.biome_sell": "当地特产供货：产量提升，单价享 -12% 折扣",
   "gui.tyc2.order.tooltip.season_buy": "当前季节紧缺需求：收购单价上浮",

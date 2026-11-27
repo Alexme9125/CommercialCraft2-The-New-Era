@@ -8,6 +8,7 @@ import com.tycooncraft.tyc2.compat.Ic2SoftBridge;
 import com.tycooncraft.tyc2.compat.Lc2SoftBridge;
 import com.tycooncraft.tyc2.compat.SeasonSoftBridge;
 import com.tycooncraft.tyc2.core.BankAccountManager;
+import com.tycooncraft.tyc2.core.CommonTagAliases;
 import com.tycooncraft.tyc2.core.CurrencyDenomination;
 import com.tycooncraft.tyc2.core.DemandGenerator;
 import com.tycooncraft.tyc2.core.IndustrialTier;
@@ -91,6 +92,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -114,6 +116,14 @@ public final class TyC2WorldManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(TyC2WorldManager.class);
     private static final ExpansionPlanner PLANNER = new ExpansionPlanner();
     private static final Random RNG = new Random();
+    private static final Set<String> BASIC_NEGOTIATION_FOODS = Set.of(
+            "minecraft:bread", "minecraft:baked_potato", "minecraft:cooked_beef",
+            "minecraft:cooked_porkchop", "minecraft:cooked_mutton", "minecraft:cooked_chicken",
+            "minecraft:cooked_cod", "minecraft:cooked_salmon", "minecraft:cooked_rabbit",
+            "minecraft:carrot", "minecraft:apple", "minecraft:potato", "minecraft:beetroot",
+            "minecraft:sweet_berries", "minecraft:pumpkin_pie", "minecraft:golden_carrot"
+    );
+
     private static final Set<String> REJECTED_NEGOTIATION_FOODS = Set.of(
             "minecraft:rotten_flesh",
             "minecraft:spider_eye",
@@ -158,7 +168,8 @@ public final class TyC2WorldManager {
                 TycoonSavedData data = getData(serverLevel);
                 data.recordPlayerPlaced(TyC2Native.dimensionId(serverLevel), event.getPos());
                 String placedId = TyC2Native.blockId(event.getPlacedBlock());
-                if (data.industrialTiers().recordItemMilestone(player.getUUID(), placedId, Ic2SoftBridge.isIc2Loaded())) {
+                if (data.industrialTiers().recordItemMilestone(
+                        player.getUUID(), placedId, Ic2SoftBridge.isIc2Loaded(), TyC2Native::itemIdHasTag)) {
                     data.setDirty();
                 }
             }
@@ -643,7 +654,7 @@ public final class TyC2WorldManager {
         if (desire != null && !desire.completed() && !v.isExpansionPaused()) {
             ExpansionDesire current = desire;
             if (current.autoFulfill()) {
-                ExpansionDesire updated = current.pullAvailableFromInbound(v.getStorage());
+                ExpansionDesire updated = current.pullAvailableFromInbound(v.getStorage(), TyC2Native::itemIdHasTag);
                 if (!updated.equals(current)) {
                     v.setActiveExpansion(updated);
                     data.setDirty();
@@ -1329,7 +1340,8 @@ public final class TyC2WorldManager {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack s = player.getInventory().getItem(i);
             if (!s.isEmpty()) {
-                if (data.industrialTiers().recordItemMilestone(player.getUUID(), TyC2Native.itemId(s), ic2)) {
+                if (data.industrialTiers().recordItemMilestone(
+                        player.getUUID(), TyC2Native.itemId(s), ic2, TyC2Native::itemIdHasTag)) {
                     changed = true;
                 }
             }
@@ -1353,6 +1365,7 @@ public final class TyC2WorldManager {
         Season season = SeasonSoftBridge.currentSeason(level);
         IndustrialTier tier = resolveVillageIndustrialTier(data, v);
         TyC2Config cfg = TyC2DataLoader.config();
+        Predicate<String> modLoaded = modId -> ModList.get() != null && ModList.get().isLoaded(modId);
         DemandGenerator.GeneratedDemand demand = TyC2DataLoader.demandGenerator().generate(
                 v.getLevel(),
                 v.getBiomeStyle().id(),
@@ -1361,6 +1374,8 @@ public final class TyC2WorldManager {
                 season,
                 data.economy(),
                 TyC2Native::itemExists,
+                modLoaded,
+                TyC2Native::findFirstItemIdForTag,
                 v.getEmploymentStats(),
                 TyC2DataLoader.workplaceCatalog(),
                 RNG
@@ -1386,7 +1401,8 @@ public final class TyC2WorldManager {
                     expires,
                     false,
                     go.seasonalHighlight(),
-                    go.biomeSpecialty()
+                    go.biomeSpecialty(),
+                    go.optionalTag() == null ? "" : go.optionalTag()
             ));
         }
         v.setActiveOrders(fresh);
@@ -2135,7 +2151,8 @@ public final class TyC2WorldManager {
                 if (isTerminal && !desire.allMaterialsDelivered()) {
                     boolean anyInboundMatch = false;
                     for (Map.Entry<String, Integer> rem : desire.remainingMaterials().entrySet()) {
-                        if (rem.getValue() > 0 && village.getStorage().countInInbound(rem.getKey()) > 0) {
+                        if (rem.getValue() > 0 && ExpansionDesire.countAvailableInInbound(
+                                village.getStorage(), rem.getKey(), TyC2Native::itemIdHasTag) > 0) {
                             anyInboundMatch = true;
                             break;
                         }
@@ -2157,10 +2174,10 @@ public final class TyC2WorldManager {
                 }
                 if (!isTerminal) {
                     for (Map.Entry<String, Integer> rem : desire.remainingMaterials().entrySet()) {
-                        transferItemFromPlayerToInbound(player, level, village, rem.getKey(), rem.getValue());
+                        transferExpansionMaterialFromPlayerToInbound(player, level, village, rem.getKey(), rem.getValue());
                     }
                 }
-                ExpansionDesire updated = desire.pullAvailableFromInbound(village.getStorage());
+                ExpansionDesire updated = desire.pullAvailableFromInbound(village.getStorage(), TyC2Native::itemIdHasTag);
                 boolean deliveredAny = !updated.equals(desire);
                 if (deliveredAny) {
                     village.setActiveExpansion(updated);
@@ -2824,7 +2841,8 @@ public final class TyC2WorldManager {
             boolean needed = village.getActiveOrders().stream()
                     .anyMatch(o -> o.side() == OrderSide.VILLAGE_BUYS && !o.isCompleted() && buildOrderIdMatcher(o).test(id));
             if (!needed && village.getActiveExpansion() != null) {
-                needed = village.getActiveExpansion().remainingFor(id) > 0;
+                needed = village.getActiveExpansion().remainingMaterials().keySet().stream()
+                        .anyMatch(reqId -> ExpansionDesire.matchesMaterial(id, reqId, TyC2Native::itemIdHasTag));
             }
             if (!needed) {
                 continue;
@@ -2847,17 +2865,31 @@ public final class TyC2WorldManager {
         }
     }
 
-    private static void transferItemFromPlayerToInbound(
+    private static void transferExpansionMaterialFromPlayerToInbound(
             ServerPlayer player,
             ServerLevel level,
             VillageRecord village,
-            String targetItemId,
+            String requiredItemId,
             int maxCount
     ) {
-        transferMatchingFromPlayerToInbound(player, level, village, id -> targetItemId.equals(id), maxCount);
+        // Exact item ID first, then controlled common-tag substitutes for any remaining shortfall
+        int movedExact = transferMatchingFromPlayerToInbound(
+                player, level, village, id -> requiredItemId.equals(id), maxCount
+        );
+        int remaining = maxCount - movedExact;
+        if (remaining > 0 && ExpansionDesire.optionalTagForMaterial(requiredItemId) != null) {
+            transferMatchingFromPlayerToInbound(
+                    player,
+                    level,
+                    village,
+                    id -> !requiredItemId.equals(id)
+                            && ExpansionDesire.matchesMaterial(id, requiredItemId, TyC2Native::itemIdHasTag),
+                    remaining
+            );
+        }
     }
 
-    private static void transferMatchingFromPlayerToInbound(
+    private static int transferMatchingFromPlayerToInbound(
             ServerPlayer player,
             ServerLevel level,
             VillageRecord village,
@@ -2887,14 +2919,22 @@ public final class TyC2WorldManager {
                 }
             }
         }
+        return maxCount - remaining;
+    }
+
+    private static String resolveOrderOptionalTag(VillageTradeOrder order) {
+        if (order.optionalTag() != null && !order.optionalTag().isBlank()) {
+            return order.optionalTag();
+        }
+        return TyC2DataLoader.goodsCatalog()
+                .findOrderGood(order.displayHint(), order.itemId(), order.side() == OrderSide.VILLAGE_BUYS)
+                .map(g -> g.optionalTag())
+                .orElse(null);
     }
 
     private static Predicate<String> buildOrderIdMatcher(VillageTradeOrder order) {
         String exactId = order.itemId();
-        String optTag = TyC2DataLoader.goodsCatalog()
-                .findOrderGood(order.displayHint(), exactId, order.side() == OrderSide.VILLAGE_BUYS)
-                .map(g -> g.optionalTag())
-                .orElse(null);
+        String optTag = resolveOrderOptionalTag(order);
         if (optTag == null || optTag.isBlank()) {
             return id -> exactId.equals(id);
         }
@@ -2907,16 +2947,7 @@ public final class TyC2WorldManager {
     }
 
     private static boolean matchesTagSpec(String itemId, String tagSpec) {
-        if (itemId == null || itemId.isBlank() || tagSpec == null || tagSpec.isBlank()) {
-            return false;
-        }
-        String clean = tagSpec.startsWith("#") ? tagSpec.substring(1) : tagSpec;
-        if (clean.contains(":")) {
-            return TyC2Native.itemIdHasTag(itemId, clean);
-        }
-        return TyC2Native.itemIdHasTag(itemId, "c:" + clean)
-                || TyC2Native.itemIdHasTag(itemId, "forge:" + clean)
-                || TyC2Native.itemIdHasTag(itemId, "minecraft:" + clean);
+        return CommonTagAliases.matchesTagSpec(itemId, tagSpec, TyC2Native::itemIdHasTag);
     }
 
     private static Container resolveHubCashBox(ServerPlayer player, CooperationHubBlockEntity hub) {
@@ -3188,6 +3219,8 @@ public final class TyC2WorldManager {
             om.put("autoFulfill", o.autoFulfill());
             om.put("seasonalBonus", o.seasonalBonus());
             om.put("biomeSpecialty", o.biomeSpecialty());
+            String optTag = resolveOrderOptionalTag(o);
+            om.put("optionalTag", optTag == null ? "" : CommonTagAliases.displayTagLabel(optTag, false));
             orders.add(om);
         }
         root.put("orders", orders);
@@ -3362,18 +3395,11 @@ public final class TyC2WorldManager {
         if (REJECTED_NEGOTIATION_FOODS.contains(id)) {
             return false;
         }
-        FoodProperties food = stack.get(DataComponents.FOOD);
-        if (food != null) {
-            return food.nutrition() >= 3;
+        if (BASIC_NEGOTIATION_FOODS.contains(id)) {
+            return true;
         }
-        return "minecraft:bread".equals(id)
-                || "minecraft:baked_potato".equals(id)
-                || "minecraft:cooked_beef".equals(id)
-                || "minecraft:cooked_porkchop".equals(id)
-                || "minecraft:cooked_chicken".equals(id)
-                || "minecraft:cooked_mutton".equals(id)
-                || "minecraft:carrot".equals(id)
-                || "minecraft:apple".equals(id);
+        FoodProperties food = stack.get(DataComponents.FOOD);
+        return food != null && food.nutrition() >= 3;
     }
 
     private static Component formatRemainingMcTime(long remainingTicks) {

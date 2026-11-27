@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
@@ -149,27 +151,27 @@ public final class GoodsCatalog {
     private void registerVanillaCrops() {
         // Seasonal Vanilla Crops (DESIGN.md Section 8.3)
         add(TradeGood.builder("tyc2:wheat", "minecraft:wheat", GoodsCategory.AGRICULTURE, 3)
-                .levelRange(1, 6).sellable(true).buyable(false).quantityRange(12, 32)
+                .optionalTag("#crops/wheat").levelRange(1, 6).sellable(true).buyable(false).quantityRange(12, 32)
                 .harvestSeasons(Season.SPRING, Season.SUMMER, Season.AUTUMN)
                 .biomeAffinities("plains").build());
         add(TradeGood.builder("tyc2:carrot", "minecraft:carrot", GoodsCategory.AGRICULTURE, 3)
-                .levelRange(1, 6).sellable(true).buyable(false).quantityRange(12, 32)
+                .optionalTag("#crops/carrot").levelRange(1, 6).sellable(true).buyable(false).quantityRange(12, 32)
                 .harvestSeasons(Season.SPRING, Season.SUMMER, Season.AUTUMN)
                 .biomeAffinities("plains").build());
         add(TradeGood.builder("tyc2:potato", "minecraft:potato", GoodsCategory.AGRICULTURE, 3)
-                .levelRange(1, 6).sellable(true).buyable(false).quantityRange(12, 32)
+                .optionalTag("#crops/potato").levelRange(1, 6).sellable(true).buyable(false).quantityRange(12, 32)
                 .harvestSeasons(Season.SPRING, Season.SUMMER, Season.AUTUMN)
                 .biomeAffinities("taiga", "plains").build());
         add(TradeGood.builder("tyc2:beetroot", "minecraft:beetroot", GoodsCategory.AGRICULTURE, 3)
-                .levelRange(1, 5).sellable(true).buyable(false).quantityRange(10, 28)
+                .optionalTag("#crops/beetroot").levelRange(1, 5).sellable(true).buyable(false).quantityRange(10, 28)
                 .harvestSeasons(Season.SPRING, Season.AUTUMN, Season.WINTER)
                 .biomeAffinities("snowy").build());
         add(TradeGood.builder("tyc2:pumpkin", "minecraft:pumpkin", GoodsCategory.AGRICULTURE, 5)
-                .levelRange(1, 6).sellable(true).buyable(false).quantityRange(6, 18)
+                .optionalTag("#crops/pumpkin").levelRange(1, 6).sellable(true).buyable(false).quantityRange(6, 18)
                 .harvestSeasons(Season.AUTUMN)
                 .biomeAffinities("plains", "taiga").build());
         add(TradeGood.builder("tyc2:melon_slice", "minecraft:melon_slice", GoodsCategory.AGRICULTURE, 2)
-                .levelRange(1, 6).sellable(true).buyable(false).quantityRange(12, 36)
+                .optionalTag("#crops/melon").levelRange(1, 6).sellable(true).buyable(false).quantityRange(12, 36)
                 .harvestSeasons(Season.SUMMER)
                 .biomeAffinities("savanna", "jungle").build());
         add(TradeGood.builder("tyc2:sweet_berries", "minecraft:sweet_berries", GoodsCategory.AGRICULTURE, 3)
@@ -209,15 +211,15 @@ public final class GoodsCatalog {
 
         // Lv 7-10 Metropolis staple crop demand
         add(TradeGood.builder("tyc2:metro_wheat_demand", "minecraft:wheat", GoodsCategory.AGRICULTURE, 4)
-                .levelRange(7, 10).sellable(false).buyable(true).quantityRange(16, 40)
+                .optionalTag("#crops/wheat").levelRange(7, 10).sellable(false).buyable(true).quantityRange(16, 40)
                 .harvestSeasons(Season.SPRING, Season.SUMMER, Season.AUTUMN)
                 .demandBiomes("desert", "snowy").build());
         add(TradeGood.builder("tyc2:metro_carrot_demand", "minecraft:carrot", GoodsCategory.AGRICULTURE, 4)
-                .levelRange(7, 10).sellable(false).buyable(true).quantityRange(16, 40)
+                .optionalTag("#crops/carrot").levelRange(7, 10).sellable(false).buyable(true).quantityRange(16, 40)
                 .harvestSeasons(Season.SPRING, Season.SUMMER, Season.AUTUMN)
                 .demandBiomes("desert", "snowy").build());
         add(TradeGood.builder("tyc2:metro_potato_demand", "minecraft:potato", GoodsCategory.AGRICULTURE, 4)
-                .levelRange(7, 10).sellable(false).buyable(true).quantityRange(16, 40)
+                .optionalTag("#crops/potato").levelRange(7, 10).sellable(false).buyable(true).quantityRange(16, 40)
                 .harvestSeasons(Season.SPRING, Season.SUMMER, Season.AUTUMN)
                 .demandBiomes("desert", "snowy").build());
     }
@@ -241,10 +243,10 @@ public final class GoodsCatalog {
                 .quantityRange(6, 20)
                 .demandBiomes("plains", "savanna", "jungle", "swamp", "taiga").build());
         add(TradeGood.builder("tyc2:cobblestone", "minecraft:cobblestone", GoodsCategory.MINING, 1)
-                .levelRange(1, 4).sellable(false).buyable(true).quantityRange(32, 64)
+                .optionalTag("#cobblestones").levelRange(1, 4).sellable(false).buyable(true).quantityRange(32, 64)
                 .demandBiomes("desert", "swamp").build());
         add(TradeGood.builder("tyc2:stone", "minecraft:stone", GoodsCategory.MINING, 2)
-                .levelRange(1, 6).sellable(false).buyable(true).quantityRange(24, 64)
+                .optionalTag("#stones").levelRange(1, 6).sellable(false).buyable(true).quantityRange(24, 64)
                 .demandBiomes("desert", "plains", "savanna", "jungle", "swamp").build());
         add(TradeGood.builder("tyc2:flint", "minecraft:flint", GoodsCategory.MINING, 3)
                 .levelRange(1, 4).sellable(false).buyable(true).quantityRange(10, 24)
@@ -298,15 +300,15 @@ public final class GoodsCatalog {
                 .sellable(false).buyable(true).quantityRange(4, 14)
                 .demandBiomes("desert", "savanna").build());
         add(TradeGood.builder("tyc2:redstone", "minecraft:redstone", GoodsCategory.INDUSTRIAL, 6)
-                .levelRange(4, 8).industrialTier(IndustrialTier.TIER_1)
+                .optionalTag("#dusts/redstone").levelRange(4, 8).industrialTier(IndustrialTier.TIER_1)
                 .sellable(false).buyable(true).quantityRange(12, 32)
                 .demandBiomes("taiga", "plains").build());
         add(TradeGood.builder("tyc2:lapis_lazuli", "minecraft:lapis_lazuli", GoodsCategory.MINING, 7)
-                .levelRange(4, 8).industrialTier(IndustrialTier.TIER_1)
+                .optionalTag("#gems/lapis").levelRange(4, 8).industrialTier(IndustrialTier.TIER_1)
                 .sellable(false).buyable(true).quantityRange(8, 24)
                 .demandBiomes("desert", "snowy").build());
         add(TradeGood.builder("tyc2:quartz", "minecraft:quartz", GoodsCategory.MINING, 10)
-                .levelRange(5, 8).industrialTier(IndustrialTier.TIER_2)
+                .optionalTag("#gems/quartz").levelRange(5, 8).industrialTier(IndustrialTier.TIER_2)
                 .sellable(false).buyable(true).quantityRange(8, 24)
                 .demandBiomes("plains", "desert").build());
         add(TradeGood.builder("tyc2:piston", "minecraft:piston", GoodsCategory.INDUSTRIAL, 24)
@@ -318,7 +320,7 @@ public final class GoodsCatalog {
                 .sellable(false).buyable(true).quantityRange(3, 10)
                 .demandBiomes("taiga", "plains").build());
         add(TradeGood.builder("tyc2:bread", "minecraft:bread", GoodsCategory.FOOD_BASIC, 7)
-                .levelRange(2, 6).sellable(false).buyable(true).quantityRange(8, 24)
+                .optionalTag("#foods/bread").levelRange(2, 6).sellable(false).buyable(true).quantityRange(8, 24)
                 .demandBiomes("desert", "snowy", "taiga", "savanna", "swamp")
                 .demandSeasons(Season.WINTER).build());
         add(TradeGood.builder("tyc2:baked_potato", "minecraft:baked_potato", GoodsCategory.FOOD_BASIC, 7)
@@ -326,7 +328,7 @@ public final class GoodsCatalog {
                 .demandBiomes("desert", "snowy", "taiga")
                 .demandSeasons(Season.WINTER).build());
         add(TradeGood.builder("tyc2:cooked_porkchop", "minecraft:cooked_porkchop", GoodsCategory.FOOD_BASIC, 11)
-                .levelRange(4, 7).sellable(false).buyable(true).quantityRange(6, 18)
+                .optionalTag("#foods/cooked_pork").levelRange(4, 7).sellable(false).buyable(true).quantityRange(6, 18)
                 .demandBiomes("desert", "snowy", "taiga", "savanna", "swamp")
                 .demandSeasons(Season.WINTER).build());
     }
@@ -338,7 +340,7 @@ public final class GoodsCatalog {
                 .sellable(false).buyable(true).quantityRange(6, 18)
                 .demandBiomes("desert", "snowy").build());
         add(TradeGood.builder("tyc2:cooked_beef", "minecraft:cooked_beef", GoodsCategory.FOOD_FINE, 14)
-                .levelRange(7, 10).industrialTier(IndustrialTier.TIER_0)
+                .optionalTag("#foods/cooked_beef").levelRange(7, 10).industrialTier(IndustrialTier.TIER_0)
                 .sellable(false).buyable(true).quantityRange(8, 24)
                 .demandBiomes("desert", "snowy", "taiga", "savanna", "swamp")
                 .demandSeasons(Season.WINTER).build());
@@ -357,7 +359,7 @@ public final class GoodsCatalog {
                 .demandBiomes("snowy", "taiga", "swamp")
                 .demandSeasons(Season.WINTER).build());
         add(TradeGood.builder("tyc2:glowstone_dust", "minecraft:glowstone_dust", GoodsCategory.INDUSTRIAL, 14)
-                .levelRange(7, 10).industrialTier(IndustrialTier.TIER_2)
+                .optionalTag("#dusts/glowstone").levelRange(7, 10).industrialTier(IndustrialTier.TIER_2)
                 .sellable(false).buyable(true).quantityRange(8, 24)
                 .demandBiomes("snowy", "swamp", "jungle")
                 .demandSeasons(Season.WINTER).build());
@@ -367,11 +369,11 @@ public final class GoodsCatalog {
                 .demandBiomes("snowy", "taiga")
                 .demandSeasons(Season.WINTER).build());
         add(TradeGood.builder("tyc2:obsidian", "minecraft:obsidian", GoodsCategory.INDUSTRIAL, 18)
-                .levelRange(7, 10).industrialTier(IndustrialTier.TIER_2)
+                .optionalTag("#obsidians").levelRange(7, 10).industrialTier(IndustrialTier.TIER_2)
                 .sellable(false).buyable(true).quantityRange(6, 18)
                 .demandBiomes("desert", "savanna").build());
         add(TradeGood.builder("tyc2:diamond", "minecraft:diamond", GoodsCategory.METAL, 140)
-                .levelRange(7, 10).industrialTier(IndustrialTier.TIER_2)
+                .optionalTag("#gems/diamond").levelRange(7, 10).industrialTier(IndustrialTier.TIER_2)
                 .sellable(false).buyable(true).quantityRange(1, 4)
                 .demandBiomes("plains", "desert", "snowy").build());
 
@@ -475,13 +477,13 @@ public final class GoodsCatalog {
                 .levelRange(4, 10).industrialTier(IndustrialTier.TIER_2)
                 .sellable(false).buyable(true).quantityRange(4, 14).build());
         add(TradeGood.builder("tyc2:ic2_circuit", "ic2:circuit", GoodsCategory.INDUSTRIAL, 34)
-                .requiredModId("ic2").levelRange(4, 7).industrialTier(IndustrialTier.TIER_1)
+                .optionalTag("#circuits/basic").requiredModId("ic2").levelRange(4, 7).industrialTier(IndustrialTier.TIER_1)
                 .sellable(false).buyable(true).quantityRange(2, 8).build());
         add(TradeGood.builder("tyc2:ic2_advanced_circuit", "ic2:advanced_circuit", GoodsCategory.INDUSTRIAL, 85)
-                .requiredModId("ic2").levelRange(6, 9).industrialTier(IndustrialTier.TIER_2)
+                .optionalTag("#circuits/advanced").requiredModId("ic2").levelRange(6, 9).industrialTier(IndustrialTier.TIER_2)
                 .sellable(false).buyable(true).quantityRange(1, 5).build());
         add(TradeGood.builder("tyc2:ic2_copper_cable", "ic2:copper_cable", GoodsCategory.INDUSTRIAL, 5)
-                .requiredModId("ic2").levelRange(4, 6).industrialTier(IndustrialTier.TIER_1)
+                .optionalTag("#cables/copper").requiredModId("ic2").levelRange(4, 6).industrialTier(IndustrialTier.TIER_1)
                 .sellable(false).buyable(true).quantityRange(12, 32).build());
         add(TradeGood.builder("tyc2:ic2_re_battery", "ic2:re_battery", GoodsCategory.INDUSTRIAL, 28)
                 .requiredModId("ic2").levelRange(4, 7).industrialTier(IndustrialTier.TIER_1)
@@ -526,7 +528,7 @@ public final class GoodsCatalog {
         add(TradeGood.builder("tyc2:ecc2_iridium_ingot", "ecc2:iridium_ingot", GoodsCategory.ENDGAME, 1150)
                 .optionalTag("#ingots/iridium").requiredModId("ecc2")
                 .levelRange(10, 10).industrialTier(IndustrialTier.TIER_5)
-                .sellable(true).buyable(false).quantityRange(1, 2).build());
+                .sellable(true).buyable(true).quantityRange(1, 2).build());
     }
 
     private void registerFarmersDelightGoods() {
@@ -571,15 +573,15 @@ public final class GoodsCatalog {
     private void registerKaleidoscopeCookeryGoods() {
         // Kaleidoscope Cookery crops (DESIGN.md Section 8.3)
         add(TradeGood.builder("tyc2:kc_lettuce", "kaleidoscope_cookery:lettuce", GoodsCategory.AGRICULTURE, 4)
-                .requiredModId("kaleidoscope_cookery")
+                .optionalTag("#crops/lettuce").requiredModId("kaleidoscope_cookery")
                 .levelRange(1, 6).sellable(true).buyable(false).quantityRange(10, 28)
                 .harvestSeasons(Season.SPRING, Season.AUTUMN).biomeAffinities("plains").build());
         add(TradeGood.builder("tyc2:kc_tomato", "kaleidoscope_cookery:tomato", GoodsCategory.AGRICULTURE, 4)
-                .requiredModId("kaleidoscope_cookery")
+                .optionalTag("#crops/tomato").requiredModId("kaleidoscope_cookery")
                 .levelRange(1, 6).sellable(true).buyable(false).quantityRange(10, 28)
                 .harvestSeasons(Season.SUMMER, Season.AUTUMN).biomeAffinities("savanna").build());
         add(TradeGood.builder("tyc2:kc_chili", "kaleidoscope_cookery:chili", GoodsCategory.AGRICULTURE, 5)
-                .requiredModId("kaleidoscope_cookery")
+                .optionalTag("#crops/chili").requiredModId("kaleidoscope_cookery")
                 .levelRange(2, 6).sellable(true).buyable(false).quantityRange(8, 24)
                 .harvestSeasons(Season.SUMMER, Season.AUTUMN).biomeAffinities("savanna").build());
         add(TradeGood.builder("tyc2:kc_red_chili", "kaleidoscope_cookery:red_chili", GoodsCategory.AGRICULTURE, 5)
@@ -591,7 +593,7 @@ public final class GoodsCatalog {
                 .levelRange(2, 6).sellable(true).buyable(false).quantityRange(8, 24)
                 .harvestSeasons(Season.SUMMER, Season.AUTUMN).biomeAffinities("savanna").build());
         add(TradeGood.builder("tyc2:kc_rice", "kaleidoscope_cookery:rice", GoodsCategory.AGRICULTURE, 4)
-                .requiredModId("kaleidoscope_cookery")
+                .optionalTag("#crops/rice").requiredModId("kaleidoscope_cookery")
                 .levelRange(2, 6).sellable(true).buyable(false).quantityRange(10, 28)
                 .harvestSeasons(Season.SUMMER, Season.AUTUMN).build());
         add(TradeGood.builder("tyc2:kc_wild_rice", "kaleidoscope_cookery:wild_rice", GoodsCategory.AGRICULTURE, 5)
@@ -763,6 +765,28 @@ public final class GoodsCatalog {
      * @return unmodifiable list of active goods
      */
     public List<TradeGood> getAvailableGoods(Predicate<String> itemExists, Predicate<String> modLoaded) {
+        return getAvailableGoods(itemExists, modLoaded, null);
+    }
+
+    /**
+     * Returns all goods available in the live runtime registry.
+     *
+     * <p>Pass 1 includes every good whose concrete {@link TradeGood#itemId()} is registered and
+     * whose {@link TradeGood#requiredModId()} (if set) is loaded. When {@code firstTagItemResolver}
+     * is provided, Pass 2 additionally activates goods carrying a non-blank {@link TradeGood#optionalTag()}
+     * whose primary provider mod is absent, substituting the first registered item belonging to that
+     * tag as the display/trade item ID (while deduplicating overlapping tag+direction roles).
+     *
+     * @param itemExists predicate returning {@code true} if an item ID exists in the registry
+     * @param modLoaded optional predicate returning {@code true} if a mod ID is loaded
+     * @param firstTagItemResolver optional resolver mapping a tag spec (e.g. {@code "#ingots/tin"})
+     *                             to the first registered item ID in that tag
+     * @return unmodifiable list of active goods
+     */
+    public List<TradeGood> getAvailableGoods(
+            Predicate<String> itemExists,
+            Predicate<String> modLoaded,
+            Function<String, Optional<String>> firstTagItemResolver) {
         Objects.requireNonNull(itemExists, "itemExists predicate must not be null");
         Map<String, TradeGood> merged = new LinkedHashMap<>(goods);
         for (TradeGood apiGood : com.tycooncraft.tyc2.api.TyC2RegistryApi.getRegisteredTradeGoods()) {
@@ -770,15 +794,70 @@ public final class GoodsCatalog {
         }
 
         List<TradeGood> available = new ArrayList<>();
+        Set<String> coveredGoodIds = new HashSet<>();
+        Set<String> coveredTagRoles = new HashSet<>();
+
+        // Pass 1: exact item exists and requiredModId (if any) is loaded
         for (TradeGood good : merged.values()) {
             if (good.requiredModId() != null && modLoaded != null && !modLoaded.test(good.requiredModId())) {
                 continue;
             }
             if (itemExists.test(good.itemId())) {
                 available.add(good);
+                coveredGoodIds.add(good.id());
+                recordTagRoles(coveredTagRoles, good);
+            }
+        }
+
+        // Pass 2: tag-backed fallback activation when primary provider mod is absent
+        if (firstTagItemResolver != null) {
+            for (TradeGood good : merged.values()) {
+                if (coveredGoodIds.contains(good.id())) {
+                    continue;
+                }
+                String optTag = good.optionalTag();
+                if (optTag == null || optTag.isBlank()) {
+                    continue;
+                }
+                String tagKey = canonicalTagRoleKey(optTag);
+                boolean needsBuy = good.isBuyableByVillage() && !coveredTagRoles.contains("B:" + tagKey);
+                boolean needsSell = good.isSellableByVillage() && !coveredTagRoles.contains("S:" + tagKey);
+                if (!needsBuy && !needsSell) {
+                    continue;
+                }
+                Optional<String> resolvedOpt = firstTagItemResolver.apply(optTag);
+                if (resolvedOpt == null || resolvedOpt.isEmpty()) {
+                    continue;
+                }
+                String resolvedId = resolvedOpt.get().trim().toLowerCase(Locale.ROOT);
+                if (resolvedId.isEmpty() || !itemExists.test(resolvedId)) {
+                    continue;
+                }
+                TradeGood adapted = resolvedId.equals(good.itemId()) ? good : good.withItemId(resolvedId);
+                available.add(adapted);
+                coveredGoodIds.add(good.id());
+                recordTagRoles(coveredTagRoles, adapted);
             }
         }
         return Collections.unmodifiableList(available);
+    }
+
+    private static void recordTagRoles(Set<String> coveredTagRoles, TradeGood good) {
+        String optTag = good.optionalTag();
+        if (optTag == null || optTag.isBlank()) {
+            return;
+        }
+        String key = canonicalTagRoleKey(optTag);
+        if (good.isBuyableByVillage()) {
+            coveredTagRoles.add("B:" + key);
+        }
+        if (good.isSellableByVillage()) {
+            coveredTagRoles.add("S:" + key);
+        }
+    }
+
+    private static String canonicalTagRoleKey(String tagSpec) {
+        return CommonTagAliases.displayTagLabel(tagSpec, false);
     }
 
     /**

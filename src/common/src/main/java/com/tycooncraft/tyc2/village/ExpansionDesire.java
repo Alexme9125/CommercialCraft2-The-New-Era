@@ -1,9 +1,13 @@
 package com.tycooncraft.tyc2.village;
 
+import com.tycooncraft.tyc2.core.CommonTagAliases;
+import com.tycooncraft.tyc2.core.MintIngredient;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Predicate;
 
 /**
  * Immutable representation of a village's active expansion material desire order.
@@ -174,13 +178,126 @@ public record ExpansionDesire(
     }
 
     /**
+     * Resolves the controlled common item tag accepted as a fallback substitute for a required
+     * expansion building material, or {@code null} when only exact item IDs are accepted.
+     *
+     * @param requiredItemId canonical required material item ID
+     * @return controlled tag specification (with leading {@code '#'}), or {@code null}
+     */
+    public static String optionalTagForMaterial(String requiredItemId) {
+        if (requiredItemId == null || requiredItemId.isBlank()) {
+            return null;
+        }
+        String norm = requiredItemId.trim().toLowerCase(Locale.ROOT);
+        if ("minecraft:iron_ingot".equals(norm)) {
+            return "#ingots/iron";
+        }
+        if ("minecraft:cobblestone".equals(norm)) {
+            return "#cobblestones";
+        }
+        if ("minecraft:stone".equals(norm)) {
+            return "#stones";
+        }
+        if ("minecraft:stone_bricks".equals(norm)) {
+            return "#minecraft:stone_bricks";
+        }
+        if ("minecraft:dirt".equals(norm)) {
+            return "#minecraft:dirt";
+        }
+        if (norm.endsWith("_log")) {
+            return "#minecraft:logs";
+        }
+        if (norm.endsWith("_planks")) {
+            return "#minecraft:planks";
+        }
+        if (norm.endsWith("glass_pane")) {
+            return "#glass_panes";
+        }
+        if (norm.endsWith("_wool")) {
+            return "#minecraft:wool";
+        }
+        if (norm.endsWith("_fence") && !norm.contains("nether_brick")) {
+            return "#minecraft:wooden_fences";
+        }
+        return null;
+    }
+
+    /**
+     * Checks whether {@code candidateItemId} satisfies {@code requiredItemId} either by exact ID
+     * or via the controlled common tag returned by {@link #optionalTagForMaterial(String)}.
+     *
+     * @param candidateItemId candidate item ID in player inventory or warehouse
+     * @param requiredItemId required expansion material ID
+     * @param tagMatcher optional platform tag matcher (may be {@code null} for exact-only matching)
+     * @return {@code true} if the candidate item can be delivered for this material
+     */
+    public static boolean matchesMaterial(
+            String candidateItemId,
+            String requiredItemId,
+            MintIngredient.TagMatcher tagMatcher) {
+        if (candidateItemId == null || candidateItemId.isBlank()
+                || requiredItemId == null || requiredItemId.isBlank()) {
+            return false;
+        }
+        if (requiredItemId.equalsIgnoreCase(candidateItemId.trim())) {
+            return true;
+        }
+        if (tagMatcher == null) {
+            return false;
+        }
+        String optTag = optionalTagForMaterial(requiredItemId);
+        return optTag != null && CommonTagAliases.matchesTagSpec(candidateItemId, optTag, tagMatcher);
+    }
+
+    /**
+     * Counts total available items in {@code storage} Inbound ({@code 0..499}) that satisfy
+     * {@code requiredItemId} (exact matches plus controlled common-tag substitutes when
+     * {@code tagMatcher} is provided).
+     *
+     * @param storage Cooperation Hub warehouse
+     * @param requiredItemId required expansion material ID
+     * @param tagMatcher optional platform tag matcher (may be {@code null})
+     * @return total eligible item count in Inbound
+     */
+    public static int countAvailableInInbound(
+            CooperationHubStorage storage,
+            String requiredItemId,
+            MintIngredient.TagMatcher tagMatcher) {
+        Objects.requireNonNull(storage, "storage");
+        if (requiredItemId == null || requiredItemId.isBlank()) {
+            return 0;
+        }
+        if (tagMatcher == null || optionalTagForMaterial(requiredItemId) == null) {
+            return storage.countInInbound(requiredItemId);
+        }
+        return storage.countInInbound(slot ->
+                slot != null && slot.count() > 0 && matchesMaterial(slot.itemId(), requiredItemId, tagMatcher));
+    }
+
+    /**
      * Pulls any available required materials from Inbound slots ({@code 0..499}) of {@code storage}
-     * and returns the updated {@link ExpansionDesire}.
+     * using exact item-ID matching and returns the updated {@link ExpansionDesire}.
      *
      * @param storage Cooperation Hub warehouse
      * @return updated expansion desire after consuming available Inbound stock
      */
     public ExpansionDesire pullAvailableFromInbound(CooperationHubStorage storage) {
+        return pullAvailableFromInbound(storage, null);
+    }
+
+    /**
+     * Pulls available required materials from Inbound slots ({@code 0..499}) of {@code storage},
+     * prioritizing exact item-ID matches first and falling back to controlled common-tag substitutes
+     * (such as {@code #minecraft:logs}, {@code #minecraft:planks}, {@code #ingots/iron},
+     * {@code #glass_panes}, {@code #minecraft:wool}) when {@code tagMatcher} is provided.
+     *
+     * @param storage Cooperation Hub warehouse
+     * @param tagMatcher optional platform tag matcher (may be {@code null} for exact-only mode)
+     * @return updated expansion desire after consuming available Inbound stock
+     */
+    public ExpansionDesire pullAvailableFromInbound(
+            CooperationHubStorage storage,
+            MintIngredient.TagMatcher tagMatcher) {
         Objects.requireNonNull(storage, "storage");
         if (completed || allMaterialsDelivered()) {
             return this;
@@ -189,10 +306,30 @@ public record ExpansionDesire(
         for (Map.Entry<String, Integer> rem : remainingMaterials().entrySet()) {
             String itemId = rem.getKey();
             int needed = rem.getValue();
-            int available = storage.countInInbound(itemId);
-            int toTake = Math.min(needed, available);
-            if (toTake > 0 && storage.consumeFromInbound(itemId, toTake)) {
-                current = current.withDelivered(itemId, toTake);
+            if (needed <= 0) {
+                continue;
+            }
+            // Pass 1: exact item ID first
+            int exactAvailable = storage.countInInbound(itemId);
+            int takeExact = Math.min(needed, exactAvailable);
+            if (takeExact > 0 && storage.consumeFromInbound(itemId, takeExact)) {
+                current = current.withDelivered(itemId, takeExact);
+                needed -= takeExact;
+            }
+            // Pass 2: controlled common-tag substitutes if still short
+            if (needed > 0 && tagMatcher != null) {
+                String optTag = optionalTagForMaterial(itemId);
+                if (optTag != null) {
+                    Predicate<SlotStack> tagPred = slot ->
+                            slot != null && slot.count() > 0
+                                    && !itemId.equalsIgnoreCase(slot.itemId())
+                                    && CommonTagAliases.matchesTagSpec(slot.itemId(), optTag, tagMatcher);
+                    int tagAvailable = storage.countInInbound(tagPred);
+                    int takeTag = Math.min(needed, tagAvailable);
+                    if (takeTag > 0 && storage.consumeFromInboundMatching(tagPred, takeTag)) {
+                        current = current.withDelivered(itemId, takeTag);
+                    }
+                }
             }
         }
         return current;

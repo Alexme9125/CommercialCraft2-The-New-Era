@@ -435,10 +435,43 @@ public final class TriModePowerMath {
      * @return EU yield, or {@code 0}
      */
     public static int getFuelEnergyEu(String itemId) {
-        if (itemId == null) {
+        return getFuelEnergyEu(itemId, null);
+    }
+
+    /**
+     * Returns the EU yield of a standalone ATM fuel item, checking exact vanilla IDs first and
+     * falling back to standard common fuel tags ({@code #minecraft:coals}, {@code #dusts/redstone},
+     * {@code #storage_blocks/coal}, {@code #rods/blaze}) when {@code tagMatcher} is provided.
+     *
+     * @param itemId item identifier
+     * @param tagMatcher optional platform tag matcher (may be {@code null})
+     * @return EU yield, or {@code 0}
+     */
+    public static int getFuelEnergyEu(String itemId, MintIngredient.TagMatcher tagMatcher) {
+        if (itemId == null || itemId.isBlank()) {
             return 0;
         }
-        return VANILLA_FUEL_TABLE.getOrDefault(itemId, 0);
+        String norm = itemId.trim().toLowerCase(Locale.ROOT);
+        Integer exact = VANILLA_FUEL_TABLE.get(norm);
+        if (exact != null) {
+            return exact;
+        }
+        if (tagMatcher == null) {
+            return 0;
+        }
+        if (CommonTagAliases.matchesTagSpec(norm, "#storage_blocks/coal", tagMatcher)) {
+            return 14_400;
+        }
+        if (CommonTagAliases.matchesTagSpec(norm, "#rods/blaze", tagMatcher)) {
+            return 2_400;
+        }
+        if (CommonTagAliases.matchesTagSpec(norm, "#minecraft:coals", tagMatcher)) {
+            return 1_600;
+        }
+        if (CommonTagAliases.matchesTagSpec(norm, "#dusts/redstone", tagMatcher)) {
+            return 800;
+        }
+        return 0;
     }
 
     /**
@@ -448,7 +481,19 @@ public final class TriModePowerMath {
      * @return {@code true} if burnable in the Industrial ATM auxiliary fuel slot
      */
     public static boolean isFuelItem(String itemId) {
-        return getFuelEnergyEu(itemId) > 0;
+        return getFuelEnergyEu(itemId, null) > 0;
+    }
+
+    /**
+     * Checks whether the given item ID is a supported standalone ATM fuel item using exact IDs
+     * and standard common fuel tags.
+     *
+     * @param itemId item identifier
+     * @param tagMatcher optional platform tag matcher (may be {@code null})
+     * @return {@code true} if burnable in the Industrial ATM auxiliary fuel slot
+     */
+    public static boolean isFuelItem(String itemId, MintIngredient.TagMatcher tagMatcher) {
+        return getFuelEnergyEu(itemId, tagMatcher) > 0;
     }
 
     /**

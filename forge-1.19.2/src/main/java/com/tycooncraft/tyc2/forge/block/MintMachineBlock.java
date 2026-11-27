@@ -1,6 +1,8 @@
 package com.tycooncraft.tyc2.forge.block;
 
 import com.tycooncraft.tyc2.forge.TyC2ForgeRegistries;
+import com.tycooncraft.tyc2.forge.compat.Ic2Bridge;
+import com.tycooncraft.tyc2.forge.util.TyC2Ids;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -96,6 +98,10 @@ public class MintMachineBlock extends Block implements EntityBlock, TyC2PowerBlo
     public InteractionResult use(
             BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit
     ) {
+        if (TyC2Ids.handleGenericWrenchInteraction(
+                level, pos, state, player, hand, player.getItemInHand(hand), hit.getDirection(), Ic2Bridge.isLoaded())) {
+            return InteractionResult.sidedSuccess(level.isClientSide);
+        }
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }

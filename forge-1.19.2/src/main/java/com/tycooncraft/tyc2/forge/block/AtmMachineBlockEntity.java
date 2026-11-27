@@ -184,7 +184,7 @@ public class AtmMachineBlockEntity extends BlockEntity implements WorldlyContain
                     }
                 }
                 if (!dischargedFe && fuelRemainingEu <= 0) {
-                    int yield = TriModePowerMath.getFuelEnergyEu(TyC2Ids.itemId(fuelStack));
+                    int yield = TriModePowerMath.getFuelEnergyEu(TyC2Ids.itemId(fuelStack), TyC2Ids.ITEM_TAG_MATCHER);
                     if (yield > 0) {
                         fuelStack.shrink(1);
                         if (fuelStack.isEmpty()) {
@@ -512,7 +512,7 @@ public class AtmMachineBlockEntity extends BlockEntity implements WorldlyContain
             case SLOT_DEPOSIT -> CurrencyDenomination.isLegalTender(TyC2Ids.itemId(stack));
             case SLOT_WITHDRAW -> false;
             case SLOT_TERMINAL -> stack.getItem() instanceof CommTerminalItem;
-            case SLOT_FUEL -> TriModePowerMath.isFuelItem(TyC2Ids.itemId(stack))
+            case SLOT_FUEL -> TriModePowerMath.isFuelItem(TyC2Ids.itemId(stack), TyC2Ids.ITEM_TAG_MATCHER)
                     || Ic2Bridge.canDischargeBattery(stack, 1);
             default -> false;
         };

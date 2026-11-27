@@ -1181,11 +1181,16 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                 if (pmx >= 82 && pmx < 98 && pmy >= rowY + 4 && pmy < rowY + 20) {
                     String itemId = JsonLite.getString(o, "itemId", "");
                     String ench = JsonLite.getString(o, "enchantSpec", "");
+                    String optTag = JsonLite.getString(o, "optionalTag", "");
                     ItemStack st = TyC2Native.stack(itemId, 1);
-                    List<Component> tip = new ArrayList<>(2);
+                    List<Component> tip = new ArrayList<>(3);
                     tip.add(st.isEmpty() ? Component.literal(itemId) : st.getHoverName());
                     if (!ench.isBlank()) {
                         tip.add(Component.literal(ench).withStyle(ChatFormatting.AQUA));
+                    }
+                    if (!sells && !optTag.isBlank()) {
+                        tip.add(Component.translatable("gui.tyc2.order.tooltip.accepts_tag", optTag)
+                                .withStyle(ChatFormatting.GOLD));
                     }
                     canvas.drawTooltip(tip, mouseX, mouseY);
                     return;

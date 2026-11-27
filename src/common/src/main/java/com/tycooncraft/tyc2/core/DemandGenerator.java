@@ -11,8 +11,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
@@ -214,6 +216,55 @@ public final class DemandGenerator {
             WorkplaceCatalog workplaceCatalog,
             Random random
     ) {
+        return generate(
+                villageLevel,
+                biomeId,
+                villageBalance,
+                playerIndustrialTier,
+                currentSeason,
+                economy,
+                itemExists,
+                null,
+                null,
+                employmentStats,
+                workplaceCatalog,
+                random
+        );
+    }
+
+    /**
+     * Generates Sell Orders and Buy Orders for a partnered village with full tag-backed
+     * cross-mod good activation (activating goods with {@link TradeGood#optionalTag()} even when
+     * their primary provider mod is absent, as long as another mod populates the item tag).
+     *
+     * @param villageLevel village level (1..10)
+     * @param biomeId village biome ID or style key (e.g. {@code "minecraft:plains"})
+     * @param villageBalance current village balance in IC
+     * @param playerIndustrialTier owner player or company highest industrial tier
+     * @param currentSeason current season (or {@link Season#NONE})
+     * @param economy live macro-economy engine
+     * @param itemExists runtime predicate verifying an item ID is registered in Minecraft
+     * @param modLoaded optional predicate verifying whether a mod ID is loaded
+     * @param firstTagItemResolver optional resolver returning the first registered item in an item tag
+     * @param employmentStats village employment snapshot (null treated as {@link VillageEmploymentStats#EMPTY})
+     * @param workplaceCatalog workplace catalog mapping professions to trade categories (null uses default)
+     * @param random RNG source
+     * @return generated sell and buy orders
+     */
+    public GeneratedDemand generate(
+            int villageLevel,
+            String biomeId,
+            long villageBalance,
+            IndustrialTier playerIndustrialTier,
+            Season currentSeason,
+            MacroEconomyEngine economy,
+            Predicate<String> itemExists,
+            Predicate<String> modLoaded,
+            Function<String, Optional<String>> firstTagItemResolver,
+            VillageEmploymentStats employmentStats,
+            WorkplaceCatalog workplaceCatalog,
+            Random random
+    ) {
         Objects.requireNonNull(economy, "economy must not be null");
         Objects.requireNonNull(itemExists, "itemExists must not be null");
         Random rng = random == null ? new Random() : random;
@@ -232,7 +283,7 @@ public final class DemandGenerator {
         double empQtyMult = stats.tradeQuantityMultiplier(config);
         double empRareQtyMult = stats.rareTradeQuantityMultiplier(config);
         Map<GoodsCategory, Integer> profCountByCategory = countProfessionsByCategory(stats, workplaces);
-        List<TradeGood> liveGoods = catalog.getAvailableGoods(itemExists);
+        List<TradeGood> liveGoods = catalog.getAvailableGoods(itemExists, modLoaded, firstTagItemResolver);
 
         List<GeneratedOrder> sellOrders = generateSellOrders(
                 level, biomeId, villageBalance, maxUnlockedTier, season, seasonalActive,

@@ -360,6 +360,9 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
             ot.putBoolean("auto", o.autoFulfill());
             ot.putBoolean("season", o.seasonalBonus());
             ot.putBoolean("BiomeSpecialty", o.biomeSpecialty());
+            if (!o.optionalTag().isEmpty()) {
+                ot.putString("opt_tag", o.optionalTag());
+            }
             ordersTag.add(ot);
         }
         t.put("orders", ordersTag);
@@ -571,7 +574,8 @@ public final class TycoonSavedData extends TyC2SavedDataBase {
                         TyC2Nbt.getLong(ot, "expires", SupplyCycleClock.TICKS_PER_WEEK),
                         TyC2Nbt.getBoolean(ot, "auto", false),
                         TyC2Nbt.getBoolean(ot, "season", false),
-                        TyC2Nbt.getBoolean(ot, "BiomeSpecialty", false)
+                        TyC2Nbt.getBoolean(ot, "BiomeSpecialty", false),
+                        TyC2Nbt.getString(ot, "opt_tag", "")
                 ));
             } catch (Exception ignored) {
                 // Skip invalid order
