@@ -212,6 +212,64 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
             if cond_key not in std_rec:
                 issues.append(f"[{name}] mint_machine_standalone.json missing '{cond_key}'")
 
+        # Common tag publishing & cross-platform namespace/path compliance checks
+        expected_ns = "forge" if is_forge else "c"
+        block_tag_dir = "tags/blocks" if is_forge else "tags/block"
+        item_tag_dir = "tags/items" if is_forge else "tags/item"
+        req_common_tags = (
+            f"data/{expected_ns}/{block_tag_dir}/relocation_not_supported.json",
+            f"data/{expected_ns}/{item_tag_dir}/coins.json",
+        )
+        for req_tag in req_common_tags:
+            if req_tag not in entries:
+                issues.append(f"[{name}] Missing published common tag: {req_tag}")
+        if is_forge:
+            c_leaks = [e for e in entries if e.startswith("data/c/")]
+            if c_leaks:
+                issues.append(f"[{name}] Forge 1.19.2 JAR contains NeoForge data/c/ tags: {c_leaks[:5]}")
+        else:
+            plural_leaks = [
+                e for e in entries
+                if e.startswith("data/") and ("/tags/items/" in e or "/tags/blocks/" in e)
+            ]
+            if plural_leaks:
+                issues.append(f"[{name}] NeoForge 1.21+/26.x JAR contains legacy plural tag paths: {plural_leaks[:5]}")
+            forge_leaks = [e for e in entries if e.startswith("data/forge/")]
+            if forge_leaks:
+                issues.append(f"[{name}] NeoForge 1.21+/26.x JAR contains legacy data/forge/ tags: {forge_leaks[:5]}")
+
+        # Verify all 5 shaped recipes use common tags cleanly (no stale hardcoded tag-replaceable IDs or wrong namespace)
+        banned_recipe_items = {
+            "minecraft:iron_ingot", "minecraft:gold_ingot", "minecraft:copper_ingot",
+            "minecraft:redstone", "minecraft:glass_pane", "minecraft:chest",
+            "minecraft:iron_block", "minecraft:redstone_block", "minecraft:diamond",
+            "minecraft:stone_bricks", "ic2:iron_plate", "ic2:circuit",
+        }
+        wrong_ns = "c:" if is_forge else "forge:"
+        for rname in ("primitive_mint_machine", "mint_machine_ic2", "mint_machine_standalone", "atm_machine", "comm_terminal"):
+            rpath = f"{recipe_dir}/{rname}.json"
+            if rpath not in entries:
+                continue
+            rec_obj = json.loads(zf.read(rpath).decode("utf-8"))
+            for sym, ing in (rec_obj.get("key") or {}).items():
+                if is_26x:
+                    if not isinstance(ing, str):
+                        issues.append(f"[{name}] 26.x recipe {rpath} key '{sym}' must be bare string, got {type(ing).__name__}")
+                        continue
+                    if ing in banned_recipe_items:
+                        issues.append(f"[{name}] Recipe {rpath} key '{sym}' still hardcodes {ing}")
+                    if ing.startswith("#" + wrong_ns):
+                        issues.append(f"[{name}] Recipe {rpath} key '{sym}' uses wrong namespace: {ing}")
+                else:
+                    if not isinstance(ing, dict):
+                        issues.append(f"[{name}] Recipe {rpath} key '{sym}' must be object, got {type(ing).__name__}")
+                        continue
+                    if ing.get("item") in banned_recipe_items:
+                        issues.append(f"[{name}] Recipe {rpath} key '{sym}' still hardcodes {ing.get('item')}")
+                    tag_val = ing.get("tag", "")
+                    if isinstance(tag_val, str) and tag_val.startswith(wrong_ns):
+                        issues.append(f"[{name}] Recipe {rpath} key '{sym}' uses wrong namespace: {tag_val}")
+
         # Data presets checks
         required_data = [
             "data/tyc2/mint_recipes/default_vanilla.json",
@@ -291,6 +349,7 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
                 "status.tyc2.aid.started",
                 "status.tyc2.aid.cancelled",
                 "status.tyc2.aid.completed",
+                "gui.tyc2.order.tooltip.accepts_tag",
             ):
                 if req_key not in en_keys:
                     issues.append(f"[{name}] Missing required lang key: {req_key}")

@@ -234,6 +234,7 @@
   "gui.tyc2.order.tag.biome_sell": "Local",
   "gui.tyc2.order.tag.season_buy": "Peak",
   "gui.tyc2.order.tag.season_sell": "Season",
+  "gui.tyc2.order.tooltip.accepts_tag": "Accepts any item tagged %s",
   "gui.tyc2.order.tooltip.biome_buy": "Local shortage: higher demand & +15% payout",
   "gui.tyc2.order.tooltip.biome_sell": "Local specialty supply: larger batch & -12% discount",
   "gui.tyc2.order.tooltip.season_buy": "Elevated seasonal demand: bonus payout",

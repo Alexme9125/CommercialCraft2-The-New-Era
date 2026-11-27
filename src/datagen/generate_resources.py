@@ -41,18 +41,64 @@ COIN_ITEMS = (
 SPRITE_ITEMS = COIN_ITEMS + ("comm_terminal",)
 ALL_ITEMS = BLOCK_ITEMS + SPRITE_ITEMS
 
+# Unified Forge 1.19.2 <-> NeoForge 1.21+/26.x common tag rename table (aligned with CommonTagAliases.java)
+# Format: canonical_key -> (forge_1_19_2_path, neoforge_1_21_plus_path)
+COMMON_TAG_RENAMES: dict[str, tuple[str, str]] = {
+    "stone": ("stone", "stones"),
+    "stones": ("stone", "stones"),
+    "cobblestone": ("cobblestone", "cobblestones"),
+    "cobblestones": ("cobblestone", "cobblestones"),
+    "obsidian": ("obsidian", "obsidians"),
+    "obsidians": ("obsidian", "obsidians"),
+    "glass": ("glass", "glass_blocks"),
+    "glass_blocks": ("glass", "glass_blocks"),
+    "sand": ("sand", "sands"),
+    "sands": ("sand", "sands"),
+    "gravel": ("gravel", "gravels"),
+    "gravels": ("gravel", "gravels"),
+    "slimeballs": ("slimeballs", "slime_balls"),
+    "slime_balls": ("slimeballs", "slime_balls"),
+    "leather": ("leather", "leathers"),
+    "leathers": ("leather", "leathers"),
+    "string": ("string", "strings"),
+    "strings": ("string", "strings"),
+    "gunpowder": ("gunpowder", "gunpowders"),
+    "gunpowders": ("gunpowder", "gunpowders"),
+    "netherrack": ("netherrack", "netherracks"),
+    "netherracks": ("netherrack", "netherracks"),
+    "shears": ("shears", "tools/shear"),
+    "tools/shear": ("shears", "tools/shear"),
+    "tools/wrench": ("tools/wrench", "tools/wrench"),
+    "wrenches": ("tools/wrench", "tools/wrench"),
+    "bread": ("bread", "foods/bread"),
+    "foods/bread": ("bread", "foods/bread"),
+}
+
+
+def resolve_common_tag(path: str, forge: bool) -> str:
+    """Resolves a bare common tag path to '#forge:<path>' (1.19.2) or '#c:<path>' (1.21+)."""
+    clean = path.lstrip("#")
+    if clean in COMMON_TAG_RENAMES:
+        forge_path, neo_path = COMMON_TAG_RENAMES[clean]
+        mapped = forge_path if forge else neo_path
+    else:
+        mapped = clean
+    return f"#{'forge' if forge else 'c'}:{mapped}"
+
+
 # Unconditional 100%-Vanilla crafting recipes (work with ZERO optional mods installed!)
 # Format: recipe_name -> (result_item_name, pattern, key_map, count)
+# Prefix '#common:<path>' resolves to '#forge:<path>' on Forge 1.19.2 and '#c:<path>' on NeoForge 1.21+.
 SHAPED_RECIPES: dict[str, tuple[str, list[str], dict[str, str], int]] = {
     "primitive_mint_machine": (
         "primitive_mint_machine",
         ["ICI", "PFP", "SSS"],
         {
-            "I": "minecraft:iron_ingot",
-            "C": "minecraft:copper_ingot",
+            "I": "#common:ingots/iron",
+            "C": "#common:ingots/copper",
             "P": "minecraft:piston",
             "F": "minecraft:furnace",
-            "S": "minecraft:stone_bricks",
+            "S": "#minecraft:stone_bricks",
         },
         1,
     ),
@@ -60,11 +106,11 @@ SHAPED_RECIPES: dict[str, tuple[str, list[str], dict[str, str], int]] = {
         "atm_machine",
         ["IGI", "ECE", "IRI"],
         {
-            "I": "minecraft:iron_ingot",
-            "G": "minecraft:glass_pane",
-            "E": "minecraft:gold_ingot",
-            "C": "minecraft:chest",
-            "R": "minecraft:redstone",
+            "I": "#common:ingots/iron",
+            "G": "#common:glass_panes",
+            "E": "#common:ingots/gold",
+            "C": "#common:chests/wooden",
+            "R": "#common:dusts/redstone",
         },
         1,
     ),
@@ -72,11 +118,11 @@ SHAPED_RECIPES: dict[str, tuple[str, list[str], dict[str, str], int]] = {
         "comm_terminal",
         ["  C", "IGI", "RAR"],
         {
-            "C": "minecraft:copper_ingot",
-            "I": "minecraft:iron_ingot",
-            "G": "minecraft:glass_pane",
-            "R": "minecraft:redstone",
-            "A": "minecraft:gold_ingot",
+            "C": "#common:ingots/copper",
+            "I": "#common:ingots/iron",
+            "G": "#common:glass_panes",
+            "R": "#common:dusts/redstone",
+            "A": "#common:ingots/gold",
         },
         1,
     ),
@@ -90,9 +136,9 @@ CONDITIONAL_SHAPED_RECIPES: dict[str, tuple[str, str, list[str], dict[str, str],
         "ic2_loaded",
         ["PEP", "CMC", "PBP"],
         {
-            "P": "ic2:iron_plate",
+            "P": "#common:plates/iron",
             "E": "ic2:electric_motor",
-            "C": "ic2:circuit",
+            "C": "#common:circuits/basic",
             "M": "tyc2:primitive_mint_machine",
             "B": "ic2:machine",
         },
@@ -103,11 +149,11 @@ CONDITIONAL_SHAPED_RECIPES: dict[str, tuple[str, str, list[str], dict[str, str],
         "ic2_not_loaded",
         ["IDI", "RMR", "GBG"],
         {
-            "I": "minecraft:iron_block",
-            "D": "minecraft:diamond",
-            "R": "minecraft:redstone_block",
+            "I": "#common:storage_blocks/iron",
+            "D": "#common:gems/diamond",
+            "R": "#common:storage_blocks/redstone",
             "M": "tyc2:primitive_mint_machine",
-            "G": "minecraft:gold_ingot",
+            "G": "#common:ingots/gold",
             "B": "minecraft:piston",
         },
         1,
@@ -159,11 +205,11 @@ MINT_RECIPES_VANILLA = {
         _mint_recipe("tyc2:mint_iron_pair_10", [("#ingots/iron", 1), ("#ingots/iron", 1)], "X10", 1, 600, 100, primitive_allowed=True),
         _mint_recipe("tyc2:mint_gold_20", [("#ingots/gold", 1)], "X20", 1, 800, 100, primitive_allowed=True),
         _mint_recipe("tyc2:mint_gold_iron_50", [("#ingots/gold", 1), ("#ingots/iron", 1)], "X50", 1, 1200, 120, primitive_allowed=True),
-        _mint_recipe("tyc2:mint_gold_emerald_100", [("#ingots/gold", 2), ("minecraft:emerald", 1)], "X100", 1, 1800, 140, primitive_allowed=True),
-        _mint_recipe("tyc2:mint_diamond_gold_200", [("minecraft:diamond", 1), ("#ingots/gold", 2)], "X200", 1, 2500, 160, primitive_allowed=False),
+        _mint_recipe("tyc2:mint_gold_emerald_100", [("#ingots/gold", 2), ("#gems/emerald", 1)], "X100", 1, 1800, 140, primitive_allowed=True),
+        _mint_recipe("tyc2:mint_diamond_gold_200", [("#gems/diamond", 1), ("#ingots/gold", 2)], "X200", 1, 2500, 160, primitive_allowed=False),
         _mint_recipe("tyc2:mint_netherite_scrap_gold_500", [("minecraft:netherite_scrap", 1), ("#ingots/gold", 2)], "X500", 1, 4000, 200, primitive_allowed=False),
         _mint_recipe("tyc2:mint_netherite_ingot_500", [("#ingots/netherite", 1)], "X500", 2, 4000, 200, primitive_allowed=False),
-        _mint_recipe("tyc2:mint_netherite_diamond_1000", [("#ingots/netherite", 1), ("minecraft:diamond", 1)], "X1000", 1, 6000, 240, primitive_allowed=False),
+        _mint_recipe("tyc2:mint_netherite_diamond_1000", [("#ingots/netherite", 1), ("#gems/diamond", 1)], "X1000", 1, 6000, 240, primitive_allowed=False),
     ],
 }
 
@@ -182,8 +228,8 @@ MINT_RECIPES_IC2 = {
         _mint_recipe("tyc2:mint_gold_refined_iron_50", [("#ingots/gold", 1), ("ic2:refined_iron_ingot", 1)], "X50", 1, 1200, 120, "ic2", primitive_allowed=False),
         _mint_recipe("tyc2:mint_alloy_gold_100", [("ic2:alloy", 1), ("#ingots/gold", 1)], "X100", 1, 1800, 140, "ic2", primitive_allowed=False),
         _mint_recipe("tyc2:mint_mixed_metal_gold_100", [("ic2:mixed_metal_ingot", 1), ("#ingots/gold", 1)], "X100", 1, 1800, 140, "ic2", primitive_allowed=False),
-        _mint_recipe("tyc2:mint_alloy_diamond_200", [("ic2:alloy", 2), ("minecraft:diamond", 1)], "X200", 1, 2500, 160, "ic2", primitive_allowed=False),
-        _mint_recipe("tyc2:mint_iridium_alloy_1000", [("ic2:iridium", 1), ("ic2:alloy", 1)], "X1000", 1, 6000, 240, "ic2", primitive_allowed=False),
+        _mint_recipe("tyc2:mint_alloy_diamond_200", [("ic2:alloy", 2), ("#gems/diamond", 1)], "X200", 1, 2500, 160, "ic2", primitive_allowed=False),
+        _mint_recipe("tyc2:mint_iridium_alloy_1000", [("#ingots/iridium", 1), ("ic2:alloy", 1)], "X1000", 1, 6000, 240, "ic2", primitive_allowed=False),
         _mint_recipe("tyc2:mint_iridium_ore_alloy_1000", [("ic2:iridium_ore", 1), ("ic2:alloy", 1)], "X1000", 1, 6000, 240, "ic2", primitive_allowed=False),
     ],
 }
@@ -285,12 +331,12 @@ GOODS_VANILLA = {
         _good("tyc2:packed_ice", "minecraft:packed_ice", "BUILDING", 8, 2, 6, True, False, 8, 24, biomes=["snowy"], biome_exclusive=True),
         _good("tyc2:saddle", "minecraft:saddle", "TEXTILE", 28, 2, 6, True, False, 1, 3, biomes=["plains", "savanna"]),
         # Seasonal Vanilla Crops
-        _good("tyc2:wheat", "minecraft:wheat", "AGRICULTURE", 3, 1, 6, True, False, 12, 32, seasons=["SPRING", "SUMMER", "AUTUMN"], biomes=["plains"]),
-        _good("tyc2:carrot", "minecraft:carrot", "AGRICULTURE", 3, 1, 6, True, False, 12, 32, seasons=["SPRING", "SUMMER", "AUTUMN"], biomes=["plains"]),
-        _good("tyc2:potato", "minecraft:potato", "AGRICULTURE", 3, 1, 6, True, False, 12, 32, seasons=["SPRING", "SUMMER", "AUTUMN"], biomes=["taiga", "plains"]),
-        _good("tyc2:beetroot", "minecraft:beetroot", "AGRICULTURE", 3, 1, 5, True, False, 10, 28, seasons=["SPRING", "AUTUMN", "WINTER"], biomes=["snowy"]),
-        _good("tyc2:pumpkin", "minecraft:pumpkin", "AGRICULTURE", 5, 1, 6, True, False, 6, 18, seasons=["AUTUMN"], biomes=["plains", "taiga"]),
-        _good("tyc2:melon_slice", "minecraft:melon_slice", "AGRICULTURE", 2, 1, 6, True, False, 12, 36, seasons=["SUMMER"], biomes=["savanna", "jungle"]),
+        _good("tyc2:wheat", "minecraft:wheat", "AGRICULTURE", 3, 1, 6, True, False, 12, 32, seasons=["SPRING", "SUMMER", "AUTUMN"], biomes=["plains"], optional_tag="#crops/wheat"),
+        _good("tyc2:carrot", "minecraft:carrot", "AGRICULTURE", 3, 1, 6, True, False, 12, 32, seasons=["SPRING", "SUMMER", "AUTUMN"], biomes=["plains"], optional_tag="#crops/carrot"),
+        _good("tyc2:potato", "minecraft:potato", "AGRICULTURE", 3, 1, 6, True, False, 12, 32, seasons=["SPRING", "SUMMER", "AUTUMN"], biomes=["taiga", "plains"], optional_tag="#crops/potato"),
+        _good("tyc2:beetroot", "minecraft:beetroot", "AGRICULTURE", 3, 1, 5, True, False, 10, 28, seasons=["SPRING", "AUTUMN", "WINTER"], biomes=["snowy"], optional_tag="#crops/beetroot"),
+        _good("tyc2:pumpkin", "minecraft:pumpkin", "AGRICULTURE", 5, 1, 6, True, False, 6, 18, seasons=["AUTUMN"], biomes=["plains", "taiga"], optional_tag="#crops/pumpkin"),
+        _good("tyc2:melon_slice", "minecraft:melon_slice", "AGRICULTURE", 2, 1, 6, True, False, 12, 36, seasons=["SUMMER"], biomes=["savanna", "jungle"], optional_tag="#crops/melon"),
         _good("tyc2:sweet_berries", "minecraft:sweet_berries", "AGRICULTURE", 3, 1, 5, True, False, 10, 28, seasons=["SPRING", "SUMMER", "AUTUMN"], biomes=["taiga", "snowy"], biome_exclusive=True),
         _good("tyc2:apple", "minecraft:apple", "AGRICULTURE", 5, 1, 6, True, False, 6, 18, seasons=["AUTUMN"], biomes=["plains"]),
         _good("tyc2:sugar_cane", "minecraft:sugar_cane", "AGRICULTURE", 3, 2, 6, True, False, 12, 32, seasons=["SUMMER"], biomes=["jungle", "swamp"]),
@@ -301,16 +347,16 @@ GOODS_VANILLA = {
         _good("tyc2:kelp", "minecraft:kelp", "AGRICULTURE", 2, 1, 5, True, False, 16, 40, seasons=ALL_SEASONS),
         _good("tyc2:glow_berries", "minecraft:glow_berries", "AGRICULTURE", 5, 2, 6, True, False, 8, 20, seasons=ALL_SEASONS),
         # Lv 7-10 Metropolis staple crop demand
-        _good("tyc2:metro_wheat_demand", "minecraft:wheat", "AGRICULTURE", 4, 7, 10, False, True, 16, 40, seasons=["SPRING", "SUMMER", "AUTUMN"], demand_biomes=["desert", "snowy"]),
-        _good("tyc2:metro_carrot_demand", "minecraft:carrot", "AGRICULTURE", 4, 7, 10, False, True, 16, 40, seasons=["SPRING", "SUMMER", "AUTUMN"], demand_biomes=["desert", "snowy"]),
-        _good("tyc2:metro_potato_demand", "minecraft:potato", "AGRICULTURE", 4, 7, 10, False, True, 16, 40, seasons=["SPRING", "SUMMER", "AUTUMN"], demand_biomes=["desert", "snowy"]),
+        _good("tyc2:metro_wheat_demand", "minecraft:wheat", "AGRICULTURE", 4, 7, 10, False, True, 16, 40, seasons=["SPRING", "SUMMER", "AUTUMN"], demand_biomes=["desert", "snowy"], optional_tag="#crops/wheat"),
+        _good("tyc2:metro_carrot_demand", "minecraft:carrot", "AGRICULTURE", 4, 7, 10, False, True, 16, 40, seasons=["SPRING", "SUMMER", "AUTUMN"], demand_biomes=["desert", "snowy"], optional_tag="#crops/carrot"),
+        _good("tyc2:metro_potato_demand", "minecraft:potato", "AGRICULTURE", 4, 7, 10, False, True, 16, 40, seasons=["SPRING", "SUMMER", "AUTUMN"], demand_biomes=["desert", "snowy"], optional_tag="#crops/potato"),
         # Lv 1-6 Rural & developing mining, metal, fuel, timber (desert), and basic supplies buys
         _good("tyc2:coal", "minecraft:coal", "MINING", 4, 1, 6, False, True, 12, 32, demand_biomes=["snowy", "plains", "jungle", "swamp"], demand_seasons=["WINTER"]),
         _good("tyc2:charcoal", "minecraft:charcoal", "MINING", 4, 1, 4, False, True, 12, 32, demand_biomes=["desert", "snowy"], demand_seasons=["WINTER"]),
         _good("tyc2:copper_ingot", "minecraft:copper_ingot", "METAL", 5, 1, 6, False, True, 8, 24, demand_biomes=["plains", "taiga", "savanna"], optional_tag="#ingots/copper"),
         _good("tyc2:iron_ingot", "minecraft:iron_ingot", "METAL", 9, 1, 6, False, True, 6, 20, demand_biomes=["plains", "savanna", "jungle", "swamp", "taiga"], optional_tag="#ingots/iron"),
-        _good("tyc2:cobblestone", "minecraft:cobblestone", "MINING", 1, 1, 4, False, True, 32, 64, demand_biomes=["desert", "swamp"]),
-        _good("tyc2:stone", "minecraft:stone", "MINING", 2, 1, 6, False, True, 24, 64, demand_biomes=["desert", "plains", "savanna", "jungle", "swamp"]),
+        _good("tyc2:cobblestone", "minecraft:cobblestone", "MINING", 1, 1, 4, False, True, 32, 64, demand_biomes=["desert", "swamp"], optional_tag="#cobblestones"),
+        _good("tyc2:stone", "minecraft:stone", "MINING", 2, 1, 6, False, True, 24, 64, demand_biomes=["desert", "plains", "savanna", "jungle", "swamp"], optional_tag="#stones"),
         _good("tyc2:flint", "minecraft:flint", "MINING", 3, 1, 4, False, True, 10, 24, demand_biomes=["taiga", "snowy"]),
         _good("tyc2:torch", "minecraft:torch", "BUILDING", 2, 1, 4, False, True, 16, 48, demand_biomes=["snowy", "savanna", "jungle", "swamp"], demand_seasons=["WINTER"]),
         _good("tyc2:oak_log_demand", "minecraft:oak_log", "FORESTRY", 4, 1, 5, False, True, 12, 32, biome_exclusive=True, demand_biomes=["desert"], demand_seasons=["WINTER"], optional_tag="#minecraft:logs"),
@@ -325,24 +371,24 @@ GOODS_VANILLA = {
         _good("tyc2:book_efficiency_2", "minecraft:enchanted_book", "ENCHANTED_BOOK", 110, 4, 6, True, False, 1, 2, tier="TIER_1", biomes=["snowy"], enchantment="minecraft:efficiency:2"),
         _good("tyc2:book_protection_2", "minecraft:enchanted_book", "ENCHANTED_BOOK", 110, 4, 6, True, False, 1, 2, tier="TIER_1", biomes=["snowy"], enchantment="minecraft:protection:2"),
         _good("tyc2:gold_ingot", "minecraft:gold_ingot", "METAL", 22, 4, 8, False, True, 4, 14, tier="TIER_1", demand_biomes=["desert", "savanna"], optional_tag="#ingots/gold"),
-        _good("tyc2:redstone", "minecraft:redstone", "INDUSTRIAL", 6, 4, 8, False, True, 12, 32, tier="TIER_1", demand_biomes=["taiga", "plains"]),
-        _good("tyc2:lapis_lazuli", "minecraft:lapis_lazuli", "MINING", 7, 4, 8, False, True, 8, 24, tier="TIER_1", demand_biomes=["desert", "snowy"]),
-        _good("tyc2:quartz", "minecraft:quartz", "MINING", 10, 5, 8, False, True, 8, 24, tier="TIER_2", demand_biomes=["plains", "desert"]),
+        _good("tyc2:redstone", "minecraft:redstone", "INDUSTRIAL", 6, 4, 8, False, True, 12, 32, tier="TIER_1", demand_biomes=["taiga", "plains"], optional_tag="#dusts/redstone"),
+        _good("tyc2:lapis_lazuli", "minecraft:lapis_lazuli", "MINING", 7, 4, 8, False, True, 8, 24, tier="TIER_1", demand_biomes=["desert", "snowy"], optional_tag="#gems/lapis"),
+        _good("tyc2:quartz", "minecraft:quartz", "MINING", 10, 5, 8, False, True, 8, 24, tier="TIER_2", demand_biomes=["plains", "desert"], optional_tag="#gems/quartz"),
         _good("tyc2:piston", "minecraft:piston", "INDUSTRIAL", 24, 4, 7, False, True, 2, 8, tier="TIER_1", demand_biomes=["taiga", "jungle"]),
         _good("tyc2:repeater", "minecraft:repeater", "INDUSTRIAL", 20, 4, 7, False, True, 3, 10, tier="TIER_1", demand_biomes=["taiga", "plains"]),
-        _good("tyc2:bread", "minecraft:bread", "FOOD_BASIC", 7, 2, 6, False, True, 8, 24, demand_biomes=["desert", "snowy", "taiga", "savanna", "swamp"], demand_seasons=["WINTER"]),
+        _good("tyc2:bread", "minecraft:bread", "FOOD_BASIC", 7, 2, 6, False, True, 8, 24, demand_biomes=["desert", "snowy", "taiga", "savanna", "swamp"], demand_seasons=["WINTER"], optional_tag="#foods/bread"),
         _good("tyc2:baked_potato", "minecraft:baked_potato", "FOOD_BASIC", 7, 3, 6, False, True, 8, 24, demand_biomes=["desert", "snowy", "taiga"], demand_seasons=["WINTER"]),
-        _good("tyc2:cooked_porkchop", "minecraft:cooked_porkchop", "FOOD_BASIC", 11, 4, 7, False, True, 6, 18, demand_biomes=["desert", "snowy", "taiga", "savanna", "swamp"], demand_seasons=["WINTER"]),
+        _good("tyc2:cooked_porkchop", "minecraft:cooked_porkchop", "FOOD_BASIC", 11, 4, 7, False, True, 6, 18, demand_biomes=["desert", "snowy", "taiga", "savanna", "swamp"], demand_seasons=["WINTER"], optional_tag="#foods/cooked_pork"),
         # Lv 7-10 Metropolis fine cuisine, industrial buys, rare books & endgame sells
         _good("tyc2:golden_carrot", "minecraft:golden_carrot", "FOOD_FINE", 26, 7, 10, False, True, 6, 18, tier="TIER_1", demand_biomes=["desert", "snowy"]),
-        _good("tyc2:cooked_beef", "minecraft:cooked_beef", "FOOD_FINE", 14, 7, 10, False, True, 8, 24, tier="TIER_0", demand_biomes=["desert", "snowy", "taiga", "savanna", "swamp"], demand_seasons=["WINTER"]),
+        _good("tyc2:cooked_beef", "minecraft:cooked_beef", "FOOD_FINE", 14, 7, 10, False, True, 8, 24, tier="TIER_0", demand_biomes=["desert", "snowy", "taiga", "savanna", "swamp"], demand_seasons=["WINTER"], optional_tag="#foods/cooked_beef"),
         _good("tyc2:pumpkin_pie", "minecraft:pumpkin_pie", "FOOD_FINE", 18, 7, 10, False, True, 6, 16, tier="TIER_1", demand_biomes=["plains", "taiga", "snowy"], demand_seasons=["AUTUMN", "WINTER"]),
         _good("tyc2:cake", "minecraft:cake", "FOOD_FINE", 32, 7, 10, False, True, 2, 6, tier="TIER_1", demand_biomes=["plains", "desert"]),
         _good("tyc2:rabbit_stew", "minecraft:rabbit_stew", "FOOD_FINE", 28, 7, 10, False, True, 3, 10, tier="TIER_1", demand_biomes=["snowy", "taiga", "swamp"], demand_seasons=["WINTER"]),
-        _good("tyc2:glowstone_dust", "minecraft:glowstone_dust", "INDUSTRIAL", 14, 7, 10, False, True, 8, 24, tier="TIER_2", demand_biomes=["snowy", "swamp", "jungle"], demand_seasons=["WINTER"]),
+        _good("tyc2:glowstone_dust", "minecraft:glowstone_dust", "INDUSTRIAL", 14, 7, 10, False, True, 8, 24, tier="TIER_2", demand_biomes=["snowy", "swamp", "jungle"], demand_seasons=["WINTER"], optional_tag="#dusts/glowstone"),
         _good("tyc2:blaze_powder", "minecraft:blaze_powder", "INDUSTRIAL", 24, 7, 10, False, True, 4, 14, tier="TIER_2", demand_biomes=["snowy", "taiga"], demand_seasons=["WINTER"]),
-        _good("tyc2:obsidian", "minecraft:obsidian", "INDUSTRIAL", 18, 7, 10, False, True, 6, 18, tier="TIER_2", demand_biomes=["desert", "savanna"]),
-        _good("tyc2:diamond", "minecraft:diamond", "METAL", 140, 7, 10, False, True, 1, 4, tier="TIER_2", demand_biomes=["plains", "desert", "snowy"]),
+        _good("tyc2:obsidian", "minecraft:obsidian", "INDUSTRIAL", 18, 7, 10, False, True, 6, 18, tier="TIER_2", demand_biomes=["desert", "savanna"], optional_tag="#obsidians"),
+        _good("tyc2:diamond", "minecraft:diamond", "METAL", 140, 7, 10, False, True, 1, 4, tier="TIER_2", demand_biomes=["plains", "desert", "snowy"], optional_tag="#gems/diamond"),
         _good("tyc2:book_mending", "minecraft:enchanted_book", "ENCHANTED_BOOK", 480, 7, 10, True, False, 1, 2, tier="TIER_3", biomes=["snowy"], enchantment="minecraft:mending:1"),
         _good("tyc2:book_efficiency_5", "minecraft:enchanted_book", "ENCHANTED_BOOK", 420, 7, 10, True, False, 1, 2, tier="TIER_3", biomes=["snowy"], enchantment="minecraft:efficiency:5"),
         _good("tyc2:book_fortune_3", "minecraft:enchanted_book", "ENCHANTED_BOOK", 450, 7, 10, True, False, 1, 2, tier="TIER_3", biomes=["snowy"], enchantment="minecraft:fortune:3"),
@@ -375,9 +421,9 @@ GOODS_IC2 = {
         _good("tyc2:ic2_bronze_ingot", "ic2:bronze_ingot", "METAL", 14, 4, 9, False, True, 6, 18, tier="TIER_1", optional_tag="#ingots/bronze", required_mod="ic2"),
         _good("tyc2:ic2_silver_ingot", "ic2:silver_ingot", "METAL", 20, 4, 8, False, True, 4, 14, tier="TIER_1", optional_tag="#ingots/silver", required_mod="ic2"),
         _good("tyc2:ic2_steel_ingot", "ic2:steel_ingot", "RARE_ALLOY", 26, 4, 10, False, True, 4, 14, tier="TIER_2", optional_tag="#ingots/steel", required_mod="ic2"),
-        _good("tyc2:ic2_circuit", "ic2:circuit", "INDUSTRIAL", 34, 4, 7, False, True, 2, 8, tier="TIER_1", required_mod="ic2"),
-        _good("tyc2:ic2_advanced_circuit", "ic2:advanced_circuit", "INDUSTRIAL", 85, 6, 9, False, True, 1, 5, tier="TIER_2", required_mod="ic2"),
-        _good("tyc2:ic2_copper_cable", "ic2:copper_cable", "INDUSTRIAL", 5, 4, 6, False, True, 12, 32, tier="TIER_1", required_mod="ic2"),
+        _good("tyc2:ic2_circuit", "ic2:circuit", "INDUSTRIAL", 34, 4, 7, False, True, 2, 8, tier="TIER_1", optional_tag="#circuits/basic", required_mod="ic2"),
+        _good("tyc2:ic2_advanced_circuit", "ic2:advanced_circuit", "INDUSTRIAL", 85, 6, 9, False, True, 1, 5, tier="TIER_2", optional_tag="#circuits/advanced", required_mod="ic2"),
+        _good("tyc2:ic2_copper_cable", "ic2:copper_cable", "INDUSTRIAL", 5, 4, 6, False, True, 12, 32, tier="TIER_1", optional_tag="#cables/copper", required_mod="ic2"),
         _good("tyc2:ic2_re_battery", "ic2:re_battery", "INDUSTRIAL", 28, 4, 7, False, True, 2, 6, tier="TIER_1", required_mod="ic2"),
         _good("tyc2:ic2_energy_crystal", "ic2:energy_crystal", "INDUSTRIAL", 180, 7, 10, False, True, 1, 3, tier="TIER_3", required_mod="ic2"),
         _good("tyc2:ic2_alloy", "ic2:alloy", "RARE_ALLOY", 120, 7, 10, True, False, 2, 6, tier="TIER_3", required_mod="ic2"),
@@ -396,7 +442,7 @@ GOODS_ECC2 = {
         _good("tyc2:ecc2_natural_gas_cell", "ecc2:natural_gas_cell", "INDUSTRIAL", 64, 5, 9, False, True, 3, 10, tier="TIER_2", required_mod="ecc2"),
         _good("tyc2:ecc2_sunnarium", "ecc2:sunnarium", "RARE_ALLOY", 320, 8, 10, False, True, 1, 3, tier="TIER_3", required_mod="ecc2"),
         _good("tyc2:ecc2_sunnarium_alloy", "ecc2:sunnarium_alloy", "RARE_ALLOY", 560, 9, 10, False, True, 1, 2, tier="TIER_4", required_mod="ecc2"),
-        _good("tyc2:ecc2_iridium_ingot", "ecc2:iridium_ingot", "ENDGAME", 1150, 10, 10, True, False, 1, 2, tier="TIER_5", optional_tag="#ingots/iridium", required_mod="ecc2"),
+        _good("tyc2:ecc2_iridium_ingot", "ecc2:iridium_ingot", "ENDGAME", 1150, 10, 10, True, True, 1, 2, tier="TIER_5", optional_tag="#ingots/iridium", required_mod="ecc2"),
     ],
 }
 
@@ -426,12 +472,12 @@ GOODS_KALEIDOSCOPE_COOKERY = {
     "_comment": "Built-in Kaleidoscope Cookery crops & Lv 7-10 gourmet meals — auto-filtered when kaleidoscope_cookery is absent.",
     "replace": False,
     "goods": [
-        _good("tyc2:kc_lettuce", "kaleidoscope_cookery:lettuce", "AGRICULTURE", 4, 1, 6, True, False, 10, 28, seasons=["SPRING", "AUTUMN"], biomes=["plains"], required_mod="kaleidoscope_cookery"),
-        _good("tyc2:kc_tomato", "kaleidoscope_cookery:tomato", "AGRICULTURE", 4, 1, 6, True, False, 10, 28, seasons=["SUMMER", "AUTUMN"], biomes=["savanna"], required_mod="kaleidoscope_cookery"),
-        _good("tyc2:kc_chili", "kaleidoscope_cookery:chili", "AGRICULTURE", 5, 2, 6, True, False, 8, 24, seasons=["SUMMER", "AUTUMN"], biomes=["savanna"], required_mod="kaleidoscope_cookery"),
+        _good("tyc2:kc_lettuce", "kaleidoscope_cookery:lettuce", "AGRICULTURE", 4, 1, 6, True, False, 10, 28, seasons=["SPRING", "AUTUMN"], biomes=["plains"], optional_tag="#crops/lettuce", required_mod="kaleidoscope_cookery"),
+        _good("tyc2:kc_tomato", "kaleidoscope_cookery:tomato", "AGRICULTURE", 4, 1, 6, True, False, 10, 28, seasons=["SUMMER", "AUTUMN"], biomes=["savanna"], optional_tag="#crops/tomato", required_mod="kaleidoscope_cookery"),
+        _good("tyc2:kc_chili", "kaleidoscope_cookery:chili", "AGRICULTURE", 5, 2, 6, True, False, 8, 24, seasons=["SUMMER", "AUTUMN"], biomes=["savanna"], optional_tag="#crops/chili", required_mod="kaleidoscope_cookery"),
         _good("tyc2:kc_red_chili", "kaleidoscope_cookery:red_chili", "AGRICULTURE", 5, 2, 6, True, False, 8, 24, seasons=["SUMMER", "AUTUMN"], biomes=["savanna"], required_mod="kaleidoscope_cookery"),
         _good("tyc2:kc_green_chili", "kaleidoscope_cookery:green_chili", "AGRICULTURE", 5, 2, 6, True, False, 8, 24, seasons=["SUMMER", "AUTUMN"], biomes=["savanna"], required_mod="kaleidoscope_cookery"),
-        _good("tyc2:kc_rice", "kaleidoscope_cookery:rice", "AGRICULTURE", 4, 2, 6, True, False, 10, 28, seasons=["SUMMER", "AUTUMN"], required_mod="kaleidoscope_cookery"),
+        _good("tyc2:kc_rice", "kaleidoscope_cookery:rice", "AGRICULTURE", 4, 2, 6, True, False, 10, 28, seasons=["SUMMER", "AUTUMN"], optional_tag="#crops/rice", required_mod="kaleidoscope_cookery"),
         _good("tyc2:kc_wild_rice", "kaleidoscope_cookery:wild_rice", "AGRICULTURE", 5, 2, 6, True, False, 8, 24, seasons=["SUMMER", "AUTUMN"], required_mod="kaleidoscope_cookery"),
         _good("tyc2:kc_tea_leaf", "kaleidoscope_cookery:tea_leaf", "AGRICULTURE", 7, 3, 7, True, False, 8, 20, seasons=["SPRING", "SUMMER"], required_mod="kaleidoscope_cookery"),
         _good("tyc2:kc_cooked_rice", "kaleidoscope_cookery:cooked_rice", "FOOD_FINE", 24, 7, 10, False, True, 3, 10, tier="TIER_1", seasons=ALL_SEASONS, required_mod="kaleidoscope_cookery"),
@@ -788,12 +834,17 @@ def generate(target: str, destination: Path) -> int:
         recipe_dir = "recipes/" if forge else "recipe/"
 
         def format_ingredient(item_id: str):
+            resolved = (
+                resolve_common_tag(item_id[len("#common:"):], forge)
+                if item_id.startswith("#common:")
+                else item_id
+            )
             if newest:
                 # MC 1.21.2+ / 26.x: bare string item/tag identifier
-                return item_id
-            if item_id.startswith("#"):
-                return {"tag": item_id[1:]}
-            return {"item": item_id}
+                return resolved
+            if resolved.startswith("#"):
+                return {"tag": resolved[1:]}
+            return {"item": resolved}
 
         def format_result(item_name: str, count: int) -> dict:
             return {("item" if forge else "id"): mod(item_name), "count": count}
@@ -885,12 +936,21 @@ def generate(target: str, destination: Path) -> int:
         )
 
         # Convenience item tag grouping all 9 TyC2 coins + optional IC2 coin
+        coin_tag_values = [mod(c) for c in COIN_ITEMS] + [{"id": "ic2:coin", "required": False}]
         write_json(
             f"data/{MOD_ID}/{item_tag_dir}coins.json",
-            {
-                "replace": False,
-                "values": [mod(c) for c in COIN_ITEMS] + [{"id": "ic2:coin", "required": False}],
-            },
+            {"replace": False, "values": coin_tag_values},
+        )
+
+        # Common cross-mod tags: forge:* on Forge 1.19.2, c:* on NeoForge 1.21.1 / 26.x
+        common_ns = "forge" if forge else "c"
+        write_json(
+            f"data/{common_ns}/{block_tag_dir}relocation_not_supported.json",
+            {"replace": False, "values": [mod(b) for b in BLOCK_ITEMS]},
+        )
+        write_json(
+            f"data/{common_ns}/{item_tag_dir}coins.json",
+            {"replace": False, "values": coin_tag_values},
         )
 
         # ---------------------------------------------------------------------

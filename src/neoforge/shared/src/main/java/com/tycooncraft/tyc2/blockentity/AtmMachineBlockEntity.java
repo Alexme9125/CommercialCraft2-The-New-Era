@@ -172,7 +172,7 @@ public final class AtmMachineBlockEntity extends TyC2BlockEntityBase
                     storedEu = Math.min(maxCap, storedEu + fromFe);
                     changed = true;
                 } else if (fuelRemainingEu <= 0) {
-                    int yield = TriModePowerMath.getFuelEnergyEu(TyC2Native.itemId(fuelStack));
+                    int yield = TriModePowerMath.getFuelEnergyEu(TyC2Native.itemId(fuelStack), TyC2Native::itemIdHasTag);
                     if (yield > 0) {
                         fuelStack.shrink(1);
                         if (fuelStack.isEmpty()) {
@@ -385,7 +385,7 @@ public final class AtmMachineBlockEntity extends TyC2BlockEntityBase
             return stack.getItem() instanceof CommTerminalItem;
         }
         if (slot == SLOT_FUEL) {
-            return TriModePowerMath.isFuelItem(TyC2Native.itemId(stack))
+            return TriModePowerMath.isFuelItem(TyC2Native.itemId(stack), TyC2Native::itemIdHasTag)
                     || Ic2SoftBridge.canDischargeBattery(stack, 1)
                     || TyC2Native.canDischargeFeItem(stack);
         }

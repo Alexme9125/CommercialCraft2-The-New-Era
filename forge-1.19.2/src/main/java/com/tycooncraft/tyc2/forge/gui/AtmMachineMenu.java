@@ -91,7 +91,7 @@ public class AtmMachineMenu extends AbstractContainerMenu {
         addSlot(new Slot(container, AtmMachineBlockEntity.SLOT_FUEL, 195, 110) {
             @Override
             public boolean mayPlace(ItemStack stack) {
-                return TriModePowerMath.isFuelItem(TyC2Ids.itemId(stack))
+                return TriModePowerMath.isFuelItem(TyC2Ids.itemId(stack), TyC2Ids.ITEM_TAG_MATCHER)
                         || Ic2Bridge.canDischargeBattery(stack, 1);
             }
         });
@@ -174,7 +174,7 @@ public class AtmMachineMenu extends AbstractContainerMenu {
                 if (!moveItemStackTo(stack, AtmMachineBlockEntity.SLOT_DEPOSIT, AtmMachineBlockEntity.SLOT_DEPOSIT + 1, false)) {
                     return ItemStack.EMPTY;
                 }
-            } else if (TriModePowerMath.isFuelItem(TyC2Ids.itemId(stack))
+            } else if (TriModePowerMath.isFuelItem(TyC2Ids.itemId(stack), TyC2Ids.ITEM_TAG_MATCHER)
                     || Ic2Bridge.canDischargeBattery(stack, 1)) {
                 if (!moveItemStackTo(stack, AtmMachineBlockEntity.SLOT_FUEL, AtmMachineBlockEntity.SLOT_FUEL + 1, false)) {
                     return ItemStack.EMPTY;

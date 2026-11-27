@@ -2,6 +2,7 @@ package com.tycooncraft.tyc2.compat;
 
 import com.tycooncraft.tyc2.TyC2Constants;
 import com.tycooncraft.tyc2.TyC2Registries;
+import com.tycooncraft.tyc2.core.CommonTagAliases;
 import com.tycooncraft.tyc2.core.CurrencyDenomination;
 import com.tycooncraft.tyc2.core.MintIngredient;
 import com.tycooncraft.tyc2.core.MintRecipe;
@@ -74,7 +75,8 @@ public final class TyC2EmiPlugin implements EmiPlugin {
             addMintRecipe(registry, industrialCategory, recipe, false);
         }
 
-        List<TradeGood> liveGoods = TyC2DataLoader.goodsCatalog().getAvailableGoods(TyC2Native::itemExists, modLoaded);
+        List<TradeGood> liveGoods = TyC2DataLoader.goodsCatalog().getAvailableGoods(
+                TyC2Native::itemExists, modLoaded, TyC2Native::findFirstItemIdForTag);
         List<EmiIngredient> ecc2Stacks = new ArrayList<>();
         for (TradeGood good : liveGoods) {
             ItemStack itemStack = TyC2Native.stack(good.itemId(), 1);
@@ -100,11 +102,12 @@ public final class TyC2EmiPlugin implements EmiPlugin {
                 ));
             }
             if (good.isBuyableByVillage()) {
+                EmiIngredient buyInput = resolveBuyGoodIngredient(good, goodEmi);
                 registry.addRecipe(new TradeEmiRecipe(
                         tradeCategory,
                         id("/trade/buy/" + sanitize(good.id())),
                         good,
-                        goodEmi,
+                        buyInput,
                         coinEmi,
                         true
                 ));
@@ -196,6 +199,30 @@ public final class TyC2EmiPlugin implements EmiPlugin {
                     id("/info/ecc2_trade")
             ));
         }
+    }
+
+    private static EmiIngredient resolveBuyGoodIngredient(TradeGood good, EmiStack fallback) {
+        String optTag = good.optionalTag();
+        if (optTag == null || optTag.isBlank()) {
+            return fallback;
+        }
+        List<EmiIngredient> tagMatches = new ArrayList<>(4);
+        for (String tagId : CommonTagAliases.expandTagCandidates(optTag)) {
+            Identifier tagLoc = Identifier.tryParse(tagId);
+            if (tagLoc != null) {
+                EmiIngredient candidate = EmiIngredient.of(TagKey.create(Registries.ITEM, tagLoc), 1);
+                if (!candidate.isEmpty()) {
+                    tagMatches.add(candidate);
+                }
+            }
+        }
+        if (tagMatches.isEmpty()) {
+            return fallback;
+        }
+        if (tagMatches.size() == 1) {
+            return tagMatches.get(0);
+        }
+        return EmiIngredient.of(tagMatches, 1);
     }
 
     private static EmiIngredient resolveMintIngredient(MintIngredient ing) {

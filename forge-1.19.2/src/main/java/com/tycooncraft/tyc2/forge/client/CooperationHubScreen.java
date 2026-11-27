@@ -1271,7 +1271,14 @@ public class CooperationHubScreen extends AbstractContainerScreen<CooperationHub
                 if (!icon.isEmpty()) {
                     itemRenderer.renderAndDecorateItem(icon, ix, iy);
                     if (mouseX >= ix && mouseX < ix + 16 && mouseY >= iy && mouseY < iy + 16) {
-                        hoveredCustom = icon;
+                        if (o.isVillageBuy() && o.optionalTag() != null && !o.optionalTag().isEmpty()) {
+                            List<Component> lines = new ArrayList<>(getTooltipFromItem(icon));
+                            lines.add(Component.translatable("gui.tyc2.order.tooltip.accepts_tag", o.optionalTag())
+                                    .withStyle(ChatFormatting.GOLD));
+                            hoveredTips = lines;
+                        } else {
+                            hoveredCustom = icon;
+                        }
                     }
                 }
                 // Check order gem tag tooltips & Auto button tooltip

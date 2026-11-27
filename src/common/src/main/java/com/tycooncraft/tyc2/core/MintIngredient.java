@@ -1,13 +1,11 @@
 package com.tycooncraft.tyc2.core;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * Ingredient specification for a {@link MintRecipe}, supporting either an exact item ID
@@ -32,22 +30,23 @@ public final class MintIngredient {
         boolean hasTag(String itemId, String tagId);
     }
 
-    /** Fallback item IDs matched directly for common metal/ingot tags when no platform tag registry is queried. */
-    private static final Map<String, Set<String>> BUILTIN_TAG_FALLBACKS;
+    /** Fallback item IDs matched directly for common metal/gem tags when no platform tag registry is queried. */
+    private static final Map<String, List<String>> BUILTIN_TAG_FALLBACKS;
 
     static {
-        Map<String, Set<String>> m = new LinkedHashMap<>();
-        m.put("ingots/copper", Set.of("minecraft:copper_ingot"));
-        m.put("ingots/tin", Set.of("ic2:tin_ingot"));
-        m.put("ingots/iron", Set.of("minecraft:iron_ingot"));
-        m.put("ingots/bronze", Set.of("ic2:bronze_ingot"));
-        m.put("ingots/silver", Set.of("ic2:silver_ingot"));
-        m.put("ingots/gold", Set.of("minecraft:gold_ingot"));
-        m.put("ingots/steel", Set.of("ic2:steel_ingot", "ic2:refined_iron_ingot"));
-        m.put("ingots/lead", Set.of("ic2:lead_ingot"));
-        m.put("ingots/netherite", Set.of("minecraft:netherite_ingot"));
-        m.put("gems/diamond", Set.of("minecraft:diamond"));
-        m.put("gems/emerald", Set.of("minecraft:emerald"));
+        Map<String, List<String>> m = new LinkedHashMap<>();
+        m.put("ingots/copper", List.of("minecraft:copper_ingot"));
+        m.put("ingots/tin", List.of("ic2:tin_ingot"));
+        m.put("ingots/iron", List.of("minecraft:iron_ingot"));
+        m.put("ingots/bronze", List.of("ic2:bronze_ingot"));
+        m.put("ingots/silver", List.of("ic2:silver_ingot"));
+        m.put("ingots/gold", List.of("minecraft:gold_ingot"));
+        m.put("ingots/steel", List.of("ic2:steel_ingot", "ic2:refined_iron_ingot"));
+        m.put("ingots/lead", List.of("ic2:lead_ingot"));
+        m.put("ingots/netherite", List.of("minecraft:netherite_ingot"));
+        m.put("ingots/iridium", List.of("ic2:iridium", "ecc2:iridium_ingot"));
+        m.put("gems/diamond", List.of("minecraft:diamond"));
+        m.put("gems/emerald", List.of("minecraft:emerald"));
         BUILTIN_TAG_FALLBACKS = Collections.unmodifiableMap(m);
     }
 
@@ -71,24 +70,9 @@ public final class MintIngredient {
 
         if (this.isTag) {
             String rawTag = this.spec.substring(1);
-            List<String> tags = new ArrayList<>(2);
-            if (rawTag.contains(":")) {
-                tags.add(rawTag);
-                int colon = rawTag.indexOf(':');
-                String ns = rawTag.substring(0, colon);
-                String path = rawTag.substring(colon + 1);
-                this.normalizedTagPath = path;
-                if ("c".equals(ns)) {
-                    tags.add("forge:" + path);
-                } else if ("forge".equals(ns)) {
-                    tags.add("c:" + path);
-                }
-            } else {
-                this.normalizedTagPath = rawTag;
-                tags.add("c:" + rawTag);
-                tags.add("forge:" + rawTag);
-            }
-            this.expandedTagIds = Collections.unmodifiableList(tags);
+            int colon = rawTag.indexOf(':');
+            this.normalizedTagPath = colon >= 0 ? rawTag.substring(colon + 1) : rawTag;
+            this.expandedTagIds = CommonTagAliases.expandTagCandidates(this.spec);
         } else {
             this.normalizedTagPath = null;
             this.expandedTagIds = Collections.emptyList();
@@ -166,9 +150,9 @@ public final class MintIngredient {
         if (!isTag) {
             return spec;
         }
-        Set<String> fallback = BUILTIN_TAG_FALLBACKS.get(normalizedTagPath);
+        List<String> fallback = BUILTIN_TAG_FALLBACKS.get(normalizedTagPath);
         if (fallback != null && !fallback.isEmpty()) {
-            return fallback.iterator().next();
+            return fallback.get(0);
         }
         return spec;
     }
@@ -210,7 +194,7 @@ public final class MintIngredient {
                 }
             }
         }
-        Set<String> fallback = BUILTIN_TAG_FALLBACKS.get(normalizedTagPath);
+        List<String> fallback = BUILTIN_TAG_FALLBACKS.get(normalizedTagPath);
         return fallback != null && fallback.contains(normalized);
     }
 

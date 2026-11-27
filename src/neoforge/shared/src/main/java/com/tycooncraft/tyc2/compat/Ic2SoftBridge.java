@@ -8,6 +8,7 @@ import com.industrialage.ia2.power.EuBuffer;
 import com.industrialage.ia2.power.WorldPowerPort;
 import com.industrialage.ia2.world.MachineAutomation;
 import com.tycooncraft.tyc2.blockentity.TyC2EuSink;
+import com.tycooncraft.tyc2.core.CommonTagAliases;
 import com.tycooncraft.tyc2.platform.TyC2Native;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -136,9 +137,10 @@ public final class Ic2SoftBridge {
     }
 
     /**
-     * Handles IC2 Wrench / Electric Wrench right-click rotation and shift-right-click dismantling
-     * on TyC2 machines (Minting Machine &amp; Industrial ATM), properly deducting wrench durability
-     * or electric wrench EU charge in Survival mode. Safe even if IC2 is absent.
+     * Handles IC2 Wrench / Electric Wrench and any standard common-tagged wrench
+     * ({@code #c:tools/wrench}, {@code #c:wrenches}, {@code #forge:tools/wrench}) right-click
+     * rotation and shift-right-click dismantling on TyC2 machines, properly deducting wrench
+     * durability or electric wrench EU charge in Survival mode. Safe even if IC2 is absent.
      */
     public static boolean handleWrenchInteraction(
             Level level,
@@ -153,7 +155,10 @@ public final class Ic2SoftBridge {
         }
         String id = TyC2Native.itemId(held);
         boolean isElectric = "ic2:electric_wrench".equals(id);
-        if (!"ic2:wrench".equals(id) && !isElectric) {
+        boolean isWrench = isElectric
+                || "ic2:wrench".equals(id)
+                || CommonTagAliases.isWrenchTag(id, TyC2Native::itemIdHasTag);
+        if (!isWrench) {
             return false;
         }
         if (level.isClientSide()) {

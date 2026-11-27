@@ -1,5 +1,6 @@
 package com.tycooncraft.tyc2.forge.util;
 
+import com.tycooncraft.tyc2.core.CommonTagAliases;
 import com.tycooncraft.tyc2.core.CurrencyDenomination;
 import com.tycooncraft.tyc2.core.MintIngredient;
 import com.tycooncraft.tyc2.village.BlockPos3i;
@@ -9,13 +10,18 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.Container;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.EnchantedBookItem;
@@ -24,12 +30,15 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentInstance;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.tags.ITag;
 import net.minecraftforge.registries.tags.ITagManager;
 
 /**
@@ -224,6 +233,8 @@ public final class TyC2Ids {
         return createStack(slotStack.itemId(), slotStack.count(), slotStack.nbtJson(), null);
     }
 
+    private static final Map<String, TagKey<Item>> ITEM_TAG_KEY_CACHE = new ConcurrentHashMap<>();
+
     /** Shared {@link MintIngredient.TagMatcher} querying Forge's live item tag manager for both {@code forge:} and {@code c:}. */
     public static final MintIngredient.TagMatcher ITEM_TAG_MATCHER = (itemId, tagId) -> {
         Item item = getItem(itemId);
@@ -235,16 +246,54 @@ public final class TyC2Ids {
 
     /** Checks whether {@code item} belongs to {@code tagId} (without leading {@code '#'}). */
     public static boolean hasItemTag(Item item, String tagId) {
-        ResourceLocation rl = parse(tagId);
-        if (rl == null) {
+        if (item == null || tagId == null || tagId.isBlank()) {
             return false;
         }
         ITagManager<Item> tagManager = ForgeRegistries.ITEMS.tags();
         if (tagManager == null) {
             return false;
         }
-        TagKey<Item> key = tagManager.createTagKey(rl);
-        return tagManager.getTag(key).contains(item);
+        String clean = (tagId.startsWith("#") ? tagId.substring(1) : tagId).trim().toLowerCase(Locale.ROOT);
+        TagKey<Item> key = ITEM_TAG_KEY_CACHE.computeIfAbsent(clean, raw -> {
+            ResourceLocation rl = parse(raw);
+            return rl == null ? null : tagManager.createTagKey(rl);
+        });
+        return key != null && tagManager.getTag(key).contains(item);
+    }
+
+    /**
+     * Resolves the first registered non-air item ID belonging to {@code tagSpec} (expanding
+     * {@code forge:}/{@code c:} namespaces and Forge 1.19.2 &harr; NeoForge 1.21+ renames).
+     */
+    public static Optional<String> findFirstItemIdForTag(@Nullable String tagSpec) {
+        if (tagSpec == null || tagSpec.isBlank()) {
+            return Optional.empty();
+        }
+        ITagManager<Item> tagManager = ForgeRegistries.ITEMS.tags();
+        if (tagManager == null) {
+            return Optional.empty();
+        }
+        for (String candidate : CommonTagAliases.expandTagCandidates(tagSpec)) {
+            TagKey<Item> key = ITEM_TAG_KEY_CACHE.computeIfAbsent(candidate, raw -> {
+                ResourceLocation rl = parse(raw);
+                return rl == null ? null : tagManager.createTagKey(rl);
+            });
+            if (key == null) {
+                continue;
+            }
+            ITag<Item> tag = tagManager.getTag(key);
+            if (!tag.isEmpty()) {
+                for (Item item : tag) {
+                    if (item != null && item != Items.AIR) {
+                        String id = itemId(item);
+                        if (!id.isEmpty()) {
+                            return Optional.of(id);
+                        }
+                    }
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     /** Checks whether {@code stack} matches either an exact item ID or a {@code #tag} (supporting {@code forge:} & {@code c:}). */
@@ -263,31 +312,67 @@ public final class TyC2Ids {
         String normItem = candidateItemId.trim().toLowerCase(Locale.ROOT);
         String trimmed = spec.trim().toLowerCase(Locale.ROOT);
         if (trimmed.startsWith("#")) {
-            Item item = getItem(normItem);
-            if (item == null) {
-                return false;
-            }
-            String rawTag = trimmed.substring(1);
-            if (rawTag.contains(":")) {
-                if (hasItemTag(item, rawTag)) {
-                    return true;
-                }
-                int colon = rawTag.indexOf(':');
-                String ns = rawTag.substring(0, colon);
-                String path = rawTag.substring(colon + 1);
-                if ("c".equals(ns)) {
-                    return hasItemTag(item, "forge:" + path);
-                }
-                if ("forge".equals(ns)) {
-                    return hasItemTag(item, "c:" + path);
-                }
-                return false;
-            }
-            return hasItemTag(item, "forge:" + rawTag)
-                    || hasItemTag(item, "c:" + rawTag)
-                    || hasItemTag(item, "minecraft:" + rawTag);
+            return CommonTagAliases.matchesTagSpec(normItem, trimmed, ITEM_TAG_MATCHER);
         }
         return normItem.equals(trimmed);
+    }
+
+    /**
+     * Handles standard common-tagged wrench ({@code #forge:tools/wrench}, {@code #forge:wrenches})
+     * right-click rotation and shift-right-click dismantling on TyC2 machines.
+     *
+     * @param excludeIc2Wrench when {@code true}, skips {@code ic2:wrench}/{@code ic2:electric_wrench}
+     *                         so IC2's native {@code WrenchTarget} hook handles them without double-firing
+     * @return {@code true} if the wrench interaction was handled
+     */
+    public static boolean handleGenericWrenchInteraction(
+            Level level,
+            BlockPos pos,
+            BlockState state,
+            Player player,
+            InteractionHand hand,
+            ItemStack held,
+            Direction hitFace,
+            boolean excludeIc2Wrench
+    ) {
+        if (held == null || held.isEmpty()) {
+            return false;
+        }
+        String id = itemId(held);
+        boolean isIc2Wrench = "ic2:wrench".equals(id) || "ic2:electric_wrench".equals(id);
+        if (excludeIc2Wrench && isIc2Wrench) {
+            return false;
+        }
+        boolean isWrench = isIc2Wrench || CommonTagAliases.isWrenchTag(id, ITEM_TAG_MATCHER);
+        if (!isWrench) {
+            return false;
+        }
+        if (level.isClientSide) {
+            return true;
+        }
+        boolean creative = player != null && player.isCreative();
+        if (player != null && player.isShiftKeyDown()) {
+            if (!creative && held.isDamageableItem()) {
+                held.hurtAndBreak(1, player, p -> p.broadcastBreakEvent(hand));
+            }
+            level.destroyBlock(pos, true, player);
+            level.playSound(null, pos, SoundEvents.IRON_TRAPDOOR_CLOSE, SoundSource.BLOCKS, 0.7f, 1.1f);
+            return true;
+        }
+        if (state.hasProperty(HorizontalDirectionalBlock.FACING)) {
+            if (!creative && player != null && held.isDamageableItem()) {
+                held.hurtAndBreak(1, player, p -> p.broadcastBreakEvent(hand));
+            }
+            Direction current = state.getValue(HorizontalDirectionalBlock.FACING);
+            Direction target = hitFace.getAxis().isHorizontal() ? hitFace : current.getClockWise();
+            if (target == current) {
+                target = target.getClockWise();
+            }
+            level.setBlock(pos, state.setValue(HorizontalDirectionalBlock.FACING, target), Block.UPDATE_ALL);
+            level.playSound(null, pos, SoundEvents.UI_BUTTON_CLICK, SoundSource.BLOCKS, 0.6f, 1.2f);
+            return true;
+        }
+        return false;
     }
 
     /** Resolves the localized display name of an item ID from Forge's live item registry. */

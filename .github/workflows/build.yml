@@ -39,14 +39,14 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Fetch compileOnly IC2 v1.0.5 reference JARs
+      - name: Fetch compileOnly IC2 v1.0.11 reference JARs
         run: |
           mkdir -p .ic2-deps
-          BASE="https://github.com/spectrum527/IndustrialCraft2-The-New-Era/releases/download/v1.0.5"
-          curl -fsSL -o .ic2-deps/ic2-forge-1.19.2-1.0.5.jar    "$BASE/ic2-forge-1.19.2-1.0.5.jar"
-          curl -fsSL -o .ic2-deps/ic2-neoforge-1.21.1-1.0.5.jar "$BASE/ic2-neoforge-1.21.1-1.0.5.jar"
-          curl -fsSL -o .ic2-deps/ic2-neoforge-26.1.2-1.0.5.jar "$BASE/ic2-neoforge-26.1.2-1.0.5.jar"
-          curl -fsSL -o .ic2-deps/ic2-neoforge-26.2-1.0.5.jar   "$BASE/ic2-neoforge-26.2-1.0.5.jar"
+          BASE="https://github.com/spectrum527/IndustrialCraft2-The-New-Era/releases/download/v1.0.11"
+          curl -fsSL -o .ic2-deps/ic2-forge-1.19.2-1.0.11.jar    "$BASE/ic2-forge-1.19.2-1.0.11.jar"
+          curl -fsSL -o .ic2-deps/ic2-neoforge-1.21.1-1.0.11.jar "$BASE/ic2-neoforge-1.21.1-1.0.11.jar"
+          curl -fsSL -o .ic2-deps/ic2-neoforge-26.1.2-1.0.11.jar "$BASE/ic2-neoforge-26.1.2-1.0.11.jar"
+          curl -fsSL -o .ic2-deps/ic2-neoforge-26.2-1.0.11.jar   "$BASE/ic2-neoforge-26.2-1.0.11.jar"
 
       - name: Build Core, JUnit 5 Tests, and NeoForge 1.21.1 / 26.1.2 / 26.2
         run: |

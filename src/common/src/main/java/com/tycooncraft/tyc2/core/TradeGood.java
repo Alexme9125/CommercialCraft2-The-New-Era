@@ -378,6 +378,31 @@ public final class TradeGood {
     }
 
     /**
+     * Returns a copy of this good with a resolved runtime {@code itemId} (used when a tag-backed
+     * good activates from a populated item tag while its default provider mod is absent).
+     *
+     * @param resolvedItemId concrete registered item ID
+     * @return updated {@link TradeGood}
+     */
+    public TradeGood withItemId(String resolvedItemId) {
+        return new Builder(id, resolvedItemId, category, basePrice)
+                .optionalTag(optionalTag)
+                .requiredModId(requiredModId)
+                .levelRange(minLevel, maxLevel)
+                .industrialTier(industrialTierRequired)
+                .harvestSeasons(harvestSeasons)
+                .biomeAffinities(biomeAffinities)
+                .biomeExclusive(biomeExclusive)
+                .demandBiomes(demandBiomes)
+                .demandSeasons(demandSeasons)
+                .sellable(sellableByVillage)
+                .buyable(buyableByVillage)
+                .quantityRange(baseMinQty, baseMaxQty)
+                .enchantmentSpec(optionalEnchantmentSpec)
+                .build();
+    }
+
+    /**
      * Serializes this good into a JSON-compatible map.
      *
      * @return ordered map

@@ -1,5 +1,6 @@
 package com.tycooncraft.tyc2.forge.compat;
 
+import com.tycooncraft.tyc2.core.CommonTagAliases;
 import com.tycooncraft.tyc2.core.CurrencyDenomination;
 import com.tycooncraft.tyc2.core.MintIngredient;
 import com.tycooncraft.tyc2.core.MintRecipe;
@@ -74,7 +75,8 @@ public final class TyC2EmiPlugin implements EmiPlugin {
             addMintRecipe(registry, industrialCategory, recipe, false);
         }
 
-        List<TradeGood> liveGoods = TyC2RuntimeData.goodsCatalog().getAvailableGoods(TyC2Ids::itemExists, modLoaded);
+        List<TradeGood> liveGoods = TyC2RuntimeData.goodsCatalog().getAvailableGoods(
+                TyC2Ids::itemExists, modLoaded, TyC2Ids::findFirstItemIdForTag);
         List<EmiIngredient> ecc2Stacks = new ArrayList<>();
         for (TradeGood good : liveGoods) {
             ItemStack itemStack = TyC2Ids.createStack(good.itemId(), 1, "", good.optionalEnchantmentSpec());
@@ -100,11 +102,12 @@ public final class TyC2EmiPlugin implements EmiPlugin {
                 ));
             }
             if (good.isBuyableByVillage()) {
+                EmiIngredient buyInput = resolveBuyGoodIngredient(good, goodEmi);
                 registry.addRecipe(new TradeEmiRecipe(
                         tradeCategory,
                         TyC2Ids.id("/trade/buy/" + sanitize(good.id())),
                         good,
-                        goodEmi,
+                        buyInput,
                         coinEmi,
                         true
                 ));
@@ -196,6 +199,30 @@ public final class TyC2EmiPlugin implements EmiPlugin {
                     TyC2Ids.id("/info/ecc2_trade")
             ));
         }
+    }
+
+    private static EmiIngredient resolveBuyGoodIngredient(TradeGood good, EmiStack fallback) {
+        String optTag = good.optionalTag();
+        if (optTag == null || optTag.isBlank()) {
+            return fallback;
+        }
+        List<EmiIngredient> tagMatches = new ArrayList<>(4);
+        for (String tagId : CommonTagAliases.expandTagCandidates(optTag)) {
+            ResourceLocation rl = TyC2Ids.parse(tagId);
+            if (rl != null) {
+                EmiIngredient candidate = EmiIngredient.of(TagKey.create(Registry.ITEM_REGISTRY, rl), 1);
+                if (!candidate.isEmpty()) {
+                    tagMatches.add(candidate);
+                }
+            }
+        }
+        if (tagMatches.isEmpty()) {
+            return fallback;
+        }
+        if (tagMatches.size() == 1) {
+            return tagMatches.get(0);
+        }
+        return EmiIngredient.of(tagMatches, 1);
     }
 
     private static EmiIngredient resolveMintIngredient(MintIngredient ing) {

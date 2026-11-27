@@ -39,8 +39,22 @@ public final class MacroEconomyEngine {
     private record PrecursorMapping(String targetItemId, int ratio) {
     }
 
+    private record TagPrecursorMapping(String tagSpec, String targetItemId, int ratio) {
+    }
+
     /** Smeltable or craftable precursors whose 1-step transformation produces a mintable metal/alloy. */
     private static final Map<String, PrecursorMapping> MINT_PRECURSOR_ALIASES;
+
+    /** Common-tag precursors protecting modded raw ores and iridium ingots from mint arbitrage. */
+    private static final List<TagPrecursorMapping> TAG_PRECURSOR_ALIASES = List.of(
+            new TagPrecursorMapping("#raw_materials/iron", "minecraft:iron_ingot", 1),
+            new TagPrecursorMapping("#raw_materials/gold", "minecraft:gold_ingot", 1),
+            new TagPrecursorMapping("#raw_materials/copper", "minecraft:copper_ingot", 1),
+            new TagPrecursorMapping("#raw_materials/tin", "ic2:tin_ingot", 1),
+            new TagPrecursorMapping("#raw_materials/silver", "ic2:silver_ingot", 1),
+            new TagPrecursorMapping("#raw_materials/lead", "ic2:lead_ingot", 1),
+            new TagPrecursorMapping("#ingots/iridium", "ic2:iridium", 1)
+    );
 
     /** Intrinsic per-unit reference values (IC) used to distinguish primary vs secondary ingredients in dual mint recipes. */
     private static final Map<String, Double> DEFAULT_INTRINSIC_UNIT_VALUES;
@@ -964,6 +978,18 @@ public final class MacroEconomyEngine {
             );
             if (precursorFloor > floor) {
                 floor = precursorFloor;
+            }
+        }
+        if (matcher != null) {
+            for (TagPrecursorMapping tp : TAG_PRECURSOR_ALIASES) {
+                if (CommonTagAliases.matchesTagSpec(norm, tp.tagSpec(), matcher)) {
+                    long tagFloor = computeDynamicGrossFloor(
+                            registry, tp.targetItemId(), tp.ratio(), matcher
+                    );
+                    if (tagFloor > floor) {
+                        floor = tagFloor;
+                    }
+                }
             }
         }
         return Math.max(1L, floor);

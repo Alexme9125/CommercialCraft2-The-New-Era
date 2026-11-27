@@ -105,6 +105,7 @@ import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.network.NetworkHooks;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.server.ServerLifecycleHooks;
@@ -242,7 +243,8 @@ public final class TycoonForgeWorldManager {
             boolean placed = data.findNearestVillage(dim, event.getPos(), 160).isPresent()
                     && data.placedBlocks().markPlaced(dim, event.getPos());
             String blockId = TyC2Ids.blockId(event.getPlacedBlock().getBlock());
-            boolean milestone = data.tiers().recordItemMilestone(player.getUUID(), blockId, Ic2Bridge.isLoaded());
+            boolean milestone = data.tiers().recordItemMilestone(
+                    player.getUUID(), blockId, Ic2Bridge.isLoaded(), TyC2Ids.ITEM_TAG_MATCHER);
             if (placed || milestone) {
                 data.setDirty();
             }
@@ -311,7 +313,8 @@ public final class TycoonForgeWorldManager {
         }
         TycoonForgeSavedData data = TycoonForgeSavedData.get(level);
         String id = TyC2Ids.itemId(stack);
-        if (data.tiers().recordItemMilestone(player.getUUID(), id, Ic2Bridge.isLoaded())) {
+        if (data.tiers().recordItemMilestone(
+                player.getUUID(), id, Ic2Bridge.isLoaded(), TyC2Ids.ITEM_TAG_MATCHER)) {
             data.setDirty();
         }
     }
@@ -823,7 +826,7 @@ public final class TycoonForgeWorldManager {
         if (exp != null && !exp.completed() && !village.isExpansionPaused()) {
             ExpansionDesire current = exp;
             if (current.autoFulfill()) {
-                ExpansionDesire updated = current.pullAvailableFromInbound(village.getStorage());
+                ExpansionDesire updated = current.pullAvailableFromInbound(village.getStorage(), TyC2Ids.ITEM_TAG_MATCHER);
                 if (updated != current) {
                     village.setActiveExpansion(updated);
                     current = updated;
@@ -1041,6 +1044,7 @@ public final class TycoonForgeWorldManager {
         long safeDayTime = Math.max(0L, dayTime);
         Season season = SeasonSoftBridge.currentSeason(level);
         IndustrialTier ownerTier = data.resolveVillageOwnerTier(village);
+        Predicate<String> modLoaded = modId -> ModList.get() != null && ModList.get().isLoaded(modId);
         DemandGenerator.GeneratedDemand demand = TyC2RuntimeData.demandGenerator().generate(
                 village.getLevel(),
                 village.getBiomeStyle().id(),
@@ -1049,6 +1053,8 @@ public final class TycoonForgeWorldManager {
                 season,
                 data.economy(),
                 TyC2Ids::itemExists,
+                modLoaded,
+                TyC2Ids::findFirstItemIdForTag,
                 village.getEmploymentStats(),
                 TyC2RuntimeData.workplaceCatalog(),
                 RNG
@@ -1073,7 +1079,8 @@ public final class TycoonForgeWorldManager {
                     expires,
                     false,
                     go.seasonalHighlight(),
-                    go.biomeSpecialty()
+                    go.biomeSpecialty(),
+                    go.optionalTag() == null ? "" : go.optionalTag()
             ));
         }
         village.setActiveOrders(orders);
@@ -1573,7 +1580,8 @@ public final class TycoonForgeWorldManager {
         if (terminalStack != null && !exp.allMaterialsDelivered()) {
             boolean hasAnyInbound = false;
             for (String reqItemId : exp.remainingMaterials().keySet()) {
-                if (village.getStorage().countInInbound(reqItemId) > 0) {
+                if (ExpansionDesire.countAvailableInInbound(
+                        village.getStorage(), reqItemId, TyC2Ids.ITEM_TAG_MATCHER) > 0) {
                     hasAnyInbound = true;
                     break;
                 }
@@ -1595,10 +1603,12 @@ public final class TycoonForgeWorldManager {
         int deliveredBefore = totalDelivered(exp);
         if (pullFromPlayerInventory) {
             for (var entry : exp.remainingMaterials().entrySet()) {
-                pullItemsFromPlayerIntoInbound(player.getInventory(), village, entry.getKey(), entry.getValue());
+                pullExpansionMaterialFromPlayerIntoInbound(
+                        player.getInventory(), village, entry.getKey(), entry.getValue()
+                );
             }
         }
-        ExpansionDesire updated = exp.pullAvailableFromInbound(village.getStorage());
+        ExpansionDesire updated = exp.pullAvailableFromInbound(village.getStorage(), TyC2Ids.ITEM_TAG_MATCHER);
         village.setActiveExpansion(updated);
         data.setDirty();
 
@@ -2549,7 +2559,11 @@ public final class TycoonForgeWorldManager {
     }
 
     @Nullable
-    private static String resolveOrderOptionalTag(VillageTradeOrder order) {
+    public static String resolveOrderOptionalTag(VillageTradeOrder order) {
+        if (order.optionalTag() != null && !order.optionalTag().isBlank()) {
+            String raw = order.optionalTag().trim();
+            return raw.startsWith("#") ? raw : "#" + raw;
+        }
         Optional<TradeGood> goodOpt = TyC2RuntimeData.goodsCatalog().findOrderGood(
                 order.displayHint(), order.itemId(), order.side() == OrderSide.VILLAGE_BUYS
         );
@@ -2588,13 +2602,33 @@ public final class TycoonForgeWorldManager {
         return optionalTag != null && TyC2Ids.matchesItemOrTag(candidateItemId, optionalTag);
     }
 
-    private static int pullItemsFromPlayerIntoInbound(
+    private static int pullExpansionMaterialFromPlayerIntoInbound(
             Inventory inv,
             VillageRecord village,
-            String targetItemId,
+            String requiredItemId,
             int maxNeeded
     ) {
-        return pullMatchingItemsFromPlayerIntoInbound(inv, village, buildOrderStackMatcher(targetItemId), maxNeeded);
+        // Exact item ID first, then controlled common-tag substitutes using the exact same matcher as ExpansionDesire
+        int movedExact = pullMatchingItemsFromPlayerIntoInbound(
+                inv,
+                village,
+                stack -> !stack.isEmpty() && requiredItemId.equalsIgnoreCase(TyC2Ids.itemId(stack)),
+                maxNeeded
+        );
+        int remaining = maxNeeded - movedExact;
+        if (remaining > 0 && ExpansionDesire.optionalTagForMaterial(requiredItemId) != null) {
+            int movedTag = pullMatchingItemsFromPlayerIntoInbound(
+                    inv,
+                    village,
+                    stack -> !stack.isEmpty()
+                            && !requiredItemId.equalsIgnoreCase(TyC2Ids.itemId(stack))
+                            && ExpansionDesire.matchesMaterial(
+                                    TyC2Ids.itemId(stack), requiredItemId, TyC2Ids.ITEM_TAG_MATCHER),
+                    remaining
+            );
+            return movedExact + movedTag;
+        }
+        return movedExact;
     }
 
     private static int pullMatchingItemsFromPlayerIntoInbound(
