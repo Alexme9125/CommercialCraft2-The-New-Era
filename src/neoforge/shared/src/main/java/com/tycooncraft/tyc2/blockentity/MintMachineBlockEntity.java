@@ -420,22 +420,38 @@ public final class MintMachineBlockEntity extends TyC2BlockEntityBase
         List<Direction> pullFaces = Ic2SoftBridge.resolvePullingFaces(upgrades);
         if (!pullFaces.isEmpty()) {
             for (Direction dir : pullFaces) {
-                ItemStack pulled = TyC2ItemAccess.pull(
+                BlockPos neighbor = worldPosition.relative(dir);
+                ItemStack pulled = TyC2ItemAccess.pullCapped(
                         level,
-                        worldPosition.relative(dir),
+                        neighbor,
                         dir.getOpposite(),
                         16,
-                        stack -> Ic2SoftBridge.matchesUpgradeFilter(upgrades, false, stack)
-                                && TyC2DataLoader.mintRecipes().isValidInputItem(
-                                        TyC2Native.itemId(stack),
-                                        TyC2Native::itemIdHasTag,
-                                        ModList.get()::isLoaded
-                                ) && canFitInInputSlots(stack)
+                        stack -> {
+                            if (!Ic2SoftBridge.matchesUpgradeFilter(upgrades, false, stack)
+                                    || !TyC2DataLoader.mintRecipes().isValidInputItem(
+                                            TyC2Native.itemId(stack),
+                                            TyC2Native::itemIdHasTag,
+                                            ModList.get()::isLoaded
+                                    )) {
+                                return 0;
+                            }
+                            return freeInputCapacity(stack);
+                        }
                 );
                 if (!pulled.isEmpty()) {
                     ItemStack leftover = insertIntoInputSlots(pulled);
                     if (!leftover.isEmpty()) {
-                        TyC2ItemAccess.push(level, worldPosition.relative(dir), dir.getOpposite(), leftover);
+                        int returned = TyC2ItemAccess.push(level, neighbor, dir.getOpposite(), leftover);
+                        int unreturned = leftover.getCount() - returned;
+                        if (unreturned > 0) {
+                            net.minecraft.world.Containers.dropItemStack(
+                                    level,
+                                    worldPosition.getX() + 0.5,
+                                    worldPosition.getY() + 0.5,
+                                    worldPosition.getZ() + 0.5,
+                                    leftover.copyWithCount(unreturned)
+                            );
+                        }
                     }
                     setChanged();
                     break;
@@ -444,18 +460,24 @@ public final class MintMachineBlockEntity extends TyC2BlockEntityBase
         }
     }
 
-    private boolean canFitInInputSlots(ItemStack sample) {
+    private int freeInputCapacity(ItemStack sample) {
+        if (sample == null || sample.isEmpty()) {
+            return 0;
+        }
+        int stackMax = Math.max(1, Math.min(getMaxStackSize(), sample.getMaxStackSize()));
+        int free = 0;
         for (int slot : SLOTS_TOP) {
             ItemStack existing = items.get(slot);
             if (existing.isEmpty()) {
-                return true;
-            }
-            if (ItemStack.isSameItemSameComponents(existing, sample)
-                    && existing.getCount() < existing.getMaxStackSize()) {
-                return true;
+                free += stackMax;
+            } else if (ItemStack.isSameItemSameComponents(existing, sample)) {
+                int slotMax = Math.min(stackMax, existing.getMaxStackSize());
+                if (existing.getCount() < slotMax) {
+                    free += slotMax - existing.getCount();
+                }
             }
         }
-        return false;
+        return free;
     }
 
     private ItemStack insertIntoInputSlots(ItemStack stack) {

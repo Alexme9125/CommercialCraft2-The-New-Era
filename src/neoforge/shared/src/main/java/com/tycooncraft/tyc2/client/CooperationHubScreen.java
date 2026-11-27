@@ -6,6 +6,7 @@ import com.tycooncraft.tyc2.menu.CooperationHubMenu;
 import com.tycooncraft.tyc2.network.TyC2ActionPayload;
 import com.tycooncraft.tyc2.platform.TyC2Native;
 import com.tycooncraft.tyc2.village.SupplyCycleClock;
+import com.tycooncraft.tyc2.village.WorkplaceCatalog;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,6 +44,8 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
     private boolean terminateArmed = false;
     private int aidProfIdx = 0;
     private boolean aidLarge = false;
+    private int lastSeenSyncRevision = -1;
+    private int ticksSinceSync = 0;
 
     private EditBox searchInput;
     private EditBox renameInput;
@@ -77,8 +80,35 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
     @Override
     protected void init() {
         super.init();
+        lastSeenSyncRevision = menu.syncRevision();
+        ticksSinceSync = 0;
         rebuildControls();
         requestSync();
+    }
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        int rev = menu.syncRevision();
+        if (rev != lastSeenSyncRevision) {
+            lastSeenSyncRevision = rev;
+            ticksSinceSync = 0;
+        } else {
+            ticksSinceSync++;
+            if (ticksSinceSync % 40 == 0) {
+                requestSync();
+            }
+        }
+    }
+
+    private long liveRefreshRemaining(Map<String, Object> snap) {
+        int rev = menu.syncRevision();
+        if (rev != lastSeenSyncRevision) {
+            lastSeenSyncRevision = rev;
+            ticksSinceSync = 0;
+        }
+        long base = JsonLite.getLong(snap, "refreshRemainingTicks", SupplyCycleClock.TICKS_PER_WEEK);
+        return Math.max(0L, base - ticksSinceSync);
     }
 
     private void rebuildControls() {
@@ -467,7 +497,8 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                 int maxQueue = Math.max(1, JsonLite.getInt(snap, "maxAidQueue", 3));
                 boolean depop = JsonLite.getBoolean(snap, "depopPaused", false);
                 boolean unlocked = aidLarge ? largeUnlocked : smallUnlocked;
-                aidStartBtn.active = spec != null && !depop && queueSize < maxQueue && unlocked;
+                boolean limitReached = spec != null && JsonLite.getBoolean(spec, "aidLimitReached", false);
+                aidStartBtn.active = spec != null && !depop && queueSize < maxQueue && unlocked && !limitReached;
             }
         }
     }
@@ -483,7 +514,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         String season = JsonLite.getString(snap, "season", "NONE");
         String infl = JsonLite.getString(snap, "inflationState", "STABLE");
         boolean bonusActive = JsonLite.getBoolean(snap, "bonusActive", false);
-        long refreshRem = JsonLite.getLong(snap, "refreshRemainingTicks", SupplyCycleClock.TICKS_PER_WEEK);
+        long refreshRem = liveRefreshRemaining(snap);
 
         // Mayor crown emblem (212, 226, 16x16) at (12, 25)
         canvas.blit(GUI_TEX, 12, 25, TyC2Theme.HUB_MAYOR_CROWN_U, TyC2Theme.HUB_SPRITE_V, 16, 16);
@@ -740,7 +771,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         String season = JsonLite.getString(snap, "season", "NONE");
         String biomeKey = TyC2Theme.normalizeBiomeKey(JsonLite.getString(snap, "biome", "plains"));
         int tier = JsonLite.getInt(snap, "industrialTier", 0);
-        long refreshRem = JsonLite.getLong(snap, "refreshRemainingTicks", SupplyCycleClock.TICKS_PER_WEEK);
+        long refreshRem = liveRefreshRemaining(snap);
 
         // Framed left ledger stats card (10..119, 50..133)
         canvas.fill(10, 50, 119, 133, 0xFF0D1622);
@@ -777,7 +808,6 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         int unempCount = JsonLite.getInt(snap, "unemployedCount", 0);
         int workforce = JsonLite.getInt(snap, "workforceCount", 0);
         boolean bonusActive = JsonLite.getBoolean(snap, "bonusActive", false);
-        int restockPct = JsonLite.getInt(snap, "restockBonusPct", 0);
         int qtyPct = JsonLite.getInt(snap, "qtyBonusPct", 0);
         int thresholdPct = JsonLite.getInt(snap, "lowUnempThresholdPct", 25);
 
@@ -787,7 +817,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                 13, 113, 103, 0.52F, bonusActive ? TyC2Theme.MINT_TEXT : 0xFFE0ECF8
         );
         String bonusLine = bonusActive
-                ? Component.translatable("gui.tyc2.hub.unemployment_bonus", restockPct, qtyPct).getString()
+                ? Component.translatable("gui.tyc2.hub.unemployment_bonus", qtyPct).getString()
                 : Component.translatable("gui.tyc2.aid.bonus_inactive", thresholdPct).getString();
         TyC2Theme.drawFitString(canvas, bonusLine, 13, 123, 103, 0.48F, bonusActive ? 0xFF56EC8B : TyC2Theme.MUTED_TEXT);
 
@@ -966,11 +996,10 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         TyC2Theme.drawFitString(canvas, rateLine, 114, 79, 122, 0.56F, TyC2Theme.CYAN_TEXT);
 
         boolean bonusActive = JsonLite.getBoolean(snap, "bonusActive", false);
-        int restockPct = JsonLite.getInt(snap, "restockBonusPct", 0);
         int qtyPct = JsonLite.getInt(snap, "qtyBonusPct", 0);
         int thresholdPct = JsonLite.getInt(snap, "lowUnempThresholdPct", 25);
         String bonusLine = bonusActive
-                ? Component.translatable("gui.tyc2.aid.bonus_active", restockPct, qtyPct).getString()
+                ? Component.translatable("gui.tyc2.aid.bonus_active", qtyPct).getString()
                 : Component.translatable("gui.tyc2.aid.bonus_inactive", thresholdPct).getString();
         TyC2Theme.drawFitString(canvas, bonusLine, 10, 88, 152, 0.52F, bonusActive ? TyC2Theme.MINT_TEXT : 0xFF9BB4CC);
 
@@ -1245,8 +1274,19 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             }
         }
 
-        // 4. Aid construction queue hover tooltips
+        // 4. Aid construction queue & cap hover tooltips
         if (activeTab == 3 && growthSubTab == 1) {
+            Map<String, Object> spec = selectedWorkplace(snap);
+            if (spec != null && JsonLite.getBoolean(spec, "aidLimitReached", false)
+                    && pmx >= 186 && pmx < 236 && pmy >= 63 && pmy < 77) {
+                int aidMax = JsonLite.getInt(spec, "aidMax", WorkplaceCatalog.MAX_AID_BUILDS_PER_PROFESSION);
+                canvas.drawTooltip(
+                        List.of(Component.translatable("status.tyc2.aid.profession_limit", aidMax)
+                                .withStyle(ChatFormatting.RED)),
+                        mouseX, mouseY
+                );
+                return;
+            }
             List<Map<String, Object>> queue = aidProjects(snap);
             int shown = Math.min(3, queue.size());
             for (int i = 0; i < shown; i++) {
@@ -1275,7 +1315,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         // 6. Banner Weekly Calendar countdown tooltip
         if (!JsonLite.getBoolean(snap, "depopPaused", false)
                 && pmx >= 133 && pmx < 190 && pmy >= 33 && pmy < 45) {
-            long refreshRem = JsonLite.getLong(snap, "refreshRemainingTicks", SupplyCycleClock.TICKS_PER_WEEK);
+            long refreshRem = liveRefreshRemaining(snap);
             List<Component> lines = new ArrayList<>();
             lines.add(Component.translatable(
                     "gui.tyc2.hub.refresh_tooltip", TyC2Theme.formatRestockCountdown(refreshRem)
@@ -1283,7 +1323,6 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             if (JsonLite.getBoolean(snap, "bonusActive", false)) {
                 lines.add(Component.translatable(
                         "gui.tyc2.aid.bonus_active",
-                        JsonLite.getInt(snap, "restockBonusPct", 0),
                         JsonLite.getInt(snap, "qtyBonusPct", 0)
                 ).withStyle(ChatFormatting.GREEN));
             }
@@ -1298,13 +1337,12 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             int unempCount = JsonLite.getInt(snap, "unemployedCount", 0);
             int workforce = JsonLite.getInt(snap, "workforceCount", 0);
             boolean bonusActive = JsonLite.getBoolean(snap, "bonusActive", false);
-            int restockPct = JsonLite.getInt(snap, "restockBonusPct", 0);
             int qtyPct = JsonLite.getInt(snap, "qtyBonusPct", 0);
             int thresholdPct = JsonLite.getInt(snap, "lowUnempThresholdPct", 25);
             List<Component> lines = new ArrayList<>();
             lines.add(Component.translatable("gui.tyc2.hub.unemployment", unempPct, unempCount, workforce));
             if (bonusActive) {
-                lines.add(Component.translatable("gui.tyc2.aid.bonus_active", restockPct, qtyPct)
+                lines.add(Component.translatable("gui.tyc2.aid.bonus_active", qtyPct)
                         .withStyle(ChatFormatting.GREEN));
             } else {
                 lines.add(Component.translatable("gui.tyc2.aid.bonus_inactive", thresholdPct)

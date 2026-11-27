@@ -159,13 +159,95 @@ final class AuditFixesRegressionTest {
         assertFalse(steel.isSellableByVillage(), "IC2 steel ingot must not be sold by villages (mint arbitrage)");
         assertTrue(steel.isBuyableByVillage());
 
-        // Extreme deflation (huge Q, tiny M) must still respect minting floor for village sell quotes
+        // Extreme deflation (huge Q, tiny M) must still respect exact dynamic gross minting floors (C3)
+        // without IEEE-754 rounding errors (+1 IC) or distorting secondary co-ingredients!
         MacroEconomyEngine deflated = new MacroEconomyEngine(cfg);
         deflated.recordTrade("minecraft:wheat", 100_000, 100L, true);
+        assertEquals(110L, deflated.computeMintingArbitrageFloor("ic2:alloy"),
+                "ic2:alloy must stay at 110 IC (not polluted to 1,100 IC by iridium+alloy)");
+        assertEquals(550L, deflated.computeMintingArbitrageFloor("minecraft:netherite_scrap"));
+        assertEquals(550L, deflated.computeMintingArbitrageFloor("minecraft:ancient_debris"));
+        assertEquals(1_100L, deflated.computeMintingArbitrageFloor("ic2:iridium"));
+        assertEquals(1_100L, deflated.computeMintingArbitrageFloor("ecc2:iridium_ingot"));
+        assertEquals(1_100L, deflated.computeMintingArbitrageFloor("minecraft:netherite_ingot"));
+        assertEquals(123L, deflated.computeMintingArbitrageFloor("ic2:iridium_shard"));
+        assertEquals(220L, deflated.computeMintingArbitrageFloor("minecraft:diamond"),
+                "diamond must stay at 220 IC (not polluted to 1,100 IC by netherite+diamond)");
+        assertEquals(110L, deflated.computeMintingArbitrageFloor("minecraft:emerald"));
+        assertEquals(55L, deflated.computeMintingArbitrageFloor("minecraft:gold_ingot"),
+                "gold_ingot must be exact integer ceil(50*11/10)=55 IC (not 56 or 275)");
+        assertEquals(55L, deflated.computeMintingArbitrageFloor("ic2:refined_iron_ingot"),
+                "refined_iron_ingot must be exact integer ceil(50*11/10)=55 IC (not 56)");
+        assertEquals(6L, deflated.computeMintingArbitrageFloor("minecraft:iron_ingot"),
+                "iron_ingot must be 6 IC (summed 2x iron pair & not polluted by gold+iron)");
+
         TradeGood scrap = catalog.findByItemId("minecraft:netherite_scrap").orElseThrow();
+        TradeGood debris = catalog.findByItemId("minecraft:ancient_debris").orElseThrow();
         TradeGood alloy = catalog.findByItemId("ic2:alloy").orElseThrow();
-        assertTrue(deflated.quotePrice(scrap, 10, 0L, "plains", Season.NONE, false).finalUnitPrice() >= 460L);
-        assertTrue(deflated.quotePrice(alloy, 10, 0L, "plains", Season.NONE, false).finalUnitPrice() >= 120L);
+        TradeGood iridiumShard = catalog.findByItemId("ic2:iridium_shard").orElseThrow();
+        TradeGood refinedIron = TradeGood.builder("test:refined_iron", "ic2:refined_iron_ingot", GoodsCategory.METAL, 15L)
+                .levelRange(1, 10).sellable(true).buyable(false).build();
+        assertEquals(550L, deflated.quotePrice(scrap, 10, 0L, "plains", Season.NONE, false).finalUnitPrice());
+        assertEquals(550L, deflated.quotePrice(debris, 10, 0L, "plains", Season.NONE, false).finalUnitPrice());
+        assertEquals(110L, deflated.quotePrice(alloy, 10, 0L, "plains", Season.NONE, false).finalUnitPrice());
+        assertEquals(55L, deflated.quotePrice(refinedIron, 10, 0L, "plains", Season.NONE, false).finalUnitPrice());
+        assertTrue(deflated.quotePrice(iridiumShard, 10, 0L, "plains", Season.NONE, false).finalUnitPrice() >= 123L,
+                "ic2:iridium_shard 1/9 precursor floor must be >= 123 IC");
+
+        // Dynamic datapack 1-ing and 2-ing mint recipe floors without hardcoded item IDs
+        MintRecipeRegistry customMintReg = MintRecipeRegistry.createDefault();
+        customMintReg.register(new MintRecipe(
+                "custom:mythril_500",
+                List.of(MintIngredient.ofItem("custom:mythril_ingot", 2)),
+                CurrencyDenomination.X500,
+                1,
+                1000,
+                100,
+                null
+        ));
+        customMintReg.register(new MintRecipe(
+                "custom:orichalcum_iron_500",
+                List.of(MintIngredient.ofItem("custom:orichalcum_ingot", 1), MintIngredient.ofTag("#ingots/iron", 1)),
+                CurrencyDenomination.X500,
+                1,
+                2000,
+                120,
+                null
+        ));
+        deflated.setMintRecipeRegistry(customMintReg, null);
+        TradeGood mythril = TradeGood.builder("custom:mythril", "custom:mythril_ingot", GoodsCategory.METAL, 50L)
+                .levelRange(1, 10).sellable(true).buyable(false).build();
+        TradeGood orichalcum = TradeGood.builder("custom:orichalcum", "custom:orichalcum_ingot", GoodsCategory.METAL, 50L)
+                .levelRange(1, 10).sellable(true).buyable(false).build();
+        assertEquals(275L, deflated.quotePrice(mythril, 10, 0L, "plains", Season.NONE, false).finalUnitPrice(),
+                "Dynamic 1-ing gross mint floor: ceil((500 * 11) / (2 * 10)) = 275 IC");
+        assertEquals(550L, deflated.quotePrice(orichalcum, 10, 0L, "plains", Season.NONE, false).finalUnitPrice(),
+                "Dynamic 2-ing primary rare ingredient gets gross mint floor 550 IC");
+        assertEquals(6L, deflated.computeMintingArbitrageFloor("minecraft:iron_ingot"),
+                "Cheap iron co-ingredient in custom dual recipe must not be inflated to 550 IC");
+    }
+
+    @Test
+    void warehouseMaxInboundInsertAndHubDeployedLifecycle() {
+        // M2: maxInboundInsert accurately computes free space before pulling
+        CooperationHubStorage storage = new CooperationHubStorage();
+        assertEquals(32, storage.maxInboundInsert("minecraft:iron_ingot", 32, "", 64));
+        for (int s = CooperationHubStorage.INBOUND_START; s < CooperationHubStorage.INBOUND_END_EXCLUSIVE; s++) {
+            storage.setSlotRaw(s, new SlotStack("minecraft:stone", 64, ""));
+        }
+        assertEquals(0, storage.maxInboundInsert("minecraft:iron_ingot", 32, "", 64));
+        storage.setSlotRaw(0, new SlotStack("minecraft:iron_ingot", 60, ""));
+        assertEquals(4, storage.maxInboundInsert("minecraft:iron_ingot", 32, "", 64));
+
+        // M4: hubDeployed lifecycle
+        VillageRecord v = new VillageRecord(
+                UUID.randomUUID(), "minecraft:overworld", "Hubville", new BlockPos3i(0, 64, 0), BiomeStyle.PLAINS
+        );
+        assertFalse(v.isHubDeployed());
+        v.setHubDeployed(true);
+        assertTrue(v.isHubDeployed());
+        v.terminatePartnership(24_000L);
+        assertFalse(v.isHubDeployed());
     }
 
     @Test

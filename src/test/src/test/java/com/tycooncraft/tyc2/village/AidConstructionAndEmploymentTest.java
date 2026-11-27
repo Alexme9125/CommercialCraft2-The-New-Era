@@ -163,12 +163,24 @@ class AidConstructionAndEmploymentTest {
         assertEquals(260L, catalog.getByProfessionId("minecraft:fisherman").orElseThrow().baseCostSmallIc());
         assertEquals(600L, catalog.getByProfessionId("minecraft:librarian").orElseThrow().baseCostSmallIc());
 
-        // CPI pricing with guardrail clamping
+        // CPI pricing with guardrail clamping (M1: aid CPI floor >= 0.75 + repeat surcharge + profession cap)
         WorkplaceSpec farmer = catalog.getByProfessionId("minecraft:farmer").orElseThrow();
         assertEquals(250L, WorkplaceCatalog.quoteCostIc(farmer, WorkplaceSize.SMALL, 1.0, cfg));
         assertEquals(550L, WorkplaceCatalog.quoteCostIc(farmer, WorkplaceSize.LARGE, 1.0, cfg));
         assertEquals(1_000L, WorkplaceCatalog.quoteCostIc(farmer, WorkplaceSize.SMALL, 99.0, cfg)); // clamped to 4.0x
-        assertEquals(63L, WorkplaceCatalog.quoteCostIc(farmer, WorkplaceSize.SMALL, 0.01, cfg));    // clamped to 0.25x
+        assertEquals(188L, WorkplaceCatalog.quoteCostIc(farmer, WorkplaceSize.SMALL, 0.01, cfg));   // clamped to 0.75x floor
+        assertEquals(438L, WorkplaceCatalog.quoteCostIc(farmer, WorkplaceSize.SMALL, 1.0, cfg, 1)); // +75% repeat surcharge
+
+        VillageRecord capVillage = new VillageRecord(
+                UUID.randomUUID(), "minecraft:overworld", "CapTown",
+                new BlockPos3i(0, 64, 0), BiomeStyle.PLAINS);
+        assertTrue(capVillage.canStartAidForProfession("minecraft:farmer"));
+        capVillage.incrementCompletedAidCount("minecraft:farmer");
+        assertEquals(1, capVillage.getTotalAidCountForProfession("minecraft:farmer"));
+        assertTrue(capVillage.canStartAidForProfession("minecraft:farmer"));
+        capVillage.incrementCompletedAidCount("minecraft:farmer");
+        assertEquals(WorkplaceCatalog.MAX_AID_BUILDS_PER_PROFESSION, capVillage.getTotalAidCountForProfession("minecraft:farmer"));
+        assertFalse(capVillage.canStartAidForProfession("minecraft:farmer"));
 
         // Required materials include exact workstation count (1 small, 3 large)
         Map<String, Integer> farmerSmallMats =
@@ -483,13 +495,14 @@ class AidConstructionAndEmploymentTest {
         assertEquals(0, stats.activeCountForProfession("minecraft:none"));
 
         // 1/5 = 20% < 25% -> active! intensity = (0.25 - 0.20) / 0.25 = 0.20
+        // Task 2.3: restock cadence stays fixed at 1.0x / 168,000 ticks; qty boost remains active!
         assertEquals(0.20, stats.unemploymentRate(), 1e-9);
         assertTrue(stats.isLowUnemploymentBonusActive(cfg));
         assertEquals(0.20, stats.bonusIntensity(cfg), 1e-9);
-        assertEquals(1.30, stats.restockSpeedMultiplier(cfg), 1e-9);
+        assertEquals(1.0, stats.restockSpeedMultiplier(cfg), 1e-9);
         assertEquals(1.30, stats.tradeQuantityMultiplier(cfg), 1e-9);
         assertEquals(1.12, stats.rareTradeQuantityMultiplier(cfg), 1e-9);
-        assertEquals(129_230, stats.effectiveDemandRefreshTicks(cfg));
+        assertEquals(168_000, stats.effectiveDemandRefreshTicks(cfg));
 
         // 3. Exact 25% boundary (1/4) -> NOT active
         VillageEmploymentStats atBoundary = new VillageEmploymentStats(4, 3, 1, true, Map.of(), 600L);
@@ -498,15 +511,15 @@ class AidConstructionAndEmploymentTest {
         assertEquals(1.0, atBoundary.restockSpeedMultiplier(cfg), 1e-9);
         assertEquals(1.0, atBoundary.tradeQuantityMultiplier(cfg), 1e-9);
 
-        // 4. 0% unemployment -> maximum bonus (1.50x restock, 1.50x qty, 1.20x rare, 112,000 refresh ticks ~4.67d)
+        // 4. 0% unemployment -> maximum qty bonus (1.50x qty, 1.20x rare), fixed weekly 168,000 refresh ticks
         VillageEmploymentStats fullEmp = new VillageEmploymentStats(8, 8, 0, true, Map.of(), 700L);
         assertEquals(0.0, fullEmp.unemploymentRate(), 1e-9);
         assertTrue(fullEmp.isLowUnemploymentBonusActive(cfg));
         assertEquals(1.0, fullEmp.bonusIntensity(cfg), 1e-9);
-        assertEquals(1.50, fullEmp.restockSpeedMultiplier(cfg), 1e-9);
+        assertEquals(1.0, fullEmp.restockSpeedMultiplier(cfg), 1e-9);
         assertEquals(1.50, fullEmp.tradeQuantityMultiplier(cfg), 1e-9);
         assertEquals(1.20, fullEmp.rareTradeQuantityMultiplier(cfg), 1e-9);
-        assertEquals(112_000, fullEmp.effectiveDemandRefreshTicks(cfg));
+        assertEquals(168_000, fullEmp.effectiveDemandRefreshTicks(cfg));
     }
 
     @Test

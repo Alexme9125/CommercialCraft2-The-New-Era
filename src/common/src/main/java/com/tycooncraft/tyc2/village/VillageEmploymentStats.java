@@ -12,9 +12,9 @@ import java.util.UUID;
 /**
  * Immutable per-village workforce and employment snapshot driving both:
  * <ul>
- *   <li>Low-unemployment trade bonuses ({@code unemploymentRate < 25%}): smoother faster demand restock
- *       ({@code 1.25x..1.50x}) and larger per-order trade quantities ({@code 1.25x..1.50x}, gentle
- *       {@code 1.10x..1.20x} on rare enchanted books and endgame goods).</li>
+ *   <li>Low-unemployment trade bonuses ({@code unemploymentRate < 25%}): larger per-order trade
+ *       quantities ({@code 1.25x..1.50x}, gentle {@code 1.10x..1.20x} on rare enchanted books and
+ *       endgame goods). Weekly restock cadence stays fixed at {@code demandRefreshTicks}.</li>
  *   <li>Aid construction background gathering speed ({@code 1.0x..2.0x} based on idle/unemployed adult count).</li>
  * </ul>
  *
@@ -211,32 +211,29 @@ public record VillageEmploymentStats(
     }
 
     /**
-     * Returns the demand restock speed multiplier ({@code 1.0} when inactive, smoothly scaling
-     * across {@code [lowUnempRestockMinMult, lowUnempRestockMaxMult]} = {@code [1.25, 1.50]} when active).
+     * Returns the demand restock speed multiplier.
      *
-     * @param cfg active configuration (null falls back to defaults)
-     * @return restock speed multiplier (>= 1.0)
+     * <p>Weekly restock cadence stays fixed at the full configured {@code demandRefreshTicks}
+     * (7 MC days by default), so this always returns {@code 1.0}; low-unemployment bonuses apply
+     * exclusively to per-order trade quantities ({@link #tradeQuantityMultiplier(TyC2Config)}).
+     *
+     * @param cfg active configuration (unused; kept for binary/API compatibility)
+     * @return {@code 1.0}
      */
     public double restockSpeedMultiplier(TyC2Config cfg) {
-        TyC2Config c = cfg == null ? TyC2Config.defaults() : cfg;
-        if (!isLowUnemploymentBonusActive(c)) {
-            return 1.0;
-        }
-        double intensity = bonusIntensity(c);
-        return c.lowUnempRestockMinMult()
-                + (c.lowUnempRestockMaxMult() - c.lowUnempRestockMinMult()) * intensity;
+        return 1.0;
     }
 
     /**
-     * Computes the effective demand refresh period in ticks after applying {@link #restockSpeedMultiplier(TyC2Config)},
-     * floored at 200 ticks.
+     * Returns the demand refresh period in ticks, always equal to the full configured
+     * {@link TyC2Config#demandRefreshTicks()} (floored at 200 ticks) without low-unemployment shrinkage.
      *
      * @param cfg active configuration (null falls back to defaults)
-     * @return effective demand refresh interval in ticks (>= 200)
+     * @return demand refresh interval in ticks (>= 200)
      */
     public int effectiveDemandRefreshTicks(TyC2Config cfg) {
         TyC2Config c = cfg == null ? TyC2Config.defaults() : cfg;
-        return Math.max(200, (int) Math.floor(c.demandRefreshTicks() / restockSpeedMultiplier(c)));
+        return Math.max(200, c.demandRefreshTicks());
     }
 
     /**

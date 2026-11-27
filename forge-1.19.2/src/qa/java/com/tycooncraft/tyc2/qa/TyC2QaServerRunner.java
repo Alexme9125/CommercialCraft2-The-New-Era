@@ -1027,11 +1027,11 @@ final class TyC2QaServerRunner {
                                 aidUnemploymentBefore, statsAfter.unemploymentRate(),
                                 statsAfter.unemployedCount(), statsAfter.workforceCount()));
 
-                // (e) Low-unemployment (<25%) bonus: faster demand refresh + boosted trade quantity!
+                // (e) Low-unemployment (<25%) bonus: fixed weekly refresh interval + boosted trade quantity!
                 int effectiveRefresh = statsAfter.effectiveDemandRefreshTicks(cfg);
-                qa.check("employment_bonus.effective_refresh_faster_than_base",
-                        effectiveRefresh < cfg.demandRefreshTicks() && effectiveRefresh >= 200,
-                        "effective=" + effectiveRefresh + " < base=" + cfg.demandRefreshTicks());
+                qa.check("employment_bonus.refresh_interval_fixed_weekly",
+                        effectiveRefresh == Math.max(200, cfg.demandRefreshTicks()),
+                        "effective=" + effectiveRefresh + " == base=" + cfg.demandRefreshTicks());
 
                 DemandGenerator dg = TyC2RuntimeData.demandGenerator();
                 int baselineQtySum = 0;

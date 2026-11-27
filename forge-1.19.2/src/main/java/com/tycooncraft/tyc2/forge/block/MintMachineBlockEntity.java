@@ -453,11 +453,29 @@ public class MintMachineBlockEntity extends BlockEntity implements WorldlyContai
                         upgs, "ic2:pulling_upgrade", "ic2:advanced_pulling_upgrade", s
                 ),
                 be -> be != this,
+                this::freeInputCapacity,
                 this::insertIntoMintInputs
         );
         if (moved > 0) {
             setChanged();
         }
+    }
+
+    private int freeInputCapacity(ItemStack candidate) {
+        if (candidate == null || candidate.isEmpty()) {
+            return 0;
+        }
+        int cap = 0;
+        int maxStack = Math.min(getMaxStackSize(), candidate.getMaxStackSize());
+        for (int slot : new int[]{SLOT_INPUT_0, SLOT_INPUT_1}) {
+            ItemStack cur = items.get(slot);
+            if (cur.isEmpty()) {
+                cap += maxStack;
+            } else if (ItemStack.isSameItemSameTags(cur, candidate)) {
+                cap += Math.max(0, Math.min(getMaxStackSize(), cur.getMaxStackSize()) - cur.getCount());
+            }
+        }
+        return cap;
     }
 
     private ItemStack insertIntoMintInputs(ItemStack stack) {

@@ -1,6 +1,7 @@
 package com.tycooncraft.tyc2.platform;
 
 import java.util.function.Predicate;
+import java.util.function.ToIntFunction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -54,6 +55,21 @@ public final class TyC2ItemAccess {
             int maxCount,
             Predicate<ItemStack> filter
     ) {
+        return pullCapped(level, sourcePos, sourceFace, maxCount,
+                stack -> filter.test(stack) ? maxCount : 0);
+    }
+
+    /**
+     * Extracts up to {@code min(maxCount, maxAccept.applyAsInt(sample))} items from {@code sourcePos}
+     * via {@code sourceFace}, clamping BEFORE extraction so extract-only faces never lose leftovers.
+     */
+    public static ItemStack pullCapped(
+            ServerLevel level,
+            BlockPos sourcePos,
+            Direction sourceFace,
+            int maxCount,
+            ToIntFunction<ItemStack> maxAccept
+    ) {
         if (maxCount <= 0 || !level.hasChunkAt(sourcePos)) {
             return ItemStack.EMPTY;
         }
@@ -62,8 +78,12 @@ public final class TyC2ItemAccess {
         if (handler != null) {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 ItemStack preview = handler.extractItem(slot, maxCount, true);
-                if (!preview.isEmpty() && filter.test(preview)) {
-                    int limit = Math.min(maxCount, preview.getMaxStackSize());
+                if (preview.isEmpty()) {
+                    continue;
+                }
+                int accept = Math.min(maxCount, maxAccept.applyAsInt(preview));
+                if (accept > 0) {
+                    int limit = Math.min(accept, preview.getMaxStackSize());
                     return handler.extractItem(slot, limit, false);
                 }
             }
@@ -73,7 +93,7 @@ public final class TyC2ItemAccess {
         if (container == null) {
             return ItemStack.EMPTY;
         }
-        return pullFromContainer(container, sourceFace, maxCount, filter);
+        return pullFromContainer(container, sourceFace, maxCount, maxAccept);
     }
 
     private static Container resolveContainer(ServerLevel level, BlockPos pos, BlockEntity be) {
@@ -137,18 +157,22 @@ public final class TyC2ItemAccess {
             Container container,
             Direction face,
             int maxCount,
-            Predicate<ItemStack> filter
+            ToIntFunction<ItemStack> maxAccept
     ) {
         int[] slots = accessibleSlots(container, face);
         for (int slot : slots) {
             ItemStack existing = container.getItem(slot);
-            if (existing.isEmpty() || !filter.test(existing)) {
+            if (existing.isEmpty()) {
                 continue;
             }
             if (container instanceof WorldlyContainer worldly && !worldly.canTakeItemThroughFace(slot, existing, face)) {
                 continue;
             }
-            int take = Math.min(maxCount, Math.min(existing.getCount(), existing.getMaxStackSize()));
+            int accept = Math.min(maxCount, maxAccept.applyAsInt(existing));
+            if (accept <= 0) {
+                continue;
+            }
+            int take = Math.min(accept, Math.min(existing.getCount(), existing.getMaxStackSize()));
             ItemStack extracted = container.removeItem(slot, take);
             if (!extracted.isEmpty()) {
                 container.setChanged();

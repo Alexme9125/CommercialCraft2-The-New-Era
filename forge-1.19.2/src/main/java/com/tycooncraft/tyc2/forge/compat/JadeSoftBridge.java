@@ -103,9 +103,8 @@ public final class JadeSoftBridge {
                         "hud.tyc2.hub.unemployment", unempPct, emp.unemployedCount(), emp.workforceCount()
                 ));
                 if (emp.isLowUnemploymentBonusActive(cfg)) {
-                    int restockPct = (int) Math.round((emp.restockSpeedMultiplier(cfg) - 1.0) * 100.0);
                     int qtyPct = (int) Math.round((emp.tradeQuantityMultiplier(cfg) - 1.0) * 100.0);
-                    lines.add(Component.translatable("hud.tyc2.hub.employment_bonus", restockPct, qtyPct));
+                    lines.add(Component.translatable("hud.tyc2.hub.employment_bonus", qtyPct));
                 }
                 if (!v.getAidProjects().isEmpty()) {
                     AidConstructionProject headAid = v.getAidProjects().get(0);

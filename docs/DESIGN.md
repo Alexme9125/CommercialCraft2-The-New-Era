@@ -226,7 +226,7 @@ Upgrade requires meeting ALL THREE thresholds: **Population**, **Cumulative Trad
 | 9 | 30 | 130,000 | 28,000 | 15,000 | 9 | 8 | 6.5× |
 | 10 | 36 | 250,000 | 55,000 | 30,000 | 10 | 9 | 8.0× |
 
-- **Refresh Cadence**: New demand cycle refreshes every `12,000` ticks (10 minutes / half Minecraft day, configurable; immediate partial refresh when all current orders complete).
+- **Refresh Cadence**: New demand cycle refreshes on a fixed weekly in-game calendar cadence of `168,000` ticks (7 Minecraft days on `dayTime`, configurable; legacy v1 configs carrying `12,000` auto-migrate to `168,000` under `configVersion = 2`). Completed orders do NOT trigger early restock or early municipal stipend payouts.
 
 ### 6.2 Player / Company Industrial Tier Detection (0 → 5)
 Tracks the highest unlocked tier for each player (and max across members for a Company account), updating automatically via inventory/advancement/craft/block-place hooks:
@@ -399,7 +399,7 @@ All 7 biome styles (`PLAINS`, `DESERT`, `SAVANNA`, `TAIGA`, `SNOWY`, `JUNGLE`, `
   - All workplace blueprints contain **zero beds** (adding job sites without population inflation) and emit `SpawnMarker(MarkerKind.WORKSTATION, dx, dy, dz, professionId)`. `LevelTerrainProbe` explicitly protects workstation blocks (`blast_furnace`, `smoker`, `brewing_stand`, `cauldron`, `water_cauldron`, `bookshelf`, etc.) from future builds.
 - **Entry Points & Pricing**:
   - Available on partnered villages via **Cooperation Hub** (Growth → Aid sub-tab; cash or bank), **Commerce Comm Terminal** (Growth → Aid view; bank + `100 EU`), or OP command `/tyc2 aid <profession> [small|large]`.
-  - Live CPI quote: `max(1, round(baseCost * clamp(CPI, minPriceMultiplier, maxPriceMultiplier)))`. Paid funds are burned as an infrastructure money sink (not added to `villageBalance`).
+  - Live CPI quote: `max(1, round(baseCost * clamp(CPI, max(0.75, minPriceMultiplier), maxPriceMultiplier) * (1 + 0.75 * priorProfessionBuilds)))`, capped at `2` aided builds per profession per village (`MAX_AID_BUILDS_PER_PROFESSION = 2`) to prevent repeat demolish-and-rebuild workstation printing. Paid funds are burned as an infrastructure money sink (not added to `villageBalance`).
 - **Decoupled Upstream / Shared Downstream Pipeline (`AidConstructionProject`)**:
   - Independent `aidQueue` (`maxQueuedAidProjects = 3`) never competes with `ExpansionDesire` and is **unaffected by `expansionPaused = true`**.
   - On loaded-chunk orders, `ExpansionPlanner.planBlueprint(..., /*ignorePause=*/true)` pre-validates terrain and pre-locks `reservedZone` in `occupiedZones` before charging IC or Terminal `100 EU` (rejecting cleanly with zero charge if no safe site exists).
@@ -409,7 +409,7 @@ All 7 biome styles (`PLAINS`, `DESERT`, `SAVANNA`, `TAIGA`, `SNOWY`, `JUNGLE`, `
 - **Employment Stats & Low-Unemployment Bonus (`VillageEmploymentStats`)**:
   - Workforce denominator = living adult non-nitwit villagers within dynamic scan radius `max(48, maxExpansionRadius + 12)` (babies and nitwits excluded; living Mayor counts as employed public office; cached when unloaded).
   - When `workforceCount > 0` and `unemploymentRate < lowUnemploymentThreshold` (default `0.25`), smooth intensity `t = clamp((0.25 - r) / 0.25, 0, 1)` activates:
-    - **Restock Speed**: `1.25×..1.50×` (`effectiveDemandRefreshTicks = max(200, floor(demandRefreshTicks / restockSpeedMultiplier))`, immediately accelerating live countdowns).
+    - **Fixed Weekly Cadence**: Demand refresh interval stays pinned to the configured weekly calendar cycle (`demandRefreshTicks = 168,000` ticks / 7 Minecraft days); low unemployment does NOT shorten restock cadence.
     - **Trade Order Quantity**: `1.25×..1.50×` on standard goods and moderated `1.10×..1.20×` (`1 + 0.4 * (mult - 1)`) on rare `ENCHANTED_BOOK` / `ENDGAME` goods.
     - **Active Profession Weighting**: Active village professions gently boost matching `GoodsCategory` weights up to `1.4×` in `DemandGenerator` while strictly preserving village level and `IndustrialTier` caps.
 

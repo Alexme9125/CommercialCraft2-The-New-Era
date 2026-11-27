@@ -18,6 +18,8 @@ import com.tycooncraft.tyc2.core.TriModePowerMath;
 import com.tycooncraft.tyc2.core.TyC2Config;
 import com.tycooncraft.tyc2.item.CommTerminalItem;
 import com.tycooncraft.tyc2.item.CooperationHubBlockItem;
+import com.tycooncraft.tyc2.menu.AtmMachineMenu;
+import com.tycooncraft.tyc2.menu.CommTerminalMenu;
 import com.tycooncraft.tyc2.menu.CooperationHubMenu;
 import com.tycooncraft.tyc2.menu.MayorNegotiationMenu;
 import com.tycooncraft.tyc2.network.TyC2ActionPayload;
@@ -79,6 +81,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -111,6 +114,13 @@ public final class TyC2WorldManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(TyC2WorldManager.class);
     private static final ExpansionPlanner PLANNER = new ExpansionPlanner();
     private static final Random RNG = new Random();
+    private static final Set<String> REJECTED_NEGOTIATION_FOODS = Set.of(
+            "minecraft:rotten_flesh",
+            "minecraft:spider_eye",
+            "minecraft:pufferfish",
+            "minecraft:poisonous_potato",
+            "minecraft:chorus_fruit"
+    );
 
     private record ActiveNegotiation(UUID playerUuid, String dimensionId) {
     }
@@ -165,6 +175,10 @@ public final class TyC2WorldManager {
                     }
                     return true;
                 }
+                findVillageByHubPos(serverLevel, pos).ifPresent(v -> {
+                    v.setHubDeployed(false);
+                    getData(serverLevel).setDirty();
+                });
             }
             getData(serverLevel).removePlayerPlaced(TyC2Native.dimensionId(serverLevel), pos);
             return false;
@@ -265,7 +279,12 @@ public final class TyC2WorldManager {
     public static VillageRecord getOrCreateVillageForHub(ServerLevel level, BlockPos pos, UUID ownerUuid) {
         Optional<VillageRecord> existing = findVillageByHubPos(level, pos);
         if (existing.isPresent()) {
-            return existing.get();
+            VillageRecord rec = existing.get();
+            if (rec.isPartnered() && !rec.isHubDeployed()) {
+                rec.setHubDeployed(true);
+                getData(level).setDirty();
+            }
+            return rec;
         }
         TycoonSavedData data = getData(level);
         BiomeStyle style = BiomeStyle.fromBiomeId(TyC2Native.biomeId(level, pos));
@@ -288,7 +307,10 @@ public final class TyC2WorldManager {
                     cfg.negotiationCostIc(),
                     cfg.initialVillageWorkingCapital()
             );
-            refreshVillageOrders(level, data, v, overworldDayTime(level));
+            v.setHubDeployed(true);
+            long dayTime = overworldDayTime(level);
+            v.anchorStipendIfUnset(dayTime);
+            refreshVillageOrders(level, data, v, dayTime);
         }
         data.putVillage(v);
         if (ownerUuid != null) {
@@ -305,8 +327,11 @@ public final class TyC2WorldManager {
         long villageTotal = 0L;
         int partneredCount = 0;
         for (VillageRecord v : data.allVillages()) {
-            if (v.isPartnered()) {
+            // Include unpartnered villages' remaining treasuries so terminating a partnership cannot cloak money supply
+            if (v.getVillageBalance() > 0L) {
                 villageTotal += v.getVillageBalance();
+            }
+            if (v.isPartnered()) {
                 partneredCount++;
             }
         }
@@ -328,6 +353,8 @@ public final class TyC2WorldManager {
         if (targetLevel.getBlockEntity(hubPos) instanceof CooperationHubBlockEntity be) {
             be.setVillageId(v.getVillageId());
         }
+        v.setHubDeployed(true);
+        v.anchorStipendIfUnset(overworldDayTime(targetLevel));
         getData(targetLevel).setDirty();
         return hubPos;
     }
@@ -477,7 +504,7 @@ public final class TyC2WorldManager {
             syncMacroAccountTotals(data);
         }
 
-        // 2. Daily municipal upkeep deflationary sink
+        // 2. Daily municipal upkeep deflationary sink (runs on ALL villages with remaining treasury to prevent cloaking)
         long currentDay = overworld.getGameTime() / 24_000L;
         if (data.lastUpkeepDay() < 0L) {
             data.setLastUpkeepDay(currentDay);
@@ -485,7 +512,7 @@ public final class TyC2WorldManager {
             data.setLastUpkeepDay(currentDay);
             long totalUpkeep = 0L;
             for (VillageRecord v : data.allVillages()) {
-                if (v.isPartnered()) {
+                if (v.getVillageBalance() > 0L) {
                     long upkeep = v.applyMunicipalUpkeep(cfg.municipalUpkeepRate());
                     if (upkeep > 0L) {
                         data.economy().recordVillageMoneySink(upkeep);
@@ -494,6 +521,7 @@ public final class TyC2WorldManager {
                 }
             }
             if (totalUpkeep > 0L) {
+                syncMacroAccountTotals(data);
                 data.setDirty();
             }
         }
@@ -518,23 +546,25 @@ public final class TyC2WorldManager {
                 processAutoFulfill(overworld, data, v, gameTime);
             }
 
-            // 3b. Weekly calendar dayTime demand order refresh (or early restock when all orders completed)
+            // 3b. Fixed weekly calendar dayTime demand order refresh (never early-reset on all-orders-completed)
             if (v.canGenerateOrders()) {
-                int effectiveRefreshTicks = v.getEmploymentStats().effectiveDemandRefreshTicks(cfg);
-                boolean ordersEmpty = v.getActiveOrders().isEmpty();
-                boolean allDone = !ordersEmpty
-                        && v.getActiveOrders().stream().allMatch(VillageTradeOrder::isCompleted);
+                int refreshTicks = Math.max(200, cfg.demandRefreshTicks());
+                boolean neverInitialized = !v.hasInitialOrdersGenerated();
                 if (SupplyCycleClock.isRefreshDue(
-                        dayTime, v.getLastDemandRefreshTick(), effectiveRefreshTicks, ordersEmpty, allDone)) {
-                    // Apply weekly municipal stipend on periodic restock cycles (never immediately on initial signup)
-                    if (!ordersEmpty) {
-                        long stipend = v.applyWeeklyMunicipalStipend(cfg.weeklyMunicipalStipendRatio());
+                        dayTime, v.getLastDemandRefreshTick(), refreshTicks, neverInitialized)) {
+                    // Apply weekly municipal stipend strictly at most once per full weekly period
+                    if (!neverInitialized) {
+                        long stipend = v.applyWeeklyMunicipalStipendIfDue(
+                                cfg.weeklyMunicipalStipendRatio(), dayTime, refreshTicks
+                        );
                         if (stipend > 0L) {
                             syncMacroAccountTotals(data);
                             data.setDirty();
                         }
+                    } else {
+                        v.anchorStipendIfUnset(dayTime);
                     }
-                    data.economy().advanceDemandCycleIfDue(dayTime, effectiveRefreshTicks);
+                    data.economy().advanceDemandCycleIfDue(dayTime, refreshTicks);
                     refreshVillageOrders(overworld, data, v, dayTime);
                 }
             }
@@ -854,6 +884,7 @@ public final class TyC2WorldManager {
             Component wpTitle;
             if (completedAid.isPresent()) {
                 AidConstructionProject aidProj = completedAid.get();
+                v.incrementCompletedAidCount(aidProj.professionId());
                 v.removeAidProject(aidProj.projectId());
                 wpTitle = workplaceDisplayComponent(aidProj);
             } else {
@@ -1336,8 +1367,8 @@ public final class TyC2WorldManager {
         );
 
         long anchorTick = Math.max(0L, dayTime);
-        int effectiveRefreshTicks = v.getEmploymentStats().effectiveDemandRefreshTicks(cfg);
-        long expires = anchorTick + effectiveRefreshTicks;
+        int refreshTicks = Math.max(200, cfg.demandRefreshTicks());
+        long expires = anchorTick + refreshTicks;
         List<VillageTradeOrder> fresh = new ArrayList<>();
         for (DemandGenerator.GeneratedOrder go : demand.allOrders()) {
             OrderSide side = go.side() == DemandGenerator.OrderSide.VILLAGE_SELLS
@@ -1477,6 +1508,9 @@ public final class TyC2WorldManager {
             String action,
             Map<String, Object> args
     ) {
+        if (!(player.containerMenu instanceof AtmMachineMenu atmMenu) || !pos.equals(atmMenu.blockPos())) {
+            return;
+        }
         if (!level.hasChunkAt(pos) || !(level.getBlockEntity(pos) instanceof AtmMachineBlockEntity atm)) {
             return;
         }
@@ -1731,6 +1765,9 @@ public final class TyC2WorldManager {
             String action,
             Map<String, Object> args
     ) {
+        if (!(player.containerMenu instanceof CooperationHubMenu hubMenu) || !pos.equals(hubMenu.blockPos())) {
+            return;
+        }
         if (!level.hasChunkAt(pos) || !(level.getBlockEntity(pos) instanceof CooperationHubBlockEntity hub)) {
             return;
         }
@@ -1769,10 +1806,16 @@ public final class TyC2WorldManager {
                 TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED));
                 return;
             }
+            if (!TyC2Native.dimensionId(level).equals(village.getDimensionId())) {
+                TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.wrong_dimension").withStyle(ChatFormatting.RED));
+                return;
+            }
             if (!level.getBlockState(pos).is(TyC2Registries.COOPERATION_HUB_BLOCK.get())
                     || !level.removeBlock(pos, false)) {
                 return;
             }
+            village.setHubDeployed(false);
+            data.setDirty();
             ItemStack packed = new ItemStack(TyC2Registries.COOPERATION_HUB_ITEM.get());
             CooperationHubBlockItem.setBoundVillage(packed, village.getVillageId(), village.getVillageName());
             if (!player.getInventory().add(packed)) {
@@ -1806,12 +1849,17 @@ public final class TyC2WorldManager {
                             "Aid Refund (Termination)"
                     );
                     data.economy().refundBankMoneySink(proj.paidIc());
+                } else if (!proj.canCancel()) {
+                    // Already BUILDING: count toward per-profession aid cap so termination cannot reset build caps
+                    village.incrementCompletedAidCount(proj.professionId());
                 }
             }
             village.clearAidProjects();
             village.clearConstructionQueue();
             village.setChunkLoaderInstalled(false);
-            village.terminatePartnership();
+            long overworldGameTime = level.getServer().overworld().getGameTime();
+            village.terminatePartnership(overworldGameTime);
+            syncMacroAccountTotals(data);
             data.setDirty();
             if (level.getBlockState(pos).is(TyC2Registries.COOPERATION_HUB_BLOCK.get())) {
                 BlockState bell = Blocks.BELL.defaultBlockState();
@@ -1836,8 +1884,11 @@ public final class TyC2WorldManager {
             String action,
             Map<String, Object> args
     ) {
-        ItemStack term = findHeldTerminal(player);
-        if (term.isEmpty()) {
+        if (!(player.containerMenu instanceof CommTerminalMenu termMenu)) {
+            return;
+        }
+        ItemStack term = termMenu.isOffhand() ? player.getOffhandItem() : player.getMainHandItem();
+        if (!(term.getItem() instanceof CommTerminalItem)) {
             return;
         }
         TycoonSavedData data = getData(level);
@@ -2241,8 +2292,19 @@ public final class TyC2WorldManager {
             );
             return;
         }
+        if (!village.canStartAidForProfession(spec.professionId())) {
+            TyC2Native.sendActionBar(
+                    player,
+                    Component.translatable(
+                            "status.tyc2.aid.profession_limit",
+                            WorkplaceCatalog.MAX_AID_BUILDS_PER_PROFESSION
+                    ).withStyle(ChatFormatting.RED)
+            );
+            return;
+        }
 
-        long costIc = WorkplaceCatalog.quoteCostIc(spec, size, data.economy().computeCpi(), cfg);
+        int priorBuilds = village.getTotalAidCountForProfession(spec.professionId());
+        long costIc = WorkplaceCatalog.quoteCostIc(spec, size, data.economy().computeCpi(), cfg, priorBuilds);
         boolean payCash = useCash && hub != null && !isTerminal;
 
         // Verify funds BEFORE site preview / Terminal 100 EU deduction
@@ -2339,6 +2401,7 @@ public final class TyC2WorldManager {
                 payCash
         );
         village.addAidProject(project);
+        syncMacroAccountTotals(data);
         data.setDirty();
 
         TyC2Native.sendActionBar(
@@ -2407,6 +2470,7 @@ public final class TyC2WorldManager {
             }
             data.economy().refundMoneySink(refundIc, refundToCash);
         }
+        syncMacroAccountTotals(data);
         data.setDirty();
 
         TyC2Native.sendActionBar(
@@ -2497,6 +2561,7 @@ public final class TyC2WorldManager {
                 false
         );
         village.addAidProject(project);
+        syncMacroAccountTotals(data);
         data.setDirty();
         return Optional.empty();
     }
@@ -2563,6 +2628,10 @@ public final class TyC2WorldManager {
         } catch (IllegalArgumentException ignored) {
             return;
         }
+        if (!(player.containerMenu instanceof MayorNegotiationMenu negMenu)
+                || !villageId.equals(negMenu.villageId())) {
+            return;
+        }
         TycoonSavedData data = getData(level);
         Optional<VillageRecord> villageOpt = data.getVillage(villageId);
         if (villageOpt.isEmpty()) {
@@ -2576,9 +2645,7 @@ public final class TyC2WorldManager {
         if (!"SIGN_PARTNERSHIP".equals(action) || village.isPartnered()) {
             return;
         }
-        if (!(player.containerMenu instanceof MayorNegotiationMenu negMenu)
-                || !villageId.equals(negMenu.villageId())
-                || !TyC2Native.dimensionId(level).equals(village.getDimensionId())) {
+        if (!TyC2Native.dimensionId(level).equals(village.getDimensionId())) {
             return;
         }
         UUID mayorUuid = negMenu.mayorEntityUuid() != null
@@ -2590,6 +2657,24 @@ public final class TyC2WorldManager {
         }
 
         TyC2Config cfg = TyC2DataLoader.config();
+        long dayTime = overworldDayTime(level);
+        if (village.normalizeDemandRefreshAnchor(dayTime)) {
+            data.setDirty();
+        }
+        int refreshTicks = Math.max(200, cfg.demandRefreshTicks());
+        long overworldGameTime = level.getServer().overworld().getGameTime();
+        long resignCooldown = village.remainingResignCooldownTicks(overworldGameTime, refreshTicks);
+        if (resignCooldown > 0L) {
+            Component cooldownMsg = Component.translatable(
+                    "status.tyc2.negotiation.resign_cooldown",
+                    formatRemainingMcTime(resignCooldown)
+            ).withStyle(ChatFormatting.RED);
+            TyC2Native.sendActionBar(player, cooldownMsg);
+            player.sendSystemMessage(cooldownMsg);
+            sendMayorSync(player, level, village);
+            return;
+        }
+
         NegotiationCheck check = evaluateNegotiation(player, data, cfg);
         if (!check.allMet()) {
             TyC2Native.sendActionBar(
@@ -2633,6 +2718,8 @@ public final class TyC2WorldManager {
                 costIc,
                 cfg.initialVillageWorkingCapital()
         );
+        village.setHubDeployed(true);
+        village.anchorStipendIfUnset(dayTime);
 
         ServerLevel targetLevel = resolveDimensionLevel(level.getServer(), village.getDimensionId(), level);
         BlockPos hubPos = new BlockPos(village.getHubPos().x(), village.getHubPos().y(), village.getHubPos().z());
@@ -2644,7 +2731,10 @@ public final class TyC2WorldManager {
         // Register initial Hub core zone & existing village houses so expansion stays cleanly outside
         village.addOccupiedZone(Aabb3i.singleBlock(village.getHubPos()).padHorizontal(4));
         registerExistingVillageZones(targetLevel, village, hubPos);
-        refreshVillageOrders(targetLevel, data, village, overworldDayTime(targetLevel));
+        if (SupplyCycleClock.isRefreshDue(
+                dayTime, village.getLastDemandRefreshTick(), refreshTicks, !village.hasInitialOrdersGenerated())) {
+            refreshVillageOrders(targetLevel, data, village, dayTime);
+        }
         syncMacroAccountTotals(data);
         data.setDirty();
 
@@ -3077,12 +3167,12 @@ public final class TyC2WorldManager {
 
         VillageEmploymentStats es = v.getEmploymentStats();
         TyC2Config cfg = TyC2DataLoader.config();
-        int effectiveRefreshTicks = es.effectiveDemandRefreshTicks(cfg);
+        int refreshTicks = Math.max(200, cfg.demandRefreshTicks());
         long refreshRemainingTicks = SupplyCycleClock.remainingRefreshTicks(
-                overworldDayTime(level), v.getLastDemandRefreshTick(), effectiveRefreshTicks
+                overworldDayTime(level), v.getLastDemandRefreshTick(), refreshTicks
         );
         root.put("refreshRemainingTicks", refreshRemainingTicks);
-        root.put("refreshTotalTicks", effectiveRefreshTicks);
+        root.put("refreshTotalTicks", refreshTicks);
 
         // Active Orders
         List<Map<String, Object>> orders = new ArrayList<>();
@@ -3152,12 +3242,10 @@ public final class TyC2WorldManager {
             root.put("activeBuild", jm);
         });
 
-        // Employment stats & low-unemployment bonus
+        // Employment stats & low-unemployment bonus (order quantity boost only; weekly refresh interval stays fixed)
         int unempPct = (int) Math.round(es.unemploymentRate() * 100.0);
         boolean bonusActive = es.isLowUnemploymentBonusActive(cfg);
-        int restockBonusPct = bonusActive
-                ? (int) Math.round((es.restockSpeedMultiplier(cfg) - 1.0) * 100.0)
-                : 0;
+        int restockBonusPct = 0;
         int qtyBonusPct = bonusActive
                 ? (int) Math.round((es.tradeQuantityMultiplier(cfg) - 1.0) * 100.0)
                 : 0;
@@ -3172,21 +3260,26 @@ public final class TyC2WorldManager {
         root.put("lowUnempThresholdPct", (int) Math.round(cfg.lowUnemploymentThreshold() * 100.0));
         root.put("maxAidQueue", cfg.maxQueuedAidProjects());
 
-        // Available workplaces (with live CPI pricing)
+        // Available workplaces (with live CPI pricing, repeat surcharge, and profession build cap)
         double cpi = econ.computeCpi();
         List<Map<String, Object>> workplaces = new ArrayList<>();
         for (WorkplaceSpec spec : TyC2DataLoader.workplaceCatalog().getAvailableWorkplaces(TyC2Native::blockExists)) {
+            int priorBuilds = v.getTotalAidCountForProfession(spec.professionId());
+            boolean limitReached = !v.canStartAidForProfession(spec.professionId());
             Map<String, Object> wm = new LinkedHashMap<>();
             wm.put("professionId", spec.professionId());
             wm.put("workstationBlockId", spec.workstationBlockId());
             wm.put("archetype", spec.archetype().name());
             wm.put("displayNameFallback", spec.displayNameFallback());
-            wm.put("costSmallIc", WorkplaceCatalog.quoteCostIc(spec, WorkplaceSize.SMALL, cpi, cfg));
-            wm.put("costLargeIc", WorkplaceCatalog.quoteCostIc(spec, WorkplaceSize.LARGE, cpi, cfg));
+            wm.put("costSmallIc", WorkplaceCatalog.quoteCostIc(spec, WorkplaceSize.SMALL, cpi, cfg, priorBuilds));
+            wm.put("costLargeIc", WorkplaceCatalog.quoteCostIc(spec, WorkplaceSize.LARGE, cpi, cfg, priorBuilds));
             wm.put("smallUnlocked", spec.isUnlockedAtLevel(v.getLevel(), WorkplaceSize.SMALL));
             wm.put("minLevelSmall", spec.minVillageLevelSmall());
             wm.put("largeUnlocked", spec.isUnlockedAtLevel(v.getLevel(), WorkplaceSize.LARGE));
             wm.put("minLevelLarge", spec.minVillageLevelLarge());
+            wm.put("aidCount", priorBuilds);
+            wm.put("aidMax", WorkplaceCatalog.MAX_AID_BUILDS_PER_PROFESSION);
+            wm.put("aidLimitReached", limitReached);
             workplaces.add(wm);
         }
         root.put("workplaces", workplaces);
@@ -3265,10 +3358,14 @@ public final class TyC2WorldManager {
         if (stack.isEmpty()) {
             return false;
         }
-        if (stack.has(DataComponents.FOOD)) {
-            return true;
-        }
         String id = TyC2Native.itemId(stack);
+        if (REJECTED_NEGOTIATION_FOODS.contains(id)) {
+            return false;
+        }
+        FoodProperties food = stack.get(DataComponents.FOOD);
+        if (food != null) {
+            return food.nutrition() >= 3;
+        }
         return "minecraft:bread".equals(id)
                 || "minecraft:baked_potato".equals(id)
                 || "minecraft:cooked_beef".equals(id)
@@ -3277,6 +3374,19 @@ public final class TyC2WorldManager {
                 || "minecraft:cooked_mutton".equals(id)
                 || "minecraft:carrot".equals(id)
                 || "minecraft:apple".equals(id);
+    }
+
+    private static Component formatRemainingMcTime(long remainingTicks) {
+        long clamped = Math.max(0L, remainingTicks);
+        long days = clamped / SupplyCycleClock.TICKS_PER_DAY;
+        long hours = (clamped % SupplyCycleClock.TICKS_PER_DAY) / 1_000L;
+        if (days > 0L && hours > 0L) {
+            return Component.translatable("gui.tyc2.hub.refresh_days_hours", days, hours);
+        }
+        if (days > 0L) {
+            return Component.translatable("gui.tyc2.hub.refresh_days", days);
+        }
+        return Component.translatable("gui.tyc2.hub.refresh_hours", Math.max(1L, hours));
     }
 
     private static long countCoinsInInventory(Player player) {
@@ -3538,7 +3648,7 @@ public final class TyC2WorldManager {
         return false;
     }
 
-    private static ServerLevel resolveDimensionLevel(MinecraftServer server, String dimId, ServerLevel fallback) {
+    public static ServerLevel resolveDimensionLevel(MinecraftServer server, String dimId, ServerLevel fallback) {
         if (server == null || dimId == null) {
             return fallback;
         }

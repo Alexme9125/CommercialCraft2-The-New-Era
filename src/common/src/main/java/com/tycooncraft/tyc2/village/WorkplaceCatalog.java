@@ -37,6 +37,15 @@ public final class WorkplaceCatalog {
     /** Default large-workshop cost multiplier relative to {@code baseCostSmallIc}. */
     public static final double DEFAULT_LARGE_COST_MULTIPLIER = 2.2;
 
+    /** Minimum CPI multiplier floor for Aid Construction so deflation cannot discount virtual workstations below 75%. */
+    public static final double MIN_AID_CPI_MULTIPLIER = 0.75;
+
+    /** Additional cost multiplier per prior completed/active aid build of the same profession in a village (+75%). */
+    public static final double REPEAT_AID_COST_STEP = 0.75;
+
+    /** Hard per-village cap on aided workplaces per profession (prevents demolish-and-rebuild workstation printing). */
+    public static final int MAX_AID_BUILDS_PER_PROFESSION = 2;
+
     private final Map<String, WorkplaceSpec> configuredSpecs = new LinkedHashMap<>();
     private final Map<String, WorkplaceSpec> dynamicModdedSpecs = new LinkedHashMap<>();
 
@@ -357,8 +366,9 @@ public final class WorkplaceCatalog {
     }
 
     /**
-     * Quotes the CPI-adjusted aid construction price in IC for {@code spec} and {@code size}:
-     * {@code max(1, round(baseCostSmallIc * (LARGE ? largeCostMultiplier : 1.0) * clamp(cpi, minMult, maxMult)))}.
+     * Quotes the CPI-adjusted aid construction price in IC for {@code spec} and {@code size},
+     * clamping the CPI factor to {@code [max(0.75, minPriceMultiplier), maxPriceMultiplier]}
+     * so deflation cannot discount virtual workstations below 75% of base cost.
      *
      * @param spec workplace spec
      * @param size requested building size
@@ -367,15 +377,38 @@ public final class WorkplaceCatalog {
      * @return quoted cost in IC (>= 1)
      */
     public static long quoteCostIc(WorkplaceSpec spec, WorkplaceSize size, double cpi, TyC2Config cfg) {
+        return quoteCostIc(spec, size, cpi, cfg, 0);
+    }
+
+    /**
+     * Quotes the CPI-adjusted aid construction price in IC for {@code spec}, {@code size}, and
+     * {@code priorProfessionBuilds} (completed + currently queued aid builds of the same profession
+     * in the target village), applying both the {@value #MIN_AID_CPI_MULTIPLIER} CPI floor and
+     * a {@code +75%} repeat surcharge per prior build to prevent demolish-and-rebuild workstation printing.
+     *
+     * @param spec workplace spec
+     * @param size requested building size
+     * @param cpi current global macro-economy CPI index
+     * @param cfg active configuration (null falls back to defaults)
+     * @param priorProfessionBuilds number of prior completed or active aid builds of this profession (>= 0)
+     * @return quoted cost in IC (>= 1)
+     */
+    public static long quoteCostIc(
+            WorkplaceSpec spec,
+            WorkplaceSize size,
+            double cpi,
+            TyC2Config cfg,
+            int priorProfessionBuilds) {
         Objects.requireNonNull(spec, "spec");
         Objects.requireNonNull(size, "size");
         TyC2Config effectiveCfg = cfg == null ? TyC2Config.defaults() : cfg;
         double sizeMult = size == WorkplaceSize.LARGE ? spec.largeCostMultiplier() : 1.0;
         double safeCpi = Double.isFinite(cpi) ? cpi : 1.0;
-        double clampedCpi = Math.max(
-                effectiveCfg.minPriceMultiplier(),
-                Math.min(effectiveCfg.maxPriceMultiplier(), safeCpi));
-        return Math.max(1L, Math.round(spec.baseCostSmallIc() * sizeMult * clampedCpi));
+        double minAidCpi = Math.max(MIN_AID_CPI_MULTIPLIER, effectiveCfg.minPriceMultiplier());
+        double maxAidCpi = Math.max(minAidCpi, effectiveCfg.maxPriceMultiplier());
+        double clampedCpi = Math.max(minAidCpi, Math.min(maxAidCpi, safeCpi));
+        double repeatMult = 1.0 + REPEAT_AID_COST_STEP * Math.max(0, priorProfessionBuilds);
+        return Math.max(1L, Math.round(spec.baseCostSmallIc() * sizeMult * clampedCpi * repeatMult));
     }
 
     /**

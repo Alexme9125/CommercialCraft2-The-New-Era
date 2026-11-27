@@ -3,8 +3,10 @@ package com.tycooncraft.tyc2.forge.data;
 import com.tycooncraft.tyc2.core.DemandGenerator;
 import com.tycooncraft.tyc2.core.GoodsCatalog;
 import com.tycooncraft.tyc2.core.JsonLite;
+import com.tycooncraft.tyc2.core.MacroEconomyEngine;
 import com.tycooncraft.tyc2.core.MintRecipeRegistry;
 import com.tycooncraft.tyc2.core.TyC2Config;
+import com.tycooncraft.tyc2.forge.util.TyC2Ids;
 import com.tycooncraft.tyc2.forge.util.TyC2VillagerHelpers;
 import com.tycooncraft.tyc2.village.VillageLevelTable;
 import com.tycooncraft.tyc2.village.WorkplaceCatalog;
@@ -101,6 +103,7 @@ public final class TyC2RuntimeData {
         mintRecipes = freshMint;
         goodsCatalog = freshGoods;
         workplaceCatalog = freshWorkplaces;
+        MacroEconomyEngine.setActiveMintRecipeRegistry(freshMint, TyC2Ids.ITEM_TAG_MATCHER);
     }
 
     /** Scans live Forge registries for third-party modded villager professions and merges them into the catalog. */
@@ -119,6 +122,7 @@ public final class TyC2RuntimeData {
         }
         loadExternalOverrides(dir, mintRecipes, goodsCatalog, workplaceCatalog);
         mergeDiscoveredModdedProfessions(workplaceCatalog, config);
+        MacroEconomyEngine.setActiveMintRecipeRegistry(mintRecipes, TyC2Ids.ITEM_TAG_MATCHER);
     }
 
     private static void loadExternalOverrides(
@@ -271,6 +275,7 @@ public final class TyC2RuntimeData {
             goodsCatalog = freshGoods;
             levelTable = freshLevels;
             workplaceCatalog = freshWorkplaces;
+            MacroEconomyEngine.setActiveMintRecipeRegistry(freshMint, TyC2Ids.ITEM_TAG_MATCHER);
             LOGGER.info(
                     "TyC2 data reloaded: {} mint recipes, {} trade goods, {} village levels, {} workplaces.",
                     freshMint.allRecipes().size(),

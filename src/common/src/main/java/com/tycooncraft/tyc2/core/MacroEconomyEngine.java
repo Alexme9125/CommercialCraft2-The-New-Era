@@ -1,5 +1,6 @@
 package com.tycooncraft.tyc2.core;
 
+import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,6 +32,51 @@ public final class MacroEconomyEngine {
 
     /** Maximum per-item supply elasticity factor. */
     public static final double MAX_SUPPLY_FACTOR = 1.85;
+
+    /** Safety margin applied to gross minting face value when computing village sell arbitrage floors (+10%). */
+    public static final double MINT_ARBITRAGE_FLOOR_MARGIN = 1.10;
+
+    private record PrecursorMapping(String targetItemId, int ratio) {
+    }
+
+    /** Smeltable or craftable precursors whose 1-step transformation produces a mintable metal/alloy. */
+    private static final Map<String, PrecursorMapping> MINT_PRECURSOR_ALIASES;
+
+    /** Intrinsic per-unit reference values (IC) used to distinguish primary vs secondary ingredients in dual mint recipes. */
+    private static final Map<String, Double> DEFAULT_INTRINSIC_UNIT_VALUES;
+
+    static {
+        Map<String, PrecursorMapping> m = new LinkedHashMap<>();
+        m.put("minecraft:ancient_debris", new PrecursorMapping("minecraft:netherite_scrap", 1));
+        m.put("ic2:iridium_shard", new PrecursorMapping("ic2:iridium_ore", 9));
+        m.put("ecc2:iridium_ingot", new PrecursorMapping("ic2:iridium", 1));
+        m.put("minecraft:raw_iron", new PrecursorMapping("minecraft:iron_ingot", 1));
+        m.put("minecraft:raw_gold", new PrecursorMapping("minecraft:gold_ingot", 1));
+        m.put("minecraft:raw_copper", new PrecursorMapping("minecraft:copper_ingot", 1));
+        m.put("ic2:raw_tin", new PrecursorMapping("ic2:tin_ingot", 1));
+        m.put("ic2:raw_silver", new PrecursorMapping("ic2:silver_ingot", 1));
+        m.put("ic2:raw_lead", new PrecursorMapping("ic2:lead_ingot", 1));
+        MINT_PRECURSOR_ALIASES = Collections.unmodifiableMap(m);
+
+        Map<String, Double> iv = new LinkedHashMap<>();
+        for (TradeGood g : GoodsCatalog.createDefault().allGoods()) {
+            iv.putIfAbsent(g.itemId().trim().toLowerCase(Locale.ROOT), (double) g.basePrice());
+        }
+        iv.putIfAbsent("minecraft:emerald", 100.0);
+        iv.putIfAbsent("ic2:iridium", 1_000.0);
+        iv.putIfAbsent("ic2:iridium_ore", 1_000.0);
+        iv.putIfAbsent("ic2:mixed_metal_ingot", 100.0);
+        iv.putIfAbsent("minecraft:netherite_ingot", 1_000.0);
+        iv.putIfAbsent("ic2:refined_iron_ingot", 20.0);
+        DEFAULT_INTRINSIC_UNIT_VALUES = Collections.unmodifiableMap(iv);
+    }
+
+    private static final MintRecipeRegistry DEFAULT_MINT_REGISTRY = MintRecipeRegistry.createDefault();
+    private static volatile MintRecipeRegistry activeMintRecipeRegistry;
+    private static volatile MintIngredient.TagMatcher activeMintTagMatcher;
+
+    private MintRecipeRegistry instanceMintRecipeRegistry;
+    private MintIngredient.TagMatcher instanceMintTagMatcher;
 
     /**
      * Qualitative macro-economic regime for GUI indicators and localization.
@@ -651,7 +697,7 @@ public final class MacroEconomyEngine {
         double clamped = clamp(rawCombined, config.minPriceMultiplier(), config.maxPriceMultiplier());
         long finalPrice = Math.max(1L, Math.round(good.basePrice() * clamped));
         if (!isVillageBuying) {
-            long mintFloor = mintingArbitrageFloor(good.itemId());
+            long mintFloor = computeMintingArbitrageFloor(good.itemId());
             if (mintFloor > finalPrice) {
                 finalPrice = mintFloor;
             }
@@ -848,27 +894,241 @@ public final class MacroEconomyEngine {
     }
 
     /**
-     * Returns a hard minimum village sell price for mintable raw metals/alloys so deflationary
-     * CPI multipliers can never drop a village sell price below its coin-minting face value
-     * (preventing infinite buy-then-mint credit loops).
+     * Binds the active runtime {@link MintRecipeRegistry} and optional platform {@link MintIngredient.TagMatcher}
+     * so dynamic village sell-price arbitrage floors stay synchronized with datapacks and external configs.
+     *
+     * @param registry active mint recipe registry (null resets to built-in default fallback)
+     * @param tagMatcher optional platform tag matcher (nullable)
      */
-    private static long mintingArbitrageFloor(String itemId) {
-        if (itemId == null) {
+    public static void setActiveMintRecipeRegistry(
+            MintRecipeRegistry registry,
+            MintIngredient.TagMatcher tagMatcher) {
+        activeMintRecipeRegistry = registry;
+        activeMintTagMatcher = tagMatcher;
+    }
+
+    /**
+     * Overrides the {@link MintRecipeRegistry} and optional {@link MintIngredient.TagMatcher} for this
+     * engine instance (primarily for isolated testing and custom environments).
+     *
+     * @param registry per-instance mint recipe registry (null delegates to active/default registry)
+     * @param tagMatcher optional tag matcher (nullable)
+     * @return this engine
+     */
+    public MacroEconomyEngine setMintRecipeRegistry(
+            MintRecipeRegistry registry,
+            MintIngredient.TagMatcher tagMatcher) {
+        this.instanceMintRecipeRegistry = registry;
+        this.instanceMintTagMatcher = tagMatcher;
+        return this;
+    }
+
+    /**
+     * Computes a dynamic hard minimum village sell price for any mintable metal, alloy, or precursor
+     * from the active {@link MintRecipeRegistry} using exact integer ceiling arithmetic:
+     * {@code ceil((grossValue * 11) / (denom * 10))} (a +10% safety margin with zero IEEE-754
+     * rounding distortion).
+     *
+     * <p>All 1-ingredient recipes apply their gross floor directly. Dual-ingredient recipes sum both
+     * slot counts when the same item fills both slots (e.g. 2x Iron), and otherwise apply the gross
+     * floor to the primary (higher intrinsic value) ingredient — or to both ingredients when their
+     * per-unit intrinsic values are within 2x of each other (so cheap co-ingredients such as
+     * {@code ic2:alloy} alongside {@code ic2:iridium}, or {@code minecraft:gold_ingot} alongside
+     * {@code minecraft:netherite_scrap}, are not artificially inflated to the rare metal's floor).
+     *
+     * <p>Covers all built-in recipes, smeltable/craftable precursors (e.g., {@code ancient_debris},
+     * {@code ic2:iridium_shard}, {@code ecc2:iridium_ingot}), {@link com.tycooncraft.tyc2.api.TyC2RegistryApi}
+     * recipes, and datapack/custom mint recipes, falling back safely to built-in defaults when no
+     * runtime registry has been bound.
+     *
+     * @param itemId candidate village-sold item ID
+     * @return minimum safe unit sell price in IC ({@code >= 1})
+     */
+    public long computeMintingArbitrageFloor(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
             return 1L;
         }
-        return switch (itemId.trim().toLowerCase(Locale.ROOT)) {
-            case "minecraft:netherite_scrap", "minecraft:ancient_debris" -> 460L;
-            case "minecraft:netherite_ingot" -> 1_050L;
-            case "minecraft:diamond" -> 170L;
-            case "minecraft:emerald" -> 65L;
-            case "minecraft:gold_ingot" -> 22L;
-            case "minecraft:iron_ingot" -> 6L;
-            case "minecraft:copper_ingot", "ic2:tin_ingot" -> 2L;
-            case "ic2:bronze_ingot", "ic2:refined_iron_ingot" -> 11L;
-            case "ic2:steel_ingot", "ic2:silver_ingot" -> 22L;
-            case "ic2:alloy", "ic2:iridium_shard" -> 120L;
-            case "ic2:iridium", "ecc2:iridium_ingot" -> 1_050L;
-            default -> 1L;
-        };
+        String norm = itemId.trim().toLowerCase(Locale.ROOT);
+        MintRecipeRegistry registry = this.instanceMintRecipeRegistry != null
+                ? this.instanceMintRecipeRegistry
+                : (activeMintRecipeRegistry != null ? activeMintRecipeRegistry : DEFAULT_MINT_REGISTRY);
+        MintIngredient.TagMatcher matcher = this.instanceMintTagMatcher != null
+                ? this.instanceMintTagMatcher
+                : activeMintTagMatcher;
+
+        long floor = computeDynamicGrossFloor(registry, norm, 1, matcher);
+        PrecursorMapping precursor = MINT_PRECURSOR_ALIASES.get(norm);
+        if (precursor != null) {
+            long precursorFloor = computeDynamicGrossFloor(
+                    registry, precursor.targetItemId(), precursor.ratio(), matcher
+            );
+            if (precursorFloor > floor) {
+                floor = precursorFloor;
+            }
+        }
+        return Math.max(1L, floor);
+    }
+
+    private static long computeDynamicGrossFloor(
+            MintRecipeRegistry registry,
+            String itemId,
+            int precursorRatio,
+            MintIngredient.TagMatcher matcher) {
+        long best = 1L;
+        long safeRatio = Math.max(1L, precursorRatio);
+        List<MintRecipe> allRecipes = registry.allRecipes();
+        Map<String, Double> soloUnitValues = buildSoloMintUnitValues(allRecipes);
+
+        for (MintRecipe recipe : allRecipes) {
+            long grossValue = recipe.totalFaceValue();
+            if (grossValue <= 0L) {
+                continue;
+            }
+            List<MintIngredient> ings = recipe.ingredients();
+            if (ings.size() == 1) {
+                MintIngredient only = ings.get(0);
+                if (only.matchesItem(itemId, matcher)) {
+                    long candidate = ceilGrossWithTenPercentMargin(grossValue, (long) only.count() * safeRatio);
+                    if (candidate > best) {
+                        best = candidate;
+                    }
+                }
+            } else if (ings.size() == 2) {
+                MintIngredient a = ings.get(0);
+                MintIngredient b = ings.get(1);
+                boolean mA = a.matchesItem(itemId, matcher);
+                boolean mB = b.matchesItem(itemId, matcher);
+                if (!mA && !mB) {
+                    continue;
+                }
+                if (mA && mB) {
+                    long totalCount = (long) a.count() + (long) b.count();
+                    long candidate = ceilGrossWithTenPercentMargin(grossValue, totalCount * safeRatio);
+                    if (candidate > best) {
+                        best = candidate;
+                    }
+                } else {
+                    MintIngredient matched = mA ? a : b;
+                    MintIngredient other = mA ? b : a;
+                    if (shouldApplyDualGrossFloor(matched, other, grossValue, soloUnitValues, allRecipes, matcher)) {
+                        long candidate = ceilGrossWithTenPercentMargin(grossValue, (long) matched.count() * safeRatio);
+                        if (candidate > best) {
+                            best = candidate;
+                        }
+                    }
+                }
+            } else {
+                long totalCount = 0L;
+                for (MintIngredient ing : ings) {
+                    if (ing.matchesItem(itemId, matcher)) {
+                        totalCount += ing.count();
+                    }
+                }
+                if (totalCount > 0L) {
+                    long candidate = ceilGrossWithTenPercentMargin(grossValue, totalCount * safeRatio);
+                    if (candidate > best) {
+                        best = candidate;
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    private static Map<String, Double> buildSoloMintUnitValues(List<MintRecipe> allRecipes) {
+        Map<String, Double> solo = new LinkedHashMap<>();
+        for (MintRecipe recipe : allRecipes) {
+            if (recipe.ingredients().size() != 1 || recipe.totalFaceValue() <= 0L) {
+                continue;
+            }
+            MintIngredient ing = recipe.ingredients().get(0);
+            double unitVal = recipe.totalFaceValue() / (double) ing.count();
+            solo.merge(ing.spec(), unitVal, Math::max);
+            solo.merge(ing.representativeItemId(), unitVal, Math::max);
+        }
+        return solo;
+    }
+
+    private static double estimateIngredientIntrinsicUnitValue(
+            MintIngredient ing,
+            Map<String, Double> soloUnitValues,
+            List<MintRecipe> allRecipes,
+            MintIngredient.TagMatcher matcher) {
+        Double fromSpec = soloUnitValues.get(ing.spec());
+        if (fromSpec != null && fromSpec > 0.0) {
+            return fromSpec;
+        }
+        String rep = ing.representativeItemId();
+        Double fromRep = soloUnitValues.get(rep);
+        if (fromRep != null && fromRep > 0.0) {
+            return fromRep;
+        }
+        if (matcher != null) {
+            double matchedSolo = -1.0;
+            for (MintRecipe r : allRecipes) {
+                if (r.ingredients().size() == 1 && r.totalFaceValue() > 0L) {
+                    MintIngredient rIng = r.ingredients().get(0);
+                    if (rIng.matchesItem(rep, matcher)) {
+                        double u = r.totalFaceValue() / (double) rIng.count();
+                        if (u > matchedSolo) {
+                            matchedSolo = u;
+                        }
+                    }
+                }
+            }
+            if (matchedSolo > 0.0) {
+                return matchedSolo;
+            }
+        }
+        Double defaultSpec = DEFAULT_INTRINSIC_UNIT_VALUES.get(ing.spec());
+        if (defaultSpec != null && defaultSpec > 0.0) {
+            return defaultSpec;
+        }
+        Double defaultRep = DEFAULT_INTRINSIC_UNIT_VALUES.get(rep);
+        if (defaultRep != null && defaultRep > 0.0) {
+            return defaultRep;
+        }
+        return -1.0;
+    }
+
+    private static boolean shouldApplyDualGrossFloor(
+            MintIngredient matched,
+            MintIngredient other,
+            long grossValue,
+            Map<String, Double> soloUnitValues,
+            List<MintRecipe> allRecipes,
+            MintIngredient.TagMatcher matcher) {
+        double vMatched = estimateIngredientIntrinsicUnitValue(matched, soloUnitValues, allRecipes, matcher);
+        double vOther = estimateIngredientIntrinsicUnitValue(other, soloUnitValues, allRecipes, matcher);
+        if (vMatched <= 0.0 && vOther <= 0.0) {
+            return true;
+        }
+        if (vMatched <= 0.0) {
+            vMatched = grossValue / (double) matched.count();
+        }
+        if (vOther <= 0.0) {
+            vOther = grossValue / (double) other.count();
+        }
+        return vMatched > 0.0 && vOther < vMatched * 2.0;
+    }
+
+    private static long ceilGrossWithTenPercentMargin(long grossValue, long denom) {
+        if (grossValue <= 0L || denom <= 0L) {
+            return 1L;
+        }
+        if (grossValue > Long.MAX_VALUE / 11L || denom > Long.MAX_VALUE / 10L) {
+            BigInteger num = BigInteger.valueOf(grossValue).multiply(BigInteger.valueOf(11L));
+            BigInteger den = BigInteger.valueOf(denom).multiply(BigInteger.valueOf(10L));
+            BigInteger[] qr = num.divideAndRemainder(den);
+            BigInteger res = qr[1].signum() > 0 ? qr[0].add(BigInteger.ONE) : qr[0];
+            return res.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0
+                    ? Long.MAX_VALUE
+                    : Math.max(1L, res.longValue());
+        }
+        long num = grossValue * 11L;
+        long den = denom * 10L;
+        long q = num / den;
+        long r = num % den;
+        return Math.max(1L, r > 0L ? q + 1L : q);
     }
 }

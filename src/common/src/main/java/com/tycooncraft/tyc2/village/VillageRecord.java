@@ -2,8 +2,10 @@ package com.tycooncraft.tyc2.village;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -149,9 +151,15 @@ public final class VillageRecord {
     private int minExpansionRadius;
     private int maxExpansionRadius;
     private long lastDemandRefreshTick;
+    private boolean initialOrdersGenerated;
+    private long lastStipendTick;
+    private boolean initialWorkingCapitalGranted;
+    private long lastTerminationTick;
+    private boolean hubDeployed;
     private long lastExpansionTick;
     private final List<ConstructionJob> constructionQueue;
     private final List<AidConstructionProject> aidProjects;
+    private final Map<String, Integer> completedAidCounts;
     private VillageEmploymentStats employmentStats;
     private boolean chunkLoaderInstalled;
     private long nextAutoExpansionRetryTick;
@@ -192,10 +200,16 @@ public final class VillageRecord {
         this.expansionPaused = false;
         this.minExpansionRadius = MIN_CONFIGURABLE_RADIUS;
         this.maxExpansionRadius = VillageLevelTable.get(this.level).expansionRadiusMax();
-        this.lastDemandRefreshTick = 0L;
+        this.lastDemandRefreshTick = -1L;
+        this.initialOrdersGenerated = false;
+        this.lastStipendTick = -1L;
+        this.initialWorkingCapitalGranted = false;
+        this.lastTerminationTick = -1L;
+        this.hubDeployed = false;
         this.lastExpansionTick = 0L;
         this.constructionQueue = new ArrayList<>();
         this.aidProjects = new ArrayList<>();
+        this.completedAidCounts = new LinkedHashMap<>();
         this.employmentStats = VillageEmploymentStats.EMPTY;
     }
 
@@ -360,10 +374,16 @@ public final class VillageRecord {
         this.expansionPaused = expansionPaused;
         this.minExpansionRadius = clampRadius(minExpansionRadius);
         this.maxExpansionRadius = Math.max(this.minExpansionRadius, clampRadius(maxExpansionRadius));
-        this.lastDemandRefreshTick = Math.max(0L, lastDemandRefreshTick);
+        this.lastDemandRefreshTick = lastDemandRefreshTick < 0L ? -1L : lastDemandRefreshTick;
+        this.initialOrdersGenerated = !this.activeOrders.isEmpty() || this.lastDemandRefreshTick > 0L;
+        this.lastStipendTick = (partnered && this.lastDemandRefreshTick >= 0L) ? this.lastDemandRefreshTick : -1L;
+        this.initialWorkingCapitalGranted = partnered || this.cumulativeTradeVolume > 0L || this.villageBalance > 0L;
+        this.lastTerminationTick = -1L;
+        this.hubDeployed = partnered;
         this.lastExpansionTick = Math.max(0L, lastExpansionTick);
         this.constructionQueue = new ArrayList<>(Objects.requireNonNull(constructionQueue, "constructionQueue"));
         this.aidProjects = aidProjects == null ? new ArrayList<>() : new ArrayList<>(aidProjects);
+        this.completedAidCounts = new LinkedHashMap<>();
         this.employmentStats = employmentStats == null ? VillageEmploymentStats.EMPTY : employmentStats;
     }
 
@@ -379,6 +399,7 @@ public final class VillageRecord {
         this.partnered = true;
         this.ownerPlayerUuid = Objects.requireNonNull(ownerPlayerUuid, "ownerPlayerUuid");
         this.companyAccountId = (companyAccountId == null || companyAccountId.isBlank()) ? null : companyAccountId;
+        this.lastTerminationTick = -1L;
         if (initialCapital > 0L) {
             this.villageBalance += initialCapital;
         }
@@ -407,10 +428,17 @@ public final class VillageRecord {
     /**
      * Tops up {@link #getVillageBalance()} to at least {@code workingCapitalFloor} if currently below it.
      *
+     * <p>Strictly one-time per village ({@link #isInitialWorkingCapitalGranted()}): terminating and
+     * re-signing partnership can NEVER grant free working capital a second time.
+     *
      * @param workingCapitalFloor minimum municipal working capital floor in IC ({@code >= 0})
-     * @return IC amount added to reach the floor ({@code 0} if already at or above floor)
+     * @return IC amount added to reach the floor ({@code 0} if already granted or already at/above floor)
      */
     public long ensureInitialWorkingCapital(long workingCapitalFloor) {
+        if (this.initialWorkingCapitalGranted) {
+            return 0L;
+        }
+        this.initialWorkingCapitalGranted = true;
         if (workingCapitalFloor <= 0L || this.villageBalance >= workingCapitalFloor) {
             return 0L;
         }
@@ -420,14 +448,27 @@ public final class VillageRecord {
     }
 
     /**
-     * Terminates cooperation partnership while retaining storage contents intact until cleared or relocated.
+     * Terminates cooperation partnership while retaining storage contents, active weekly order
+     * state/timers (preventing terminate+re-sign shop rerolls), and treasury intact.
      */
     public void terminatePartnership() {
         this.partnered = false;
         this.ownerPlayerUuid = null;
         this.companyAccountId = null;
-        this.activeOrders.clear();
         this.activeExpansion = null;
+        this.hubDeployed = false;
+    }
+
+    /**
+     * Terminates cooperation partnership and records monotonic {@code currentGameTime} as
+     * {@link #getLastTerminationTick()} so re-signing is gated by a full 1-week cooldown that
+     * cannot be reset by {@code /time set 0} or skipped via bed sleeping.
+     *
+     * @param currentGameTime current monotonic overworld {@code gameTime} tick
+     */
+    public void terminatePartnership(long currentGameTime) {
+        terminatePartnership();
+        this.lastTerminationTick = Math.max(0L, currentGameTime);
     }
 
     /**
@@ -558,6 +599,44 @@ public final class VillageRecord {
             villageBalance += grant;
         }
         return grant;
+    }
+
+    /**
+     * Returns whether at least one full {@code refreshPeriodTicks} (1 MC week) has elapsed since
+     * {@link #getLastStipendTick()} so a weekly municipal stipend may be evaluated.
+     *
+     * @param currentDayTime current overworld {@code dayTime} tick
+     * @param refreshPeriodTicks configured weekly period in ticks
+     * @return {@code true} if a weekly stipend cycle has elapsed
+     */
+    public boolean isWeeklyStipendDue(long currentDayTime, int refreshPeriodTicks) {
+        if (this.lastStipendTick < 0L) {
+            return false;
+        }
+        long period = Math.max(1L, refreshPeriodTicks);
+        long safeNow = Math.max(0L, currentDayTime);
+        long anchor = SupplyCycleClock.normalizeRefreshAnchor(safeNow, this.lastStipendTick);
+        return (safeNow - anchor) >= period;
+    }
+
+    /**
+     * Strictly weekly-gated wrapper around {@link #applyWeeklyMunicipalStipend(double)}.
+     *
+     * <p>Only evaluates and grants a stipend when at least {@code refreshPeriodTicks} of {@code dayTime}
+     * have elapsed since {@link #getLastStipendTick()}, then advances {@link #getLastStipendTick()} to
+     * {@code currentDayTime} so no village can ever receive more than one stipend per MC week.
+     *
+     * @param stipendRatio threshold fraction of target reserve in {@code [0.0, 1.0]}
+     * @param currentDayTime current overworld {@code dayTime} tick
+     * @param refreshPeriodTicks configured weekly period in ticks
+     * @return IC amount credited to this village ({@code 0} if not yet due or above threshold)
+     */
+    public long applyWeeklyMunicipalStipendIfDue(double stipendRatio, long currentDayTime, int refreshPeriodTicks) {
+        if (!isWeeklyStipendDue(currentDayTime, refreshPeriodTicks)) {
+            return 0L;
+        }
+        this.lastStipendTick = Math.max(0L, currentDayTime);
+        return applyWeeklyMunicipalStipend(stipendRatio);
     }
 
     /**
@@ -952,6 +1031,9 @@ public final class VillageRecord {
         Objects.requireNonNull(orders, "orders");
         activeOrders.clear();
         activeOrders.addAll(orders);
+        if (!orders.isEmpty()) {
+            this.initialOrdersGenerated = true;
+        }
     }
 
     /**
@@ -1133,27 +1215,173 @@ public final class VillageRecord {
     /**
      * Sets the {@code dayTime} tick anchor of the last demand order refresh.
      *
-     * @param lastDemandRefreshTick tick timestamp
+     * @param lastDemandRefreshTick tick timestamp ({@code < 0} marks uninitialized)
      */
     public void setLastDemandRefreshTick(long lastDemandRefreshTick) {
-        this.lastDemandRefreshTick = Math.max(0L, lastDemandRefreshTick);
+        if (lastDemandRefreshTick < 0L) {
+            this.lastDemandRefreshTick = -1L;
+        } else {
+            this.lastDemandRefreshTick = lastDemandRefreshTick;
+            this.initialOrdersGenerated = true;
+        }
     }
 
     /**
-     * Re-anchors {@link #getLastDemandRefreshTick()} via {@link SupplyCycleClock#normalizeRefreshAnchor(long, long)}
-     * when {@code currentDayTime} jumped backward (e.g., {@code /time set 0}) or a legacy save recorded
-     * a {@code gameTime} greater than {@code dayTime}.
+     * Returns whether this village has ever had initial weekly orders generated.
+     *
+     * @return {@code true} if initial orders were generated at least once
+     */
+    public boolean hasInitialOrdersGenerated() {
+        return initialOrdersGenerated;
+    }
+
+    /**
+     * Sets whether initial weekly orders have been generated for this village.
+     *
+     * @param initialOrdersGenerated initialization flag
+     */
+    public void setInitialOrdersGenerated(boolean initialOrdersGenerated) {
+        this.initialOrdersGenerated = initialOrdersGenerated;
+    }
+
+    /**
+     * Returns the {@code dayTime} tick anchor of the last weekly stipend evaluation ({@code -1} if unset).
+     *
+     * @return last stipend tick
+     */
+    public long getLastStipendTick() {
+        return lastStipendTick;
+    }
+
+    /**
+     * Sets the {@code dayTime} tick anchor of the last weekly stipend evaluation ({@code < 0} resets to unset).
+     *
+     * @param lastStipendTick stipend anchor tick
+     */
+    public void setLastStipendTick(long lastStipendTick) {
+        this.lastStipendTick = lastStipendTick < 0L ? -1L : lastStipendTick;
+    }
+
+    /**
+     * Ensures {@link #getLastStipendTick()} is initialized to {@code currentDayTime} if currently unset.
      *
      * @param currentDayTime current overworld {@code dayTime} tick
-     * @return {@code true} if the stored anchor changed and should be marked dirty
+     */
+    public void anchorStipendIfUnset(long currentDayTime) {
+        if (this.lastStipendTick < 0L) {
+            this.lastStipendTick = Math.max(0L, currentDayTime);
+        }
+    }
+
+    /**
+     * Returns whether this village has already received its one-time initial working capital top-up.
+     *
+     * @return {@code true} if one-time working capital has already been granted
+     */
+    public boolean isInitialWorkingCapitalGranted() {
+        return initialWorkingCapitalGranted;
+    }
+
+    /**
+     * Sets the one-time initial working capital granted flag (for SavedData deserialization).
+     *
+     * @param initialWorkingCapitalGranted flag state
+     */
+    public void setInitialWorkingCapitalGranted(boolean initialWorkingCapitalGranted) {
+        this.initialWorkingCapitalGranted = initialWorkingCapitalGranted;
+    }
+
+    /**
+     * Returns the monotonic {@code gameTime} tick when partnership was last terminated
+     * ({@code -1} if never terminated or cleared upon re-signing).
+     *
+     * @return last termination tick
+     */
+    public long getLastTerminationTick() {
+        return lastTerminationTick;
+    }
+
+    /**
+     * Sets the monotonic {@code gameTime} tick when partnership was last terminated
+     * ({@code < 0} clears cooldown).
+     *
+     * @param lastTerminationTick termination tick
+     */
+    public void setLastTerminationTick(long lastTerminationTick) {
+        this.lastTerminationTick = lastTerminationTick < 0L ? -1L : lastTerminationTick;
+    }
+
+    /**
+     * Computes remaining monotonic {@code gameTime} ticks before this village may re-sign a
+     * partnership after termination, clamped to {@code [0, cooldownTicks]}.
+     *
+     * <p>Because {@code gameTime} is strictly monotonic on normal servers, neither {@code /time set 0}
+     * nor sleeping can reset or bypass the cooldown. If a legacy save stored a {@code dayTime} value
+     * larger than {@code currentGameTime}, this safely returns {@code 0} rather than locking out
+     * re-signing.
+     *
+     * @param currentGameTime current monotonic overworld {@code gameTime} tick
+     * @param cooldownTicks required re-sign cooldown in ticks (default {@code demandRefreshTicks})
+     * @return remaining cooldown ticks ({@code 0} when re-signing is permitted)
+     */
+    public long remainingResignCooldownTicks(long currentGameTime, int cooldownTicks) {
+        if (this.lastTerminationTick < 0L || cooldownTicks <= 0) {
+            return 0L;
+        }
+        long safeNow = Math.max(0L, currentGameTime);
+        if (safeNow < this.lastTerminationTick) {
+            return 0L;
+        }
+        long elapsed = safeNow - this.lastTerminationTick;
+        return elapsed >= cooldownTicks ? 0L : (cooldownTicks - elapsed);
+    }
+
+    /**
+     * Returns whether an authoritative live Cooperation Hub block is currently deployed in-world for
+     * this village (used to prevent duplicate Hub item aliasing across unloaded chunks or dimensions).
+     *
+     * @return {@code true} if a Hub block is currently deployed
+     */
+    public boolean isHubDeployed() {
+        return hubDeployed;
+    }
+
+    /**
+     * Updates the authoritative Hub deployment flag.
+     *
+     * @param hubDeployed {@code true} when Hub block is placed/restored; {@code false} when packed or terminated
+     */
+    public void setHubDeployed(boolean hubDeployed) {
+        this.hubDeployed = hubDeployed;
+    }
+
+    /**
+     * Re-anchors {@link #getLastDemandRefreshTick()} and {@link #getLastStipendTick()} via
+     * {@link SupplyCycleClock#normalizeRefreshAnchor(long, long)} when {@code currentDayTime}
+     * jumped backward (e.g., {@code /time set 0}) or a legacy save recorded a {@code gameTime}
+     * greater than {@code dayTime}. Never overwrites unset ({@code < 0}) anchors or monotonic
+     * {@link #getLastTerminationTick()}.
+     *
+     * @param currentDayTime current overworld {@code dayTime} tick
+     * @return {@code true} if any stored anchor changed and should be marked dirty
      */
     public boolean normalizeDemandRefreshAnchor(long currentDayTime) {
-        long normalized = SupplyCycleClock.normalizeRefreshAnchor(currentDayTime, this.lastDemandRefreshTick);
-        if (normalized != this.lastDemandRefreshTick) {
-            this.lastDemandRefreshTick = normalized;
-            return true;
+        boolean changed = false;
+        if (this.lastDemandRefreshTick >= 0L) {
+            long normalized = SupplyCycleClock.normalizeRefreshAnchor(currentDayTime, this.lastDemandRefreshTick);
+            if (normalized != this.lastDemandRefreshTick) {
+                this.lastDemandRefreshTick = normalized;
+                changed = true;
+            }
         }
-        return false;
+        if (this.lastStipendTick >= 0L) {
+            long normalized = SupplyCycleClock.normalizeRefreshAnchor(currentDayTime, this.lastStipendTick);
+            if (normalized != this.lastStipendTick) {
+                this.lastStipendTick = normalized;
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     /**
@@ -1338,6 +1566,90 @@ public final class VillageRecord {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Returns an unmodifiable map of {@code professionId -> completed/committed aid build count}
+     * persisted for anti-demolish-and-rebuild workstation printing protection.
+     *
+     * @return completed aid counts by profession
+     */
+    public Map<String, Integer> getCompletedAidCounts() {
+        return Collections.unmodifiableMap(completedAidCounts);
+    }
+
+    /**
+     * Replaces persisted completed aid counts (for SavedData deserialization).
+     *
+     * @param counts map of {@code professionId -> count}
+     */
+    public void setCompletedAidCounts(Map<String, Integer> counts) {
+        completedAidCounts.clear();
+        if (counts != null) {
+            for (Map.Entry<String, Integer> e : counts.entrySet()) {
+                if (e.getKey() != null && !e.getKey().isBlank() && e.getValue() != null && e.getValue() > 0) {
+                    completedAidCounts.put(e.getKey().trim().toLowerCase(Locale.ROOT), e.getValue());
+                }
+            }
+        }
+    }
+
+    /**
+     * Returns the historical count of completed/committed aided workplaces built for {@code professionId}.
+     *
+     * @param professionId namespaced profession ID
+     * @return completed count ({@code >= 0})
+     */
+    public int getCompletedAidCount(String professionId) {
+        if (professionId == null || professionId.isBlank()) {
+            return 0;
+        }
+        return completedAidCounts.getOrDefault(professionId.trim().toLowerCase(Locale.ROOT), 0);
+    }
+
+    /**
+     * Increments the persisted historical completed aid count for {@code professionId}.
+     *
+     * @param professionId namespaced profession ID
+     */
+    public void incrementCompletedAidCount(String professionId) {
+        if (professionId == null || professionId.isBlank()) {
+            return;
+        }
+        String norm = professionId.trim().toLowerCase(Locale.ROOT);
+        completedAidCounts.merge(norm, 1, Integer::sum);
+    }
+
+    /**
+     * Returns the combined count of completed historical aid builds PLUS currently queued/building
+     * aid projects for {@code professionId} in this village.
+     *
+     * @param professionId namespaced profession ID
+     * @return total committed + active aid builds for this profession
+     */
+    public int getTotalAidCountForProfession(String professionId) {
+        if (professionId == null || professionId.isBlank()) {
+            return 0;
+        }
+        String norm = professionId.trim().toLowerCase(Locale.ROOT);
+        int total = completedAidCounts.getOrDefault(norm, 0);
+        for (AidConstructionProject p : aidProjects) {
+            if (p.professionId() != null && norm.equals(p.professionId().trim().toLowerCase(Locale.ROOT))) {
+                total++;
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Returns whether another aided workplace for {@code professionId} may be started without
+     * exceeding {@link WorkplaceCatalog#MAX_AID_BUILDS_PER_PROFESSION}.
+     *
+     * @param professionId namespaced profession ID
+     * @return {@code true} if below the per-village profession cap
+     */
+    public boolean canStartAidForProfession(String professionId) {
+        return getTotalAidCountForProfession(professionId) < WorkplaceCatalog.MAX_AID_BUILDS_PER_PROFESSION;
     }
 
     /**

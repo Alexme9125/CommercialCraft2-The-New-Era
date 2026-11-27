@@ -86,13 +86,9 @@ public final class CooperationHubBlock extends TyC2BlockBase {
             Optional<VillageRecord> existingOpt = TyC2WorldManager.getVillage(serverLevel, villageId);
             if (existingOpt.isPresent()) {
                 VillageRecord v = existingOpt.get();
-                BlockPos oldPos = new BlockPos(v.getHubPos().x(), v.getHubPos().y(), v.getHubPos().z());
                 String curDim = TyC2Native.dimensionId(serverLevel);
-                if (curDim.equals(v.getDimensionId())
-                        && !oldPos.equals(pos)
-                        && serverLevel.hasChunkAt(oldPos)
-                        && serverLevel.getBlockState(oldPos).is(TyC2Registries.COOPERATION_HUB_BLOCK.get())) {
-                    // Refuse aliasing a second Hub onto a village whose live Hub already exists
+                if (!v.isPartnered()) {
+                    // Never allow placing a bound Hub item for an unpartnered/terminated village
                     serverLevel.removeBlock(pos, false);
                     if (placer instanceof Player p) {
                         TyC2Native.sendActionBar(
@@ -102,12 +98,63 @@ public final class CooperationHubBlock extends TyC2BlockBase {
                     }
                     return;
                 }
+                if (v.isHubDeployed()) {
+                    // Self-heal stale hubDeployed=true ONLY when the recorded Hub location is in a loaded chunk
+                    // and contains no live Cooperation Hub block (e.g., cleared via /setblock, /fill, or WorldEdit).
+                    // If the recorded location is unloaded or still holds a live Hub, strictly reject to prevent aliasing.
+                    ServerLevel oldLevel = TyC2WorldManager.resolveDimensionLevel(
+                            serverLevel.getServer(), v.getDimensionId(), null
+                    );
+                    BlockPos oldPos = new BlockPos(v.getHubPos().x(), v.getHubPos().y(), v.getHubPos().z());
+                    boolean sameSpot = oldLevel == serverLevel && oldPos.equals(pos);
+                    boolean staleFlag = sameSpot
+                            || (oldLevel != null
+                            && oldLevel.hasChunkAt(oldPos)
+                            && !oldLevel.getBlockState(oldPos).is(TyC2Registries.COOPERATION_HUB_BLOCK.get()));
+                    if (!staleFlag) {
+                        serverLevel.removeBlock(pos, false);
+                        if (placer instanceof Player p) {
+                            TyC2Native.sendActionBar(
+                                    p,
+                                    Component.translatable("status.tyc2.hub.protected").withStyle(ChatFormatting.RED)
+                            );
+                        }
+                        return;
+                    }
+                    v.setHubDeployed(false);
+                    TyC2WorldManager.markDirty(serverLevel);
+                }
+                if (!curDim.equals(v.getDimensionId())) {
+                    // Restrict Hub relocation strictly to the village's home dimension; refund packed item to survival player
+                    serverLevel.removeBlock(pos, false);
+                    if (placer instanceof Player p) {
+                        if (!p.getAbilities().instabuild) {
+                            ItemStack refund = new ItemStack(TyC2Registries.COOPERATION_HUB_ITEM.get());
+                            CooperationHubBlockItem.setBoundVillage(refund, v.getVillageId(), v.getVillageName());
+                            if (!p.getInventory().add(refund)) {
+                                p.drop(refund, false);
+                            }
+                        }
+                        TyC2Native.sendActionBar(
+                                p,
+                                Component.translatable("status.tyc2.hub.wrong_dimension").withStyle(ChatFormatting.RED)
+                        );
+                    }
+                    return;
+                }
                 be.setVillageId(villageId);
                 v.setHubPos(new BlockPos3i(pos.getX(), pos.getY(), pos.getZ()));
-                v.setDimensionId(curDim);
+                v.setHubDeployed(true);
                 TyC2WorldManager.markDirty(serverLevel);
             } else {
-                be.setVillageId(villageId);
+                // Unknown/stale bound village UUID: refuse placing an orphaned aliased Hub
+                serverLevel.removeBlock(pos, false);
+                if (placer instanceof Player p) {
+                    TyC2Native.sendActionBar(
+                            p,
+                            Component.translatable("status.tyc2.hub.protected").withStyle(ChatFormatting.RED)
+                    );
+                }
             }
         } else if (be.getVillageId() == null) {
             // Creative-placed hub: create/attach a partnered village immediately so it works out of the box

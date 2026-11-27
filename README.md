@@ -12,14 +12,14 @@
 
 按当前 Minecraft 版本和加载器挑好对应的 JAR 文件，放进游戏实例的 `mods/` 目录即可。多人联机需要客户端和服务端同时安装。
 
-[v1.0.2 正式版发布说明](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/tag/v1.0.2) · [SHA-256 校验文件](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.2/SHA256SUMS.txt) · [四端实机联测报告](docs/FIELD_TEST_REPORT.md) · [设计规格文档](docs/DESIGN.md)
+[v1.0.3 正式版发布说明](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/tag/v1.0.3) · [SHA-256 校验文件](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.3/SHA256SUMS.txt) · [四端实机联测报告](docs/FIELD_TEST_REPORT.md) · [设计规格文档](docs/DESIGN.md)
 
 | Minecraft | 加载器 | Java | 下载 |
 | --- | --- | ---: | --- |
-| 1.19.2 | Forge 43.5.0 | 17 | [Forge 1.19.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.2/tyc2-forge-1.19.2-1.0.2.jar) |
-| 1.21.1 | NeoForge 21.1.265 | 21 | [NeoForge 1.21.1 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.2/tyc2-neoforge-1.21.1-1.0.2.jar) |
-| 26.1.2 | NeoForge 26.1.2.128 | 25 | [NeoForge 26.1.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.2/tyc2-neoforge-26.1.2-1.0.2.jar) |
-| 26.2 | NeoForge 26.2.0.95 | 25 | [NeoForge 26.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.2/tyc2-neoforge-26.2-1.0.2.jar) |
+| 1.19.2 | Forge 43.5.0 | 17 | [Forge 1.19.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.3/tyc2-forge-1.19.2-1.0.3.jar) |
+| 1.21.1 | NeoForge 21.1.265 | 21 | [NeoForge 1.21.1 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.3/tyc2-neoforge-1.21.1-1.0.3.jar) |
+| 26.1.2 | NeoForge 26.1.2.128 | 25 | [NeoForge 26.1.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.3/tyc2-neoforge-26.1.2-1.0.3.jar) |
+| 26.2 | NeoForge 26.2.0.95 | 25 | [NeoForge 26.2 JAR](https://github.com/Alexme9125/TycoonCraft2-The-New-Era/releases/download/v1.0.3/tyc2-neoforge-26.2-1.0.3.jar) |
 
 所有联动模组都按需安装，未安装时自动跳过，不会影响启动。
 
@@ -99,16 +99,17 @@
 
 - **职业与规格**：覆盖全部 13 种原版村民职业，并自动扫描已安装模组注册的村民职业与工作方块；可选 **小型工作屋**（`7×6×7`，1 工位，1 级解锁）或 **大型工坊**（`9×7×9`，3 工位，3 级解锁），所有援建建筑均不放床、不额外刷人口。
 - **定价、筹料与优先施工**：报价按全服 CPI 实时浮动并作为基建货币回笼销毁；下单后村民在后台筹集建材（未加载区块也可推进，且不受「暂停扩建」影响，失业村民越多筹料越快，最高 `2.0` 倍）。进入施工前随时可以取消并全额退款；筹满后优先于常规扩建渐进施工，完工时自动引导附近无业村民就职。
-- **低失业率增益（`< 25%`）**：村内成年非傻子村民（村长计为已就业）失业率低于 `25%` 时自动生效，随失业率趋近 `0%` 平滑提升：**订单补货速度 `+25% ~ +50%`**、**单笔可交易货物总量 `+25% ~ +50%`**（附魔书和终局稀有品温和提升 `+10% ~ +20%`），同时在职职业会轻微提高对应品类的贸易权重。安装 Jade 或 The One Probe 时，指向合作枢纽与村长即可实时查看失业率、就业增益与援建进度。
+- **低失业率增益（`< 25%`）**：村内成年非傻子村民（村长计为已就业）失业率低于 `25%` 时自动生效，随失业率趋近 `0%` 平滑提升：**单笔可交易货物总量 `+25% ~ +50%`**（附魔书和终局稀有品温和提升 `+10% ~ +20%`），同时在职职业会轻微提高对应品类的贸易权重（周刷新周期固定为完整 `7` 游戏日，不因失业率缩短）。安装 Jade 或 The One Probe 时，指向合作枢纽与村长即可实时查看失业率、就业增益与援建进度。
 
 ## 常用指令与自定义扩展
 
-游戏内提供 8 条常用管理与查询指令，后五条需要 OP 权限。
+游戏内提供 9 条常用管理与查询指令，后六条需要 OP 权限。
 
 - `/tyc2 status`：查看全局 CPI、货币总量、季节与最近村庄状态（含失业率、增益与援建队列）
 - `/tyc2 cpi`：查看当前物价指数与通胀状态
 - `/tyc2 season`：查看当前识别到的季节
 - `/tyc2 reload`：重载外部配置文件与数据表
+- `/tyc2 refresh`：强制刷新附近合作村庄本周期的贸易订单
 - `/tyc2 mint <数量>`：调试注入或扣减货币统计
 - `/tyc2 expand [项目类型]`：手动触发附近合作村庄扩建
 - `/tyc2 aid <职业> [small|large]`：为附近合作村庄立即发起指定职业的工作场所援建
@@ -150,7 +151,7 @@
 在仓库根目录执行下面两条命令（Windows 把 `./gradlew` 换成 `gradlew.bat`，把 `./forge-1.19.2/gradlew` 换成 `forge-1.19.2\gradlew.bat`）。
 
 ```sh
-# 1. 编译纯 Java 公共核心、运行 58 项单元测试，并打包 NeoForge 1.21.1 / 26.1.2 / 26.2
+# 1. 编译纯 Java 公共核心、运行 61 项单元测试，并打包 NeoForge 1.21.1 / 26.1.2 / 26.2
 ./gradlew :checkCommonImports :test:test :neoforge:1.21.1:jar :neoforge:26.1.2:jar :neoforge:26.2:jar
 
 # 2. 使用 JDK 17 编译并重混淆打包 Forge 1.19.2（按本机 JDK 17 路径设置 JAVA_HOME）
@@ -159,10 +160,10 @@ JAVA_HOME=/path/to/jdk-17 ./forge-1.19.2/gradlew -p forge-1.19.2 build reobfJar
 
 编译完成后，四个发行 JAR 分别落在各自模块的 `build/libs` 目录。
 
-- Forge 1.19.2：`forge-1.19.2/build/libs/tyc2-forge-1.19.2-1.0.2.jar`
-- NeoForge 1.21.1：`src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-1.0.2.jar`
-- NeoForge 26.1.2：`src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-1.0.2.jar`
-- NeoForge 26.2：`src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-1.0.2.jar`
+- Forge 1.19.2：`forge-1.19.2/build/libs/tyc2-forge-1.19.2-1.0.3.jar`
+- NeoForge 1.21.1：`src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-1.0.3.jar`
+- NeoForge 26.1.2：`src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-1.0.3.jar`
+- NeoForge 26.2：`src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-1.0.3.jar`
 
 ### 运行打包审计与实机测试（开发者可选）
 
