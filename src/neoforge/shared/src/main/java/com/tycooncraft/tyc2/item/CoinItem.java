@@ -1,5 +1,6 @@
 package com.tycooncraft.tyc2.item;
 
+import com.tycooncraft.tyc2.compat.Ic2SoftBridge;
 import com.tycooncraft.tyc2.core.CurrencyDenomination;
 import com.tycooncraft.tyc2.platform.TyC2TooltipItem;
 import java.util.List;
@@ -31,7 +32,7 @@ public final class CoinItem extends TyC2TooltipItem {
                 "tooltip.tyc2.coin.value",
                 denomination.value()
         ).withStyle(ChatFormatting.GOLD));
-        if (denomination == CurrencyDenomination.X1) {
+        if (denomination == CurrencyDenomination.X1 && Ic2SoftBridge.isIc2Loaded()) {
             adder.accept(Component.translatable("tooltip.tyc2.coin.ic2_compat")
                     .withStyle(ChatFormatting.GRAY));
         }
