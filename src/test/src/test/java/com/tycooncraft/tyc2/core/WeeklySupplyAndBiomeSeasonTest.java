@@ -120,7 +120,7 @@ class WeeklySupplyAndBiomeSeasonTest {
 
         // Give active orders and simulate draining balance to 0
         v.setActiveOrders(List.of(new VillageTradeOrder(
-                "ord-1", OrderSide.VILLAGE_SELLS, "minecraft:wheat", "tyc2:wheat", "",
+                "ord-1", OrderSide.VILLAGE_SELLS, "minecraft:wheat", "mnera:wheat", "",
                 10, 10, 2L, day0, day0 + period, false, false, false
         )));
         v.setLastDemandRefreshTick(day0);
@@ -248,8 +248,8 @@ class WeeklySupplyAndBiomeSeasonTest {
 
         // Compare rare goods directly using a single-item catalog so RNG rolls are identical
         GoodsCatalog rareOnly = new GoodsCatalog();
-        rareOnly.register(catalog.getById("tyc2:book_mending").orElseThrow());
-        rareOnly.register(catalog.getById("tyc2:totem_of_undying").orElseThrow());
+        rareOnly.register(catalog.getById("mnera:book_mending").orElseThrow());
+        rareOnly.register(catalog.getById("mnera:totem_of_undying").orElseThrow());
         DemandGenerator unitRareGen = new DemandGenerator(rareOnly, unitCfg);
         DemandGenerator weeklyRareGen = new DemandGenerator(rareOnly, cfg);
 
@@ -302,21 +302,21 @@ class WeeklySupplyAndBiomeSeasonTest {
 
         // GoodsCatalog.findOrderGood distinguishes buy-side oak_log_demand (#minecraft:logs) from sell-side oak_log
         GoodsCatalog catalog = GoodsCatalog.createDefault();
-        TradeGood buyLogs = catalog.findOrderGood("tyc2:oak_log_demand", "minecraft:oak_log", true).orElseThrow();
-        assertEquals("tyc2:oak_log_demand", buyLogs.id());
+        TradeGood buyLogs = catalog.findOrderGood("mnera:oak_log_demand", "minecraft:oak_log", true).orElseThrow();
+        assertEquals("mnera:oak_log_demand", buyLogs.id());
         assertEquals("#minecraft:logs", buyLogs.optionalTag());
         assertTrue(buyLogs.isBuyableByVillage());
 
-        TradeGood sellLogs = catalog.findOrderGood("tyc2:oak_log", "minecraft:oak_log", false).orElseThrow();
-        assertEquals("tyc2:oak_log", sellLogs.id());
+        TradeGood sellLogs = catalog.findOrderGood("mnera:oak_log", "minecraft:oak_log", false).orElseThrow();
+        assertEquals("mnera:oak_log", sellLogs.id());
         assertTrue(sellLogs.isSellableByVillage());
 
         // MacroEconomyEngine biome & seasonal factors
         MacroEconomyEngine econ = new MacroEconomyEngine();
-        TradeGood sand = catalog.getById("tyc2:sand").orElseThrow();
-        TradeGood coal = catalog.getById("tyc2:coal").orElseThrow();
-        TradeGood bread = catalog.getById("tyc2:bread").orElseThrow();
-        TradeGood fdStew = catalog.getById("tyc2:fd_beef_stew").orElseThrow();
+        TradeGood sand = catalog.getById("mnera:sand").orElseThrow();
+        TradeGood coal = catalog.getById("mnera:coal").orElseThrow();
+        TradeGood bread = catalog.getById("mnera:bread").orElseThrow();
+        TradeGood fdStew = catalog.getById("mnera:fd_beef_stew").orElseThrow();
 
         // Sell matching biome -> 0.88 (-12% discount); non-matching -> 1.00
         assertEquals(0.88, econ.computeBiomeFactor(sand, "minecraft:desert", false), 1e-6);
@@ -335,8 +335,8 @@ class WeeklySupplyAndBiomeSeasonTest {
         assertEquals(1.00, econ.computeSeasonFactor(coal, Season.NONE, true), 1e-6);
 
         // EcC2 methane ice anti-arbitrage still holds under -12% (0.88x) biome discount
-        TradeGood methaneIce = catalog.findByItemId("ecc2:methane_ice_cluster").orElseThrow();
-        TradeGood naturalGas = catalog.findByItemId("ecc2:natural_gas_cell").orElseThrow();
+        TradeGood methaneIce = catalog.findByItemId("ecera:methane_ice_cluster").orElseThrow();
+        TradeGood naturalGas = catalog.findByItemId("ecera:natural_gas_cell").orElseThrow();
         assertTrue(methaneIce.basePrice() * 3L * 0.88 > naturalGas.basePrice());
     }
 
@@ -364,9 +364,9 @@ class WeeklySupplyAndBiomeSeasonTest {
         );
 
         // Verify universal staples remain non-exclusive
-        for (String universalId : List.of("tyc2:white_wool", "tyc2:leather", "tyc2:string", "tyc2:bone",
-                "tyc2:gunpowder", "tyc2:wheat", "tyc2:carrot", "tyc2:potato", "tyc2:book_mending",
-                "tyc2:totem_of_undying")) {
+        for (String universalId : List.of("mnera:white_wool", "mnera:leather", "mnera:string", "mnera:bone",
+                "mnera:gunpowder", "mnera:wheat", "mnera:carrot", "mnera:potato", "mnera:book_mending",
+                "mnera:totem_of_undying")) {
             assertFalse(catalog.getById(universalId).orElseThrow().isBiomeExclusive(),
                     "Universal staple must NOT be biomeExclusive: " + universalId);
         }
@@ -404,8 +404,8 @@ class WeeklySupplyAndBiomeSeasonTest {
                     for (DemandGenerator.GeneratedOrder buy : demand.buyOrders()) {
                         assertFalse(soldItems.contains(buy.itemId()),
                                 "Village must not simultaneously sell and buy " + buy.itemId());
-                        if ("tyc2:oak_log_demand".equals(buy.goodId())) {
-                            assertEquals("desert", biome, "Only desert villages should request tyc2:oak_log_demand");
+                        if ("mnera:oak_log_demand".equals(buy.goodId())) {
+                            assertEquals("desert", biome, "Only desert villages should request mnera:oak_log_demand");
                             assertTrue(buy.biomeSpecialty());
                             desertBoughtLogs = true;
                         }
@@ -413,7 +413,7 @@ class WeeklySupplyAndBiomeSeasonTest {
                 }
             }
         }
-        assertTrue(desertBoughtLogs, "Desert villages should generate tyc2:oak_log_demand buy orders");
+        assertTrue(desertBoughtLogs, "Desert villages should generate mnera:oak_log_demand buy orders");
     }
 
     @Test
@@ -484,12 +484,12 @@ class WeeklySupplyAndBiomeSeasonTest {
     @Test
     void villageTradeOrderBiomeSpecialtyPreservedAcrossMutationsAndLegacyCtor() {
         VillageTradeOrder legacy = new VillageTradeOrder(
-                "ord-legacy", OrderSide.VILLAGE_SELLS, "minecraft:wheat", "tyc2:wheat", "",
+                "ord-legacy", OrderSide.VILLAGE_SELLS, "minecraft:wheat", "mnera:wheat", "",
                 40, 0, 3L, 0L, 168_000L, false, true);
         assertFalse(legacy.biomeSpecialty());
 
         VillageTradeOrder specialty = new VillageTradeOrder(
-                "ord-spec", OrderSide.VILLAGE_BUYS, "minecraft:coal", "tyc2:coal", "",
+                "ord-spec", OrderSide.VILLAGE_BUYS, "minecraft:coal", "mnera:coal", "",
                 64, 0, 5L, 24_000L, 192_000L, false, true, true);
         assertTrue(specialty.biomeSpecialty());
         assertTrue(specialty.seasonalBonus());
@@ -519,8 +519,8 @@ class WeeklySupplyAndBiomeSeasonTest {
         String procOut = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, proc.waitFor(), "generate_resources.py failed: " + procOut);
 
-        Path goodsDir = outputDir.resolve("data/tyc2/goods");
-        assertTrue(Files.isDirectory(goodsDir), "Missing generated data/tyc2/goods directory");
+        Path goodsDir = outputDir.resolve("data/mnera/goods");
+        assertTrue(Files.isDirectory(goodsDir), "Missing generated data/mnera/goods directory");
 
         GoodsCatalog defaults = GoodsCatalog.createDefault();
         GoodsCatalog mergedOnDefaults = GoodsCatalog.createDefault();
@@ -549,7 +549,7 @@ class WeeklySupplyAndBiomeSeasonTest {
             datapackById.put(g.id(), g);
         }
         assertEquals(expectedById.keySet(), datapackById.keySet(),
-                "Generated data/tyc2/goods/*.json IDs must match GoodsCatalog.createDefault() 1:1");
+                "Generated data/mnera/goods/*.json IDs must match GoodsCatalog.createDefault() 1:1");
         for (Map.Entry<String, TradeGood> e : expectedById.entrySet()) {
             assertEquals(e.getValue(), datapackById.get(e.getKey()),
                     "Datapack TradeGood drifted from GoodsCatalog.java for " + e.getKey());
@@ -558,19 +558,19 @@ class WeeklySupplyAndBiomeSeasonTest {
         }
 
         // Spot-check critical regression guards: biomeExclusive, demandBiomes, demandSeasons, tyc2:oak_log_demand
-        for (String exclusiveId : List.of("tyc2:cactus", "tyc2:sand", "tyc2:sandstone", "tyc2:snow_block",
-                "tyc2:packed_ice", "tyc2:cocoa_beans", "tyc2:bamboo", "tyc2:jungle_log",
-                "tyc2:slime_ball", "tyc2:lily_pad", "tyc2:oak_log", "tyc2:spruce_log",
-                "tyc2:acacia_log", "tyc2:sweet_berries", "tyc2:oak_log_demand")) {
+        for (String exclusiveId : List.of("mnera:cactus", "mnera:sand", "mnera:sandstone", "mnera:snow_block",
+                "mnera:packed_ice", "mnera:cocoa_beans", "mnera:bamboo", "mnera:jungle_log",
+                "mnera:slime_ball", "mnera:lily_pad", "mnera:oak_log", "mnera:spruce_log",
+                "mnera:acacia_log", "mnera:sweet_berries", "mnera:oak_log_demand")) {
             assertTrue(mergedOnDefaults.getById(exclusiveId).orElseThrow().isBiomeExclusive(),
                     "Merged datapack wiped biomeExclusive on " + exclusiveId);
         }
-        TradeGood oakLogDemand = mergedOnDefaults.getById("tyc2:oak_log_demand").orElseThrow();
+        TradeGood oakLogDemand = mergedOnDefaults.getById("mnera:oak_log_demand").orElseThrow();
         assertEquals("#minecraft:logs", oakLogDemand.optionalTag());
         assertTrue(oakLogDemand.hasDemandBiome("desert"));
         assertTrue(oakLogDemand.hasDemandSeason(Season.WINTER));
 
-        TradeGood coal = mergedOnDefaults.getById("tyc2:coal").orElseThrow();
+        TradeGood coal = mergedOnDefaults.getById("mnera:coal").orElseThrow();
         assertTrue(coal.hasDemandBiome("snowy"));
         assertTrue(coal.hasDemandSeason(Season.WINTER));
 

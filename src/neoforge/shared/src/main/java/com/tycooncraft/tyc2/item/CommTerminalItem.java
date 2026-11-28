@@ -47,8 +47,8 @@ public final class CommTerminalItem extends CommTerminalItemBase {
         super(
                 properties.stacksTo(1),
                 List.of(
-                        "tooltip.tyc2.comm_terminal.line1",
-                        "tooltip.tyc2.comm_terminal.line2"
+                        "tooltip.mnera.comm_terminal.line1",
+                        "tooltip.mnera.comm_terminal.line2"
                 )
         );
     }
@@ -244,7 +244,7 @@ public final class CommTerminalItem extends CommTerminalItemBase {
                 && !TyC2WorldManager.canAccessVillage(sp, TyC2WorldManager.getData(serverLevel), village)) {
             TyC2Native.sendActionBar(
                     player,
-                    Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED)
+                    Component.translatable("status.mnera.hub.not_owner").withStyle(ChatFormatting.RED)
             );
             return;
         }
@@ -253,19 +253,19 @@ public final class CommTerminalItem extends CommTerminalItemBase {
             int count = getBoundVillages(stack).size();
             TyC2Native.sendActionBar(
                     player,
-                    Component.translatable("status.tyc2.terminal.bound", village.getVillageName(), count)
+                    Component.translatable("status.mnera.terminal.bound", village.getVillageName(), count)
                             .withStyle(ChatFormatting.GREEN)
             );
         } else if (result < 0) {
             TyC2Native.sendActionBar(
                     player,
-                    Component.translatable("status.tyc2.terminal.unbound", village.getVillageName())
+                    Component.translatable("status.mnera.terminal.unbound", village.getVillageName())
                             .withStyle(ChatFormatting.YELLOW)
             );
         } else {
             TyC2Native.sendActionBar(
                     player,
-                    Component.translatable("status.tyc2.terminal.max_bound")
+                    Component.translatable("status.mnera.terminal.max_bound")
                             .withStyle(ChatFormatting.RED)
             );
         }
@@ -282,7 +282,7 @@ public final class CommTerminalItem extends CommTerminalItemBase {
         if (!consumeActionEu(stack, player, TriModePowerMath.TerminalAction.OPEN_REMOTE_UI)) {
             TyC2Native.sendActionBar(
                     player,
-                    Component.translatable("status.tyc2.terminal.low_power").withStyle(ChatFormatting.RED)
+                    Component.translatable("status.mnera.terminal.low_power").withStyle(ChatFormatting.RED)
             );
             return true;
         }
@@ -290,7 +290,7 @@ public final class CommTerminalItem extends CommTerminalItemBase {
         serverPlayer.openMenu(
                 new SimpleMenuProvider(
                         (syncId, inv, p) -> new CommTerminalMenu(syncId, inv, offhand),
-                        Component.translatable("container.tyc2.comm_terminal")
+                        Component.translatable("container.mnera.comm_terminal")
                 ),
                 buf -> buf.writeBoolean(offhand)
         );
@@ -325,13 +325,13 @@ public final class CommTerminalItem extends CommTerminalItemBase {
     protected void addDynamicTooltips(ItemStack stack, Consumer<Component> adder) {
         int eu = getEnergyEu(stack);
         int maxEu = TriModePowerMath.TERMINAL_MAX_CAPACITY_EU;
-        adder.accept(Component.translatable("tooltip.tyc2.comm_terminal.energy", eu, maxEu)
+        adder.accept(Component.translatable("tooltip.mnera.comm_terminal.energy", eu, maxEu)
                 .withStyle(eu > 0 ? ChatFormatting.GREEN : ChatFormatting.RED));
         int boundCount = getBoundVillages(stack).size();
-        adder.accept(Component.translatable("tooltip.tyc2.comm_terminal.bound", boundCount)
+        adder.accept(Component.translatable("tooltip.mnera.comm_terminal.bound", boundCount)
                 .withStyle(ChatFormatting.YELLOW));
         if (eu < TriModePowerMath.TERMINAL_COST_OPEN_EU) {
-            adder.accept(Component.translatable("tooltip.tyc2.comm_terminal.low_power")
+            adder.accept(Component.translatable("tooltip.mnera.comm_terminal.low_power")
                     .withStyle(ChatFormatting.RED));
         }
     }

@@ -37,7 +37,7 @@ import net.minecraftforge.registries.ForgeRegistries;
 /**
  * Isolated IC2 runtime assertions for Forge 1.19.2 Enhanced Mode QA.
  *
- * <p>NEVER referenced or classloaded in Standalone Mode (gated behind {@code ModList.get().isLoaded("ic2")}).
+ * <p>NEVER referenced or classloaded in Standalone Mode (gated behind {@code ModList.get().isLoaded("mhera")}).
  */
 final class TyC2QaIc2Checks {
 
@@ -85,9 +85,9 @@ final class TyC2QaIc2Checks {
         Method findMethod = procClass.getDeclaredMethod("find", String.class, String.class, Predicate.class);
         findMethod.setAccessible(true);
         Predicate<String> noTag = s -> false;
-        Object coinRecipe = findMethod.invoke(procInstance, "metal_former_cutting", "ic2:iron_casing", noTag);
+        Object coinRecipe = findMethod.invoke(procInstance, "metal_former_cutting", "mhera:iron_casing", noTag);
         qa.check("ic2.mixin_processing_recipes.coin_cutting_disabled", coinRecipe == null,
-                "find(metal_former_cutting, ic2:iron_casing)=" + coinRecipe);
+                "find(metal_former_cutting, mhera:iron_casing)=" + coinRecipe);
 
         // Ensure another builtin ProcessingRecipes entry still resolves cleanly (e.g., macerator on cobblestone/coal)
         Object otherRecipe = findMethod.invoke(procInstance, "macerator", "minecraft:cobblestone", noTag);
@@ -125,8 +125,8 @@ final class TyC2QaIc2Checks {
             BlockPos atmPos,
             TyC2QaAssert qa
     ) {
-        Block cableBlock = requireBlock("ic2:insulated_copper_cable");
-        Block genBlock = requireBlock("ic2:generator");
+        Block cableBlock = requireBlock("mhera:insulated_copper_cable");
+        Block genBlock = requireBlock("mhera:generator");
 
         // Place cables with ALL 6 arm properties explicitly FALSE first so ONLY real CableBlock.connects
         // (patched by Ic2CableBlockMixin) flips arms facing TyC2 machines to TRUE!
@@ -155,7 +155,7 @@ final class TyC2QaIc2Checks {
 
         // Fuel the IC2 Generator with coal (NO coal in Mint or ATM!)
         boolean fueled = insertIntoBlock(level, genPos, new ItemStack(Items.COAL, 16));
-        qa.check("ic2.generator_fueled", fueled, "inserted 16 coal into ic2:generator at " + genPos);
+        qa.check("ic2.generator_fueled", fueled, "inserted 16 coal into mhera:generator at " + genPos);
     }
 
     /**
@@ -168,7 +168,7 @@ final class TyC2QaIc2Checks {
             BlockPos primPos,
             TyC2QaAssert qa
     ) {
-        Block cableBlock = requireBlock("ic2:insulated_copper_cable");
+        Block cableBlock = requireBlock("mhera:insulated_copper_cable");
         BlockState bareCable = withAllCableArmsFalse(cableBlock.defaultBlockState());
         level.setBlock(primPos, TyC2ForgeRegistries.PRIMITIVE_MINT_MACHINE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
         level.setBlock(cablePos, bareCable, Block.UPDATE_ALL);
@@ -190,7 +190,7 @@ final class TyC2QaIc2Checks {
 
     /** Creates a charged {@code ic2:re_battery} for verifying real IC2 battery discharge in Industrial Minting Machine. */
     static ItemStack createChargedIc2Battery(double targetEu) {
-        Item reBat = requireItem("ic2:re_battery");
+        Item reBat = requireItem("mhera:re_battery");
         ItemStack stack = new ItemStack(reBat, 1);
         double remaining = targetEu;
         for (int i = 0; i < 400 && remaining > 0.0; i++) {
@@ -211,9 +211,9 @@ final class TyC2QaIc2Checks {
             net.minecraft.world.entity.player.Player player,
             TyC2QaAssert qa
     ) {
-        Block genBlock = requireBlock("ic2:generator");
-        Block cableBlock = requireBlock("ic2:insulated_copper_cable");
-        Block batBoxBlock = requireBlock("ic2:batbox");
+        Block genBlock = requireBlock("mhera:generator");
+        Block cableBlock = requireBlock("mhera:insulated_copper_cable");
+        Block batBoxBlock = requireBlock("mhera:batbox");
         level.setBlock(genPos, genBlock.defaultBlockState(), Block.UPDATE_ALL);
         level.setBlock(batBoxPos, batBoxBlock.defaultBlockState(), Block.UPDATE_ALL);
         level.setBlock(cablePos, cableBlock.defaultBlockState(), Block.UPDATE_ALL);

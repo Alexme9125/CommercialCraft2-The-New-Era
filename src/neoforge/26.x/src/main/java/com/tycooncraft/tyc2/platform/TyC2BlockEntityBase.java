@@ -24,7 +24,7 @@ import net.minecraft.world.level.storage.ValueOutput;
 public abstract class TyC2BlockEntityBase extends BlockEntity {
 
     private static final String KEY_ITEMS = "items";
-    private static final String KEY_TYC2_DATA = "tyc2";
+    private static final String KEY_TYC2_DATA = "mnera";
 
     protected TyC2BlockEntityBase(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);

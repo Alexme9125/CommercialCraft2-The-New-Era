@@ -53,7 +53,7 @@ public final class AtmMachineScreen extends TyC2ScreenBase<AtmMachineMenu> {
 
         // Top LCD quick switch Personal/Company button (160, 21, 48x12)
         addRenderableWidget(Button.builder(
-                Component.translatable("gui.tyc2.atm.btn.switch_acct"),
+                Component.translatable("gui.mnera.atm.btn.switch_acct"),
                 b -> cycleActiveAccount()
         ).bounds(leftPos + 160, topPos + 21, 48, 12).build());
 
@@ -61,7 +61,7 @@ public final class AtmMachineScreen extends TyC2ScreenBase<AtmMachineMenu> {
         // Row 1: Amount input (37, 58, 68x12)
         amountInput = addTrackedEditBox(new EditBox(
                 font, leftPos + 37, topPos + 58, 68, 12,
-                Component.translatable("gui.tyc2.atm.amount_placeholder")
+                Component.translatable("gui.mnera.atm.amount_placeholder")
         ));
         amountInput.setMaxLength(10);
         amountInput.setValue("100");
@@ -69,18 +69,18 @@ public final class AtmMachineScreen extends TyC2ScreenBase<AtmMachineMenu> {
 
         // Row 2: Deposit (37, 72, 42x12) & Deposit All (81, 72, 24x12)
         addRenderableWidget(Button.builder(
-                Component.translatable("gui.tyc2.atm.deposit"),
+                Component.translatable("gui.mnera.atm.deposit"),
                 b -> sendAction("DEPOSIT_SLOT", Map.of())
         ).bounds(leftPos + 37, topPos + 72, 42, 12).build());
 
         addRenderableWidget(Button.builder(
-                Component.translatable("gui.tyc2.atm.btn.deposit_all_short"),
+                Component.translatable("gui.mnera.atm.btn.deposit_all_short"),
                 b -> sendAction("DEPOSIT_ALL", Map.of())
         ).bounds(leftPos + 81, topPos + 72, 24, 12).build());
 
         // Row 3: Withdraw Amount (37, 86, 68x12)
         addRenderableWidget(Button.builder(
-                Component.translatable("gui.tyc2.atm.withdraw"),
+                Component.translatable("gui.mnera.atm.withdraw"),
                 b -> {
                     long amt = parsePositiveLong(amountInput.getValue(), 0L);
                     if (amt > 0L) {
@@ -91,7 +91,7 @@ public final class AtmMachineScreen extends TyC2ScreenBase<AtmMachineMenu> {
 
         // Row 4: Cycle Denom (<) + Withdraw Denom (e.g. "100x") + (>)
         addRenderableWidget(Button.builder(
-                Component.translatable("gui.tyc2.prev"),
+                Component.translatable("gui.mnera.prev"),
                 b -> {
                     selectedDenomIdx = (selectedDenomIdx - 1 + DENOMS.length) % DENOMS.length;
                     updateDenomButtonLabel();
@@ -115,7 +115,7 @@ public final class AtmMachineScreen extends TyC2ScreenBase<AtmMachineMenu> {
         ).bounds(leftPos + 50, topPos + 100, 42, 12).build());
 
         addRenderableWidget(Button.builder(
-                Component.translatable("gui.tyc2.next"),
+                Component.translatable("gui.mnera.next"),
                 b -> {
                     selectedDenomIdx = (selectedDenomIdx + 1) % DENOMS.length;
                     updateDenomButtonLabel();
@@ -123,65 +123,65 @@ public final class AtmMachineScreen extends TyC2ScreenBase<AtmMachineMenu> {
         ).bounds(leftPos + 93, topPos + 100, 12, 12).build());
 
         // Right LCD 3 tabs (111, 56, 75x68) -> (112..185)
-        addRenderableWidget(Button.builder(Component.translatable("gui.tyc2.atm.btn.log"), b -> {
+        addRenderableWidget(Button.builder(Component.translatable("gui.mnera.atm.btn.log"), b -> {
             rightTab = 0;
             rebuildControls();
         }).bounds(leftPos + 112, topPos + 57, 23, 11).build());
 
-        addRenderableWidget(Button.builder(Component.translatable("gui.tyc2.atm.btn.company"), b -> {
+        addRenderableWidget(Button.builder(Component.translatable("gui.mnera.atm.btn.company"), b -> {
             rightTab = 1;
             rebuildControls();
         }).bounds(leftPos + 136, topPos + 57, 25, 11).build());
 
-        addRenderableWidget(Button.builder(Component.translatable("gui.tyc2.atm.btn.send"), b -> {
+        addRenderableWidget(Button.builder(Component.translatable("gui.mnera.atm.btn.send"), b -> {
             rightTab = 2;
             rebuildControls();
         }).bounds(leftPos + 162, topPos + 57, 24, 11).build());
 
         if (rightTab == 0) {
             addRenderableWidget(Button.builder(
-                    Component.translatable("gui.tyc2.atm.btn.up"),
+                    Component.translatable("gui.mnera.atm.btn.up"),
                     b -> logScroll = Math.max(0, logScroll - 4)
             ).bounds(leftPos + 114, topPos + 111, 16, 11).build());
 
             addRenderableWidget(Button.builder(
-                    Component.translatable("gui.tyc2.atm.btn.down"),
+                    Component.translatable("gui.mnera.atm.btn.down"),
                     b -> logScroll += 4
             ).bounds(leftPos + 132, topPos + 111, 16, 11).build());
         } else if (rightTab == 1) {
             secondaryInput = addTrackedEditBox(new EditBox(
                     font, leftPos + 113, topPos + 70, 71, 12,
-                    Component.translatable("gui.tyc2.atm.company_name_placeholder")
+                    Component.translatable("gui.mnera.atm.company_name_placeholder")
             ));
             secondaryInput.setMaxLength(24);
             addRenderableWidget(secondaryInput);
 
-            addRenderableWidget(Button.builder(Component.translatable("gui.tyc2.atm.btn.new_company"), b -> {
+            addRenderableWidget(Button.builder(Component.translatable("gui.mnera.atm.btn.new_company"), b -> {
                 String txt = secondaryInput.getValue().trim();
                 if (!txt.isEmpty()) {
                     sendAction("CREATE_COMPANY", Map.of("name", txt));
                 }
             }).bounds(leftPos + 113, topPos + 84, 35, 12).build());
 
-            addRenderableWidget(Button.builder(Component.translatable("gui.tyc2.atm.btn.join_company"), b -> {
+            addRenderableWidget(Button.builder(Component.translatable("gui.mnera.atm.btn.join_company"), b -> {
                 String txt = secondaryInput.getValue().trim();
                 if (!txt.isEmpty()) {
                     sendAction("JOIN_COMPANY", Map.of("code", txt));
                 }
             }).bounds(leftPos + 150, topPos + 84, 34, 12).build());
 
-            addRenderableWidget(Button.builder(Component.translatable("gui.tyc2.atm.btn.leave_company"), b -> {
+            addRenderableWidget(Button.builder(Component.translatable("gui.mnera.atm.btn.leave_company"), b -> {
                 sendAction("LEAVE_COMPANY", Map.of());
             }).bounds(leftPos + 113, topPos + 98, 71, 12).build());
         } else if (rightTab == 2) {
             secondaryInput = addTrackedEditBox(new EditBox(
                     font, leftPos + 113, topPos + 72, 71, 12,
-                    Component.translatable("gui.tyc2.atm.recipient_placeholder")
+                    Component.translatable("gui.mnera.atm.recipient_placeholder")
             ));
             secondaryInput.setMaxLength(32);
             addRenderableWidget(secondaryInput);
 
-            addRenderableWidget(Button.builder(Component.translatable("gui.tyc2.atm.transfer"), b -> {
+            addRenderableWidget(Button.builder(Component.translatable("gui.mnera.atm.transfer"), b -> {
                 String rec = secondaryInput.getValue().trim();
                 long amt = parsePositiveLong(amountInput.getValue(), 0L);
                 if (!rec.isEmpty() && amt > 0L) {
@@ -236,7 +236,7 @@ public final class AtmMachineScreen extends TyC2ScreenBase<AtmMachineMenu> {
         boolean isCompany = "COMPANY".equals(scope);
         String label = JsonLite.getString(snap, "activeLabel", "");
         if (label.isBlank()) {
-            label = Component.translatable("gui.tyc2.account.personal").getString();
+            label = Component.translatable("gui.mnera.account.personal").getString();
         }
         long balance = JsonLite.getLong(snap, "activeBalance", 0L);
 
@@ -246,7 +246,7 @@ public final class AtmMachineScreen extends TyC2ScreenBase<AtmMachineMenu> {
         drawFitString(canvas, label, 32, 22, 124, 0xFF7BE8FF);
         drawFitString(
                 canvas,
-                Component.translatable("gui.tyc2.atm.balance", balance).getString(),
+                Component.translatable("gui.mnera.atm.balance", balance).getString(),
                 32, 34, 124, 0xFFFFE066
         );
 
@@ -281,7 +281,7 @@ public final class AtmMachineScreen extends TyC2ScreenBase<AtmMachineMenu> {
             if (logs == null || logs.isEmpty()) {
                 drawFitString(
                         canvas,
-                        Component.translatable("gui.tyc2.atm.no_history").getString(),
+                        Component.translatable("gui.mnera.atm.no_history").getString(),
                         114, 72, 69, 0xFF7B8E9F
                 );
             } else {
@@ -303,10 +303,10 @@ public final class AtmMachineScreen extends TyC2ScreenBase<AtmMachineMenu> {
         } else if (rightTab == 1) {
             List<Object> cos = JsonLite.asArray(snap.get("companies"));
             int count = cos == null ? 0 : cos.size();
-            String coLine = Component.translatable("gui.tyc2.account.company").getString() + ": " + count;
+            String coLine = Component.translatable("gui.mnera.account.company").getString() + ": " + count;
             drawFitString(canvas, coLine, 114, 112, 70, 0xFFB0C4DE);
         } else if (rightTab == 2) {
-            String hint = Component.translatable("gui.tyc2.atm.amount_placeholder").getString();
+            String hint = Component.translatable("gui.mnera.atm.amount_placeholder").getString();
             drawFitString(canvas, hint, 114, 106, 70, 0xFF8AA4BF);
         }
     }
@@ -319,7 +319,7 @@ public final class AtmMachineScreen extends TyC2ScreenBase<AtmMachineMenu> {
             int eu = menu.storedEu();
             int maxEu = menu.maxEu();
             canvas.drawTooltip(
-                    List.of(Component.translatable("gui.tyc2.energy.eu_fe", eu, maxEu, TriModePowerMath.euToFe(eu))),
+                    List.of(Component.translatable("gui.mnera.energy.eu_fe", eu, maxEu, TriModePowerMath.euToFe(eu))),
                     mouseX,
                     mouseY
             );
@@ -328,13 +328,13 @@ public final class AtmMachineScreen extends TyC2ScreenBase<AtmMachineMenu> {
 
     private static String localizedTxType(String rawType) {
         String key = switch (rawType) {
-            case "WITHDRAW" -> "gui.tyc2.atm.tx.withdraw";
-            case "TRANSFER_IN" -> "gui.tyc2.atm.tx.transfer_in";
-            case "TRANSFER_OUT" -> "gui.tyc2.atm.tx.transfer_out";
-            case "TRADE_BUY", "NEGOTIATION" -> "gui.tyc2.atm.tx.trade_buy";
-            case "TRADE_SELL" -> "gui.tyc2.atm.tx.trade_sell";
-            case "SYSTEM_ADJUST", "COMPANY_DISSOLVE" -> "gui.tyc2.atm.tx.system_adjust";
-            default -> "gui.tyc2.atm.tx.deposit";
+            case "WITHDRAW" -> "gui.mnera.atm.tx.withdraw";
+            case "TRANSFER_IN" -> "gui.mnera.atm.tx.transfer_in";
+            case "TRANSFER_OUT" -> "gui.mnera.atm.tx.transfer_out";
+            case "TRADE_BUY", "NEGOTIATION" -> "gui.mnera.atm.tx.trade_buy";
+            case "TRADE_SELL" -> "gui.mnera.atm.tx.trade_sell";
+            case "SYSTEM_ADJUST", "COMPANY_DISSOLVE" -> "gui.mnera.atm.tx.system_adjust";
+            default -> "gui.mnera.atm.tx.deposit";
         };
         return Component.translatable(key).getString();
     }

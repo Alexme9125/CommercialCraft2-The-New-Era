@@ -530,12 +530,12 @@ class AidConstructionAndEmploymentTest {
         DemandGenerator gen = new DemandGenerator(goods, TyC2Config.defaults());
 
         // Verify jungle & swamp biome specialty affinities in GoodsCatalog and TradeGood.normalizeBiomeStyle
-        TradeGood cocoa = goods.getById("tyc2:cocoa_beans").orElseThrow();
-        TradeGood bamboo = goods.getById("tyc2:bamboo").orElseThrow();
-        TradeGood melon = goods.getById("tyc2:melon_slice").orElseThrow();
-        TradeGood slime = goods.getById("tyc2:slime_ball").orElseThrow();
-        TradeGood brownMush = goods.getById("tyc2:brown_mushroom").orElseThrow();
-        TradeGood redMush = goods.getById("tyc2:red_mushroom").orElseThrow();
+        TradeGood cocoa = goods.getById("mnera:cocoa_beans").orElseThrow();
+        TradeGood bamboo = goods.getById("mnera:bamboo").orElseThrow();
+        TradeGood melon = goods.getById("mnera:melon_slice").orElseThrow();
+        TradeGood slime = goods.getById("mnera:slime_ball").orElseThrow();
+        TradeGood brownMush = goods.getById("mnera:brown_mushroom").orElseThrow();
+        TradeGood redMush = goods.getById("mnera:red_mushroom").orElseThrow();
 
         assertTrue(cocoa.hasBiomeAffinity("minecraft:jungle"));
         assertTrue(bamboo.hasBiomeAffinity("minecraft:bamboo_jungle"));

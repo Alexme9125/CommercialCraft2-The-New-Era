@@ -16,7 +16,7 @@ import java.util.Optional;
  * remain mutually accepted at 1x value everywhere.
  */
 public enum CurrencyDenomination {
-    X1(1L, "coin_1", "ic2:coin"),
+    X1(1L, "coin_1", "mhera:coin"),
     X5(5L, "coin_5", null),
     X10(10L, "coin_10", null),
     X20(20L, "coin_20", null),
@@ -27,10 +27,10 @@ public enum CurrencyDenomination {
     X1000(1000L, "coin_1000", null);
 
     /** Mod namespace for TyC2 coin items. */
-    public static final String MOD_ID = "tyc2";
+    public static final String MOD_ID = "mnera";
 
     /** IC2 coin item identifier unified with {@link #X1}. */
-    public static final String IC2_COIN_ID = "ic2:coin";
+    public static final String IC2_COIN_ID = "mhera:coin";
 
     /**
      * Maximum IC allowed in a single physical cash withdrawal (64 full stacks of 1000x coins = 4,096,000 IC)
@@ -89,7 +89,7 @@ public enum CurrencyDenomination {
     }
 
     /**
-     * Returns the TyC2-namespaced item ID (e.g. {@code "tyc2:coin_100"}).
+     * Returns the TyC2-namespaced item ID (e.g. {@code "mnera:coin_100"}).
      *
      * @return TyC2 item identifier
      */
@@ -98,7 +98,7 @@ public enum CurrencyDenomination {
     }
 
     /**
-     * Returns the optional IC2 compatibility item ID ({@code "ic2:coin"} for {@link #X1}).
+     * Returns the optional IC2 compatibility item ID ({@code "mhera:coin"} for {@link #X1}).
      *
      * @return IC2 item ID or {@code null} if none
      */
@@ -110,7 +110,7 @@ public enum CurrencyDenomination {
      * Returns the canonical output item ID to mint or dispense for this denomination.
      *
      * @param ic2Loaded whether the {@code ic2} mod is currently loaded
-     * @return {@code "ic2:coin"} for {@link #X1} when IC2 is loaded, otherwise {@link #tyc2ItemId()}
+     * @return {@code "mhera:coin"} for {@link #X1} when IC2 is loaded, otherwise {@link #tyc2ItemId()}
      */
     public String canonicalItemId(boolean ic2Loaded) {
         if (ic2Loaded && ic2CompatId != null) {
@@ -120,8 +120,8 @@ public enum CurrencyDenomination {
     }
 
     /**
-     * Resolves a denomination from a full item ID (such as {@code "tyc2:coin_1"},
-     * {@code "ic2:coin"}, or {@code "tyc2:coin_500"}) or bare path ({@code "coin_50"}).
+     * Resolves a denomination from a full item ID (such as {@code "mnera:coin_1"},
+     * {@code "mhera:coin"}, or {@code "mnera:coin_500"}) or bare path ({@code "coin_50"}).
      *
      * @param itemId item identifier
      * @return matching denomination, or empty if not a recognized coin
@@ -145,7 +145,7 @@ public enum CurrencyDenomination {
 
     /**
      * Resolves a denomination from its enum name (e.g. {@code "X100"}), numeric text ({@code "100"}),
-     * or item ID ({@code "tyc2:coin_100"} / {@code "ic2:coin"}).
+     * or item ID ({@code "mnera:coin_100"} / {@code "mhera:coin"}).
      *
      * @param spec denomination specification string
      * @return matching denomination, or empty if invalid

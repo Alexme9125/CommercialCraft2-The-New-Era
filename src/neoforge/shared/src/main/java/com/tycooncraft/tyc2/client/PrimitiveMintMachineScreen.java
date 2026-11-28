@@ -50,9 +50,9 @@ public final class PrimitiveMintMachineScreen extends TyC2ScreenBase<PrimitiveMi
         if (menu.isBlockedByIndustrialTier()) {
             // Amber Warning Badge (176, 32, 14x14) at (78, 53)
             canvas.blit(GUI_TEX, 78, 53, 176, 32, 14, 14);
-            String warnTitle = Component.translatable("gui.tyc2.primitive_mint.requires_industrial").getString();
-            String fullDetail = Component.translatable("gui.tyc2.primitive_mint.requires_industrial_detail").getString();
-            String shortDetail = Component.translatable("gui.tyc2.primitive_mint.requires_industrial_short").getString();
+            String warnTitle = Component.translatable("gui.mnera.primitive_mint.requires_industrial").getString();
+            String fullDetail = Component.translatable("gui.mnera.primitive_mint.requires_industrial_detail").getString();
+            String shortDetail = Component.translatable("gui.mnera.primitive_mint.requires_industrial_short").getString();
             // Keep line 2 crisp and unclipped inside 71px LCD width (full detail shown in hover tooltip)
             String warnDetail = canvas.textWidth(fullDetail) <= 108 ? fullDetail : shortDetail;
             float titleScale = fitScale(canvas, warnTitle, 70, 0.72F);
@@ -64,16 +64,16 @@ public final class PrimitiveMintMachineScreen extends TyC2ScreenBase<PrimitiveMi
             int statusColor;
             if (prog > 0) {
                 int pct = Math.min(100, (prog * 100) / Math.max(1, total));
-                statusStr = Component.translatable("gui.tyc2.primitive_mint.minting", pct).getString();
+                statusStr = Component.translatable("gui.mnera.primitive_mint.minting", pct).getString();
                 statusColor = 0xFFFFB84D;
             } else if (burnRem <= 0 && menu.hasInputItems()) {
-                statusStr = Component.translatable("gui.tyc2.primitive_mint.no_fuel").getString();
+                statusStr = Component.translatable("gui.mnera.primitive_mint.no_fuel").getString();
                 statusColor = 0xFFFF6B5E;
             } else {
-                statusStr = Component.translatable("gui.tyc2.primitive_mint.idle").getString();
+                statusStr = Component.translatable("gui.mnera.primitive_mint.idle").getString();
                 statusColor = 0xFFD9C8A9;
             }
-            String scopeHint = Component.translatable("gui.tyc2.primitive_mint.scope_hint").getString();
+            String scopeHint = Component.translatable("gui.mnera.primitive_mint.scope_hint").getString();
             canvas.drawScaledString(statusStr, 80, 52, 84, fitScale(canvas, statusStr, 84, 0.80F), statusColor);
             canvas.drawScaledString(scopeHint, 80, 63, 84, fitScale(canvas, scopeHint, 84, 0.72F), 0xFFA6B8C8);
         }
@@ -89,8 +89,8 @@ public final class PrimitiveMintMachineScreen extends TyC2ScreenBase<PrimitiveMi
             int burnSec = (menu.burnRemaining() + 19) / 20;
             canvas.drawTooltip(
                     List.of(
-                            Component.translatable("gui.tyc2.slot.burn_fuel"),
-                            Component.translatable("hud.tyc2.primitive_mint.fuel", burnSec)
+                            Component.translatable("gui.mnera.slot.burn_fuel"),
+                            Component.translatable("hud.mnera.primitive_mint.fuel", burnSec)
                     ),
                     mouseX,
                     mouseY
@@ -98,8 +98,8 @@ public final class PrimitiveMintMachineScreen extends TyC2ScreenBase<PrimitiveMi
         } else if (px >= 76 && px < 168 && py >= 48 && py < 73 && menu.isBlockedByIndustrialTier()) {
             canvas.drawTooltip(
                     List.of(
-                            Component.translatable("gui.tyc2.primitive_mint.requires_industrial"),
-                            Component.translatable("gui.tyc2.primitive_mint.requires_industrial_detail")
+                            Component.translatable("gui.mnera.primitive_mint.requires_industrial"),
+                            Component.translatable("gui.mnera.primitive_mint.requires_industrial_detail")
                     ),
                     mouseX,
                     mouseY

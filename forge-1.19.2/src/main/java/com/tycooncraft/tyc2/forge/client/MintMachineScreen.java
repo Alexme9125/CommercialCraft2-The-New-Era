@@ -73,20 +73,20 @@ public class MintMachineScreen extends AbstractContainerScreen<MintMachineMenu> 
             List<Component> tip = new ArrayList<>();
             int eu = menu.getStoredEu();
             int max = menu.getMaxEu();
-            tip.add(Component.translatable("gui.tyc2.energy.eu_fe", eu, max, (long) eu * TriModePowerMath.EU_TO_FE_RATIO));
-            tip.add(Component.translatable("gui.tyc2.energy.tier", menu.getPowerTier(), menu.getMaxInputEuPerTick()));
+            tip.add(Component.translatable("gui.mnera.energy.eu_fe", eu, max, (long) eu * TriModePowerMath.EU_TO_FE_RATIO));
+            tip.add(Component.translatable("gui.mnera.energy.tier", menu.getPowerTier(), menu.getMaxInputEuPerTick()));
             renderComponentTooltip(poseStack, tip, mouseX, mouseY);
         } else if (relX >= 59 && relX <= 73 && relY >= 57 && relY <= 71) {
-            renderTooltip(poseStack, Component.translatable("gui.tyc2.slot.battery_discharge"), mouseX, mouseY);
+            renderTooltip(poseStack, Component.translatable("gui.mnera.slot.battery_discharge"), mouseX, mouseY);
         } else if (relX >= 80 && relX <= 104 && relY >= 27 && relY <= 43) {
             Component msg;
             if (menu.getProgress() > 0) {
                 int pct = Math.min(100, (menu.getProgress() * 100) / menu.getMaxProgress());
-                msg = Component.translatable("gui.tyc2.mint.minting", pct);
+                msg = Component.translatable("gui.mnera.mint.minting", pct);
             } else if (menu.getStoredEu() <= 0 && !menu.isBatteryDischarging()) {
-                msg = Component.translatable("gui.tyc2.mint.no_power");
+                msg = Component.translatable("gui.mnera.mint.no_power");
             } else {
-                msg = Component.translatable("gui.tyc2.mint.idle");
+                msg = Component.translatable("gui.mnera.mint.idle");
             }
             renderTooltip(poseStack, msg, mouseX, mouseY);
         }

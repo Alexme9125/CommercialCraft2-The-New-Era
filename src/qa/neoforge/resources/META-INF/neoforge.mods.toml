@@ -2,27 +2,27 @@ ${loaderMetadata}
 license="GPL-3.0-only"
 
 [[mods]]
-modId="tyc2_qa"
-version="1.0.0"
-displayName="TycoonCraft 2 Live Server QA Harness"
+modId="mnera_qa"
+version="2.0.0"
+displayName="Monetera Live Server QA Harness"
 
-[[dependencies.tyc2_qa]]
-modId="tyc2"
+[[dependencies.mnera_qa]]
+modId="mnera"
 type="required"
-versionRange="[0.1.0,)"
+versionRange="[2.0.0,)"
 ordering="AFTER"
 side="BOTH"
 
-[[dependencies.tyc2_qa]]
-modId="ic2"
+[[dependencies.mnera_qa]]
+modId="mhera"
 type="optional"
-versionRange="[1.0.0,)"
+versionRange="[2.0.0,)"
 ordering="AFTER"
 side="BOTH"
 
-[[dependencies.tyc2_qa]]
-modId="lc2"
+[[dependencies.mnera_qa]]
+modId="trera"
 type="optional"
-versionRange="[1.0.0,)"
+versionRange="[2.0.0,)"
 ordering="AFTER"
 side="BOTH"

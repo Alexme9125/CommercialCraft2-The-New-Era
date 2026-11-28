@@ -93,7 +93,7 @@ public final class CpiChartRenderer {
         if (points == null || points.isEmpty()) {
             TyC2Theme.drawCenteredFitString(
                     canvas,
-                    Component.translatable("gui.tyc2.hub.status.cpi", "1.00").getString(),
+                    Component.translatable("gui.mnera.hub.status.cpi", "1.00").getString(),
                     plotX, plotY, plotW, plotH, 0.65F, axisLabelColor
             );
             return;

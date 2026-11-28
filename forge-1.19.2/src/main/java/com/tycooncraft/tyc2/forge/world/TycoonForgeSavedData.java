@@ -55,9 +55,9 @@ import org.slf4j.LoggerFactory;
  */
 public final class TycoonForgeSavedData extends SavedData {
 
-    public static final String DATA_NAME = "tyc2_world_economy";
+    public static final String DATA_NAME = "mnera_world_economy";
     private static final int LARGE_STRING_CHUNK = 24_000;
-    private static final Logger LOGGER = LoggerFactory.getLogger("tyc2");
+    private static final Logger LOGGER = LoggerFactory.getLogger("mnera");
 
     private BankAccountManager bankAccounts;
     private MacroEconomyEngine macroEconomy;

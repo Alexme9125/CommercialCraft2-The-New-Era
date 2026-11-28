@@ -39,31 +39,31 @@ public enum IndustrialTier {
                 "minecraft:wooden_pickaxe", "minecraft:stone_pickaxe", "minecraft:iron_ingot"
         ));
         ic2.put(TIER_1, Set.of(
-                "ic2:generator", "ic2:batbox", "ic2:macerator", "ic2:extractor",
-                "ic2:compressor", "ic2:electric_furnace", "ic2:copper_plate",
-                "ic2:tin_plate", "ic2:bronze_plate", "ic2:circuit",
-                "ic2:re_battery", "ic2:copper_cable", "ic2:machine"
+                "mhera:generator", "mhera:batbox", "mhera:macerator", "mhera:extractor",
+                "mhera:compressor", "mhera:electric_furnace", "mhera:copper_plate",
+                "mhera:tin_plate", "mhera:bronze_plate", "mhera:circuit",
+                "mhera:re_battery", "mhera:copper_cable", "mhera:machine"
         ));
         ic2.put(TIER_2, Set.of(
-                "ic2:cesu", "ic2:metal_former", "ic2:ore_washing_plant",
-                "ic2:centrifuge", "ic2:blast_furnace", "ic2:steel_ingot",
-                "ic2:refined_iron_ingot", "ic2:advanced_machine", "ic2:advanced_circuit"
+                "mhera:cesu", "mhera:metal_former", "mhera:ore_washing_plant",
+                "mhera:centrifuge", "mhera:blast_furnace", "mhera:steel_ingot",
+                "mhera:refined_iron_ingot", "mhera:advanced_machine", "mhera:advanced_circuit"
         ));
         ic2.put(TIER_3, Set.of(
-                "ic2:mfe", "ic2:induction_furnace", "ic2:nuclear_reactor",
-                "ic2:alloy", "ic2:carbon_plate", "ic2:energy_crystal"
+                "mhera:mfe", "mhera:induction_furnace", "mhera:nuclear_reactor",
+                "mhera:alloy", "mhera:carbon_plate", "mhera:energy_crystal"
         ));
         ic2.put(TIER_4, Set.of(
-                "ic2:mfsu", "ic2:mass_fabricator", "ic2:scanner", "ic2:advanced_scanner",
-                "ic2:uu_scanner", "ic2:replicator", "ic2:lapotron_crystal",
-                "ic2:uranium", "ic2:uranium_fuel_rod", "ic2:dual_uranium_fuel_rod",
-                "ic2:quad_uranium_fuel_rod", "ic2:mox_fuel_rod",
-                "ic2:dual_mox_fuel_rod", "ic2:quad_mox_fuel_rod"
+                "mhera:mfsu", "mhera:mass_fabricator", "mhera:scanner", "mhera:advanced_scanner",
+                "mhera:uu_scanner", "mhera:replicator", "mhera:lapotron_crystal",
+                "mhera:uranium", "mhera:uranium_fuel_rod", "mhera:dual_uranium_fuel_rod",
+                "mhera:quad_uranium_fuel_rod", "mhera:mox_fuel_rod",
+                "mhera:dual_mox_fuel_rod", "mhera:quad_mox_fuel_rod"
         ));
         ic2.put(TIER_5, Set.of(
-                "ic2:uu_matter", "ic2:iridium_shard", "ic2:iridium_ore", "ic2:iridium",
-                "ic2:iridium_neutron_reflector", "ic2:iridium_drill", "ic2:quantum_helmet",
-                "ic2:quantum_chestplate", "ic2:quantum_leggings", "ic2:quantum_boots"
+                "mhera:uu_matter", "mhera:iridium_shard", "mhera:iridium_ore", "mhera:iridium",
+                "mhera:iridium_neutron_reflector", "mhera:iridium_drill", "mhera:quantum_helmet",
+                "mhera:quantum_chestplate", "mhera:quantum_leggings", "mhera:quantum_boots"
         ));
         IC2_MILESTONES = Collections.unmodifiableMap(ic2);
 

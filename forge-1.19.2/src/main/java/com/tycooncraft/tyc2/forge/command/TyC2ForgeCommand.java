@@ -40,7 +40,7 @@ public final class TyC2ForgeCommand {
 
     /** Registers the {@code /tyc2} command tree. */
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("tyc2")
+        dispatcher.register(Commands.literal("mnera")
                 .then(Commands.literal("status").executes(ctx -> showStatus(ctx.getSource())))
                 .then(Commands.literal("season").executes(ctx -> showSeason(ctx.getSource())))
                 .then(Commands.literal("cpi").executes(ctx -> showCpi(ctx.getSource())))
@@ -120,7 +120,7 @@ public final class TyC2ForgeCommand {
         int workplaces = TyC2RuntimeData.workplaceCatalog().getAvailableWorkplaces(TyC2Ids::blockExists).size();
         src.sendSuccess(Component.literal(String.format(
                 Locale.ROOT,
-                "[TyC2] IC2=%s LC2=%s Season=%s | CPI=%.2f (%s) M=%d Q=%.0f | Villages=%d (%d partnered, %d bonus, %d aid) | Recipes=%d Goods=%d Workplaces=%d",
+                "[MNERA] MHERA=%s TRERA=%s Season=%s | CPI=%.2f (%s) M=%d Q=%.0f | Villages=%d (%d partnered, %d bonus, %d aid) | Recipes=%d Goods=%d Workplaces=%d",
                 Ic2Bridge.isLoaded(),
                 Lc2SoftBridge.isLoaded(),
                 season.name(),
@@ -148,7 +148,7 @@ public final class TyC2ForgeCommand {
                 boolean bonus = emp.isLowUnemploymentBonusActive(cfg);
                 src.sendSuccess(Component.literal(String.format(
                         Locale.ROOT,
-                        "[TyC2] Nearest Village %s (Lv.%d): Unemp=%d%% (%d/%d) Bonus=%s (Qty %.2fx, Gather %.2fx) AidQueue=%d/%d",
+                        "[MNERA] Nearest Village %s (Lv.%d): Unemp=%d%% (%d/%d) Bonus=%s (Qty %.2fx, Gather %.2fx) AidQueue=%d/%d",
                         v.getVillageName(),
                         v.getLevel(),
                         unempPct,
@@ -167,8 +167,8 @@ public final class TyC2ForgeCommand {
 
     private static int showSeason(CommandSourceStack src) {
         Season s = SeasonSoftBridge.currentSeason(src.getLevel());
-        src.sendSuccess(Component.translatable("gui.tyc2.economy.season",
-                Component.translatable("season.tyc2." + s.key())), false);
+        src.sendSuccess(Component.translatable("gui.mnera.economy.season",
+                Component.translatable("season.mnera." + s.key())), false);
         return 1;
     }
 
@@ -178,7 +178,7 @@ public final class TyC2ForgeCommand {
         MacroEconomyEngine econ = data.economy();
         src.sendSuccess(Component.literal(String.format(
                 Locale.ROOT,
-                "[TyC2] CPI=%.3f (%s) | MoneySupply=%d IC (MintedNet=%d, Banks=%d, Villages=%d) | Circulation Q=%.1f | History=%d pts",
+                "[MNERA] CPI=%.3f (%s) | MoneySupply=%d UC (MintedNet=%d, Banks=%d, Villages=%d) | Circulation Q=%.1f | History=%d pts",
                 econ.computeCpi(),
                 econ.getInflationState().name(),
                 econ.totalMoneySupply(),
@@ -194,7 +194,7 @@ public final class TyC2ForgeCommand {
     private static int listVillages(CommandSourceStack src) {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
         if (data.allVillages().isEmpty()) {
-            src.sendSuccess(Component.literal("[TyC2] No tracked villages yet."), false);
+            src.sendSuccess(Component.literal("[MNERA] No tracked villages yet."), false);
             return 1;
         }
         TyC2Config cfg = TyC2RuntimeData.config();
@@ -203,7 +203,7 @@ public final class TyC2ForgeCommand {
             int unempPct = emp.workforceCount() <= 0 ? 0 : (int) Math.round(emp.unemploymentRate() * 100.0);
             src.sendSuccess(Component.literal(String.format(
                     Locale.ROOT,
-                    "- %s [%s] Lv.%d Pop=%d Unemp=%d%%(%d/%d)%s Funds=%d IC Partnered=%s Hub=(%d,%d,%d) Orders=%d Jobs=%d Aid=%d",
+                    "- %s [%s] Lv.%d Pop=%d Unemp=%d%%(%d/%d)%s Funds=%d UC Partnered=%s Hub=(%d,%d,%d) Orders=%d Jobs=%d Aid=%d",
                     v.getVillageName(),
                     v.getBiomeStyle().id(),
                     v.getLevel(),
@@ -225,7 +225,7 @@ public final class TyC2ForgeCommand {
 
     private static int reloadExternal(CommandSourceStack src) {
         TyC2RuntimeData.reloadExternalConfigOnly();
-        src.sendSuccess(Component.literal("[TyC2] Reloaded config/tyc2/*.json overrides."), true);
+        src.sendSuccess(Component.literal("[MNERA] Reloaded config/mnera/*.json overrides."), true);
         return 1;
     }
 
@@ -236,11 +236,11 @@ public final class TyC2ForgeCommand {
             TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
             data.economy().recordMinting(amount);
             data.setDirty();
-            src.sendSuccess(Component.literal("[TyC2] Minted " + amount + " IC (CPI now "
+            src.sendSuccess(Component.literal("[MNERA] Minted " + amount + " UC (CPI now "
                     + String.format(Locale.ROOT, "%.2f", data.economy().computeCpi()) + ")"), true);
             return 1;
         } catch (Exception e) {
-            src.sendFailure(Component.literal("Player required for /tyc2 mint"));
+            src.sendFailure(Component.literal("Player required for /mnera mint"));
             return 0;
         }
     }
@@ -251,7 +251,7 @@ public final class TyC2ForgeCommand {
             TycoonForgeSavedData data = TycoonForgeSavedData.get(src.getServer());
             data.bank().getOrCreatePersonal(player.getUUID(), player.getGameProfile().getName());
             long bal = data.bank().getActiveBalance(player.getUUID());
-            src.sendSuccess(Component.translatable("gui.tyc2.atm.balance", bal), false);
+            src.sendSuccess(Component.translatable("gui.mnera.atm.balance", bal), false);
             return 1;
         } catch (Exception e) {
             src.sendFailure(Component.literal("Player required"));
@@ -266,11 +266,11 @@ public final class TyC2ForgeCommand {
             data.bank().getOrCreatePersonal(player.getUUID(), player.getGameProfile().getName());
             BankAccountManager.AccountRef ref = data.bank().resolveSettlementAccount(player.getUUID());
             data.bank().creditAccount(ref, amount, BankAccountManager.TransactionType.SYSTEM_ADJUST,
-                    src.getServer().overworld().getGameTime(), "Admin", "/tyc2 bank add");
+                    src.getServer().overworld().getGameTime(), "Admin", "/mnera bank add");
             data.syncMacroAccountTotals();
             data.setDirty();
-            src.sendSuccess(Component.literal("[TyC2] Credited " + amount + " IC. New balance: "
-                    + data.bank().getBalance(ref) + " IC"), true);
+            src.sendSuccess(Component.literal("[MNERA] Credited " + amount + " UC. New balance: "
+                    + data.bank().getBalance(ref) + " UC"), true);
             return 1;
         } catch (Exception e) {
             src.sendFailure(Component.literal("Player required"));
@@ -287,7 +287,7 @@ public final class TyC2ForgeCommand {
                     level.dimension().location().toString(), player.blockPosition(), 128
             );
             if (vOpt.isEmpty()) {
-                src.sendFailure(Component.literal("[TyC2] No tracked village within 128 blocks."));
+                src.sendFailure(Component.literal("[MNERA] No tracked village within 128 blocks."));
                 return 0;
             }
             VillageRecord v = vOpt.get();
@@ -295,7 +295,7 @@ public final class TyC2ForgeCommand {
             v.setLevel(next);
             TycoonForgeWorldManager.refreshVillageOrders(level, data, v, src.getServer().overworld().getDayTime());
             data.setDirty();
-            src.sendSuccess(Component.literal("[TyC2] Upgraded " + v.getVillageName() + " to Lv." + next), true);
+            src.sendSuccess(Component.literal("[MNERA] Upgraded " + v.getVillageName() + " to Lv." + next), true);
             return 1;
         } catch (Exception e) {
             src.sendFailure(Component.literal("Player required"));
@@ -312,18 +312,18 @@ public final class TyC2ForgeCommand {
                     level.dimension().location().toString(), pos, 96
             );
             if (vOpt.isEmpty()) {
-                src.sendFailure(Component.literal("[TyC2] No TyC2 village within 96 blocks."));
+                src.sendFailure(Component.literal("[MNERA] No Monetera village within 96 blocks."));
                 return 0;
             }
             VillageRecord v = vOpt.get();
             TycoonForgeWorldManager.refreshVillageOrders(level, data, v, src.getServer().overworld().getDayTime());
             src.sendSuccess(Component.literal(
-                    "[TyC2] Refreshed trade orders for " + v.getVillageName()
+                    "[MNERA] Refreshed trade orders for " + v.getVillageName()
                             + " (" + v.getActiveOrders().size() + " active orders)."
             ), true);
             return 1;
         } catch (Exception e) {
-            src.sendFailure(Component.literal("[TyC2] Refresh failed: " + e.getMessage()));
+            src.sendFailure(Component.literal("[MNERA] Refresh failed: " + e.getMessage()));
             return 0;
         }
     }
@@ -337,17 +337,17 @@ public final class TyC2ForgeCommand {
                     level.dimension().location().toString(), player.blockPosition(), 128
             );
             if (vOpt.isEmpty()) {
-                src.sendFailure(Component.literal("[TyC2] No tracked village within 128 blocks."));
+                src.sendFailure(Component.literal("[MNERA] No tracked village within 128 blocks."));
                 return 0;
             }
             VillageRecord v = vOpt.get();
             if (!v.isPartnered()) {
-                src.sendFailure(Component.literal("[TyC2] " + v.getVillageName() + " is not currently partnered."));
+                src.sendFailure(Component.literal("[MNERA] " + v.getVillageName() + " is not currently partnered."));
                 return 0;
             }
             net.minecraft.core.BlockPos hubPos = TycoonForgeWorldManager.restoreHubBlock(level, v);
             src.sendSuccess(Component.translatable(
-                    "status.tyc2.hub.restored",
+                    "status.mnera.hub.restored",
                     v.getVillageName(),
                     hubPos.getX() + "," + hubPos.getY() + "," + hubPos.getZ()
             ), true);
@@ -367,7 +367,7 @@ public final class TyC2ForgeCommand {
                     level.dimension().location().toString(), player.blockPosition(), 128
             );
             if (vOpt.isEmpty()) {
-                src.sendFailure(Component.literal("[TyC2] No tracked village within 128 blocks."));
+                src.sendFailure(Component.literal("[MNERA] No tracked village within 128 blocks."));
                 return 0;
             }
             ProjectType type = null;
@@ -382,7 +382,7 @@ public final class TyC2ForgeCommand {
             src.sendFailure(res.toComponent());
             return 0;
         } catch (Exception e) {
-            src.sendFailure(Component.literal("[TyC2] Expand failed: " + e.getMessage()));
+            src.sendFailure(Component.literal("[MNERA] Expand failed: " + e.getMessage()));
             return 0;
         }
     }
@@ -396,7 +396,7 @@ public final class TyC2ForgeCommand {
                     level.dimension().location().toString(), player.blockPosition(), 128
             );
             if (vOpt.isEmpty()) {
-                src.sendFailure(Component.literal("[TyC2] No tracked village within 128 blocks."));
+                src.sendFailure(Component.literal("[MNERA] No tracked village within 128 blocks."));
                 return 0;
             }
             WorkplaceSize size = WorkplaceSize.fromNameOrDefault(sizeArg, WorkplaceSize.SMALL);
@@ -410,7 +410,7 @@ public final class TyC2ForgeCommand {
             src.sendFailure(res.toComponent());
             return 0;
         } catch (Exception e) {
-            src.sendFailure(Component.literal("[TyC2] Aid command failed: " + e.getMessage()));
+            src.sendFailure(Component.literal("[MNERA] Aid command failed: " + e.getMessage()));
             return 0;
         }
     }

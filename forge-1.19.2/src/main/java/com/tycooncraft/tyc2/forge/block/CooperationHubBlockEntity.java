@@ -256,9 +256,9 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
                 hasChunkUpgrade = true;
             }
             String id = TyC2Ids.itemId(st);
-            if ("ic2:ejector_upgrade".equals(id) || "ic2:advanced_ejector_upgrade".equals(id)) {
+            if ("mhera:ejector_upgrade".equals(id) || "mhera:advanced_ejector_upgrade".equals(id)) {
                 hasEjector = true;
-            } else if ("ic2:pulling_upgrade".equals(id) || "ic2:advanced_pulling_upgrade".equals(id)) {
+            } else if ("mhera:pulling_upgrade".equals(id) || "mhera:advanced_pulling_upgrade".equals(id)) {
                 hasPulling = true;
             }
         }
@@ -307,7 +307,7 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
             }
             ItemStack sample = TyC2Ids.fromSlotStack(opt.get());
             if (sample.isEmpty() || !Ic2Bridge.matchesUpgradeFilter(
-                    upgrades, "ic2:ejector_upgrade", "ic2:advanced_ejector_upgrade", sample)) {
+                    upgrades, "mhera:ejector_upgrade", "mhera:advanced_ejector_upgrade", sample)) {
                 continue;
             }
             int moveCount = Math.min(budget, sample.getCount());
@@ -340,7 +340,7 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
                 excluded,
                 32,
                 s -> Ic2Bridge.matchesUpgradeFilter(
-                        upgrades, "ic2:pulling_upgrade", "ic2:advanced_pulling_upgrade", s
+                        upgrades, "mhera:pulling_upgrade", "mhera:advanced_pulling_upgrade", s
                 ),
                 be -> be != this && !(be instanceof CooperationHubBlockEntity),
                 stack -> storage.maxInboundInsert(
@@ -367,8 +367,8 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
             ItemStack st = upgrades.get(i);
             String id = TyC2Ids.itemId(st);
             boolean match = ejector
-                    ? ("ic2:ejector_upgrade".equals(id) || "ic2:advanced_ejector_upgrade".equals(id))
-                    : ("ic2:pulling_upgrade".equals(id) || "ic2:advanced_pulling_upgrade".equals(id));
+                    ? ("mhera:ejector_upgrade".equals(id) || "mhera:advanced_ejector_upgrade".equals(id))
+                    : ("mhera:pulling_upgrade".equals(id) || "mhera:advanced_pulling_upgrade".equals(id));
             if (match) {
                 faces.addAll(Ic2Bridge.resolveUpgradeFaces(st));
             }
@@ -616,7 +616,7 @@ public class CooperationHubBlockEntity extends BlockEntity implements WorldlyCon
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.tyc2.cooperation_hub");
+        return Component.translatable("container.mnera.cooperation_hub");
     }
 
     @Override

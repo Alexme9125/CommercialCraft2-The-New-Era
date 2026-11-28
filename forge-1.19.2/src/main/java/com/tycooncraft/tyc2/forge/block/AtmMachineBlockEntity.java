@@ -215,7 +215,7 @@ public class AtmMachineBlockEntity extends BlockEntity implements WorldlyContain
         ItemStack stack = items.get(SLOT_DEPOSIT);
         long value = TyC2Ids.coinStackValue(stack);
         if (value <= 0L) {
-            return Component.translatable("status.tyc2.atm.invalid_amount");
+            return Component.translatable("status.mnera.atm.invalid_amount");
         }
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         data.bank().getOrCreatePersonal(player.getUUID(), player.getGameProfile().getName());
@@ -229,7 +229,7 @@ public class AtmMachineBlockEntity extends BlockEntity implements WorldlyContain
         data.syncMacroAccountTotals();
         data.setDirty();
         setChanged();
-        return Component.translatable("status.tyc2.atm.deposited", value, describeActiveAccount(data, player));
+        return Component.translatable("status.mnera.atm.deposited", value, describeActiveAccount(data, player));
     }
 
     /** Deposits all legal-tender coins from {@link #SLOT_DEPOSIT} AND {@code player}'s inventory. */
@@ -251,7 +251,7 @@ public class AtmMachineBlockEntity extends BlockEntity implements WorldlyContain
             }
         }
         if (total <= 0L) {
-            return Component.translatable("status.tyc2.atm.invalid_amount");
+            return Component.translatable("status.mnera.atm.invalid_amount");
         }
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         data.bank().getOrCreatePersonal(player.getUUID(), player.getGameProfile().getName());
@@ -270,17 +270,17 @@ public class AtmMachineBlockEntity extends BlockEntity implements WorldlyContain
         data.syncMacroAccountTotals();
         data.setDirty();
         setChanged();
-        return Component.translatable("status.tyc2.atm.deposited", total, describeActiveAccount(data, player));
+        return Component.translatable("status.mnera.atm.deposited", total, describeActiveAccount(data, player));
     }
 
     /** Withdraws an arbitrary IC amount in optimal high-to-low denominations into withdraw slot / player inventory. */
     public Component handleWithdrawAmount(ServerPlayer player, long amount) {
         if (amount <= 0L) {
-            return Component.translatable("status.tyc2.atm.invalid_amount");
+            return Component.translatable("status.mnera.atm.invalid_amount");
         }
         if (!CurrencyDenomination.isWithinSingleWithdrawalLimit(amount)) {
             return Component.translatable(
-                    "status.tyc2.atm.withdraw_limit", CurrencyDenomination.MAX_SINGLE_WITHDRAWAL_IC
+                    "status.mnera.atm.withdraw_limit", CurrencyDenomination.MAX_SINGLE_WITHDRAWAL_IC
             );
         }
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
@@ -295,13 +295,13 @@ public class AtmMachineBlockEntity extends BlockEntity implements WorldlyContain
         data.syncMacroAccountTotals();
         data.setDirty();
         setChanged();
-        return Component.translatable("status.tyc2.atm.withdrawn", amount);
+        return Component.translatable("status.mnera.atm.withdrawn", amount);
     }
 
     /** Withdraws an exact quantity of a chosen {@link CurrencyDenomination}. */
     public Component handleWithdrawDenom(ServerPlayer player, CurrencyDenomination denom, int count) {
         if (denom == null || count <= 0) {
-            return Component.translatable("status.tyc2.atm.invalid_amount");
+            return Component.translatable("status.mnera.atm.invalid_amount");
         }
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         data.bank().getOrCreatePersonal(player.getUUID(), player.getGameProfile().getName());
@@ -332,7 +332,7 @@ public class AtmMachineBlockEntity extends BlockEntity implements WorldlyContain
         data.syncMacroAccountTotals();
         data.setDirty();
         setChanged();
-        return Component.translatable("status.tyc2.atm.withdrawn", total);
+        return Component.translatable("status.mnera.atm.withdrawn", total);
     }
 
     private void dispenseCoins(ServerPlayer player, List<ItemStack> stacks) {
@@ -531,7 +531,7 @@ public class AtmMachineBlockEntity extends BlockEntity implements WorldlyContain
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.tyc2.atm_machine");
+        return Component.translatable("container.mnera.atm_machine");
     }
 
     @Override

@@ -617,7 +617,7 @@ public final class CooperationHubBlockEntity extends TyC2BlockEntityBase
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.tyc2.cooperation_hub");
+        return Component.translatable("container.mnera.cooperation_hub");
     }
 
     @Override

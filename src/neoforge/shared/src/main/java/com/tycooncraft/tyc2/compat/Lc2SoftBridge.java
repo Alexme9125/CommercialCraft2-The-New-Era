@@ -28,7 +28,7 @@ public final class Lc2SoftBridge {
     public static boolean isLc2Loaded() {
         if (cachedLoaded == null) {
             try {
-                cachedLoaded = ModList.get() != null && ModList.get().isLoaded("lc2");
+                cachedLoaded = ModList.get() != null && ModList.get().isLoaded("trera");
             } catch (Throwable ignored) {
                 cachedLoaded = false;
             }
@@ -105,6 +105,6 @@ public final class Lc2SoftBridge {
     }
 
     private static boolean isLc2LogisticsBlock(String blockId) {
-        return "lc2:smart_port".equals(blockId) || "lc2:cargo_station".equals(blockId);
+        return "trera:smart_port".equals(blockId) || "trera:cargo_station".equals(blockId);
     }
 }

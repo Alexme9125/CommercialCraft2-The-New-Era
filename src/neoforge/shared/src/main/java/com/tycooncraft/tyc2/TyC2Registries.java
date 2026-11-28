@@ -106,9 +106,9 @@ public final class TyC2Registries {
                     PRIMITIVE_MINT_MACHINE_BLOCK.get(),
                     props,
                     List.of(
-                            "tooltip.tyc2.primitive_mint_machine.line1",
-                            "tooltip.tyc2.primitive_mint_machine.line2",
-                            "tooltip.tyc2.primitive_mint_machine.line3"
+                            "tooltip.mnera.primitive_mint_machine.line1",
+                            "tooltip.mnera.primitive_mint_machine.line2",
+                            "tooltip.mnera.primitive_mint_machine.line3"
                     )
             ),
             Item.Properties::new
@@ -121,9 +121,9 @@ public final class TyC2Registries {
                     MINT_MACHINE_BLOCK.get(),
                     props,
                     List.of(
-                            "tooltip.tyc2.mint_machine.line1",
-                            "tooltip.tyc2.mint_machine.line2",
-                            "tooltip.tyc2.mint_machine.line3"
+                            "tooltip.mnera.mint_machine.line1",
+                            "tooltip.mnera.mint_machine.line2",
+                            "tooltip.mnera.mint_machine.line3"
                     )
             ),
             Item.Properties::new
@@ -136,8 +136,8 @@ public final class TyC2Registries {
                     ATM_MACHINE_BLOCK.get(),
                     props,
                     List.of(
-                            "tooltip.tyc2.atm_machine.line1",
-                            "tooltip.tyc2.atm_machine.line2"
+                            "tooltip.mnera.atm_machine.line1",
+                            "tooltip.mnera.atm_machine.line2"
                     )
             ),
             Item.Properties::new
@@ -225,7 +225,7 @@ public final class TyC2Registries {
     public static final Supplier<CreativeModeTab> MAIN_TAB = TABS.register(
             "main",
             () -> CreativeModeTab.builder()
-                    .title(Component.translatable("itemGroup.tyc2.main"))
+                    .title(Component.translatable("itemGroup.mnera.main"))
                     .icon(() -> new ItemStack(COIN_100.get()))
                     .displayItems((params, output) -> {
                         output.accept(PRIMITIVE_MINT_MACHINE_ITEM.get());

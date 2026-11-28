@@ -50,10 +50,10 @@ public final class MacroEconomyEngine {
             new TagPrecursorMapping("#raw_materials/iron", "minecraft:iron_ingot", 1),
             new TagPrecursorMapping("#raw_materials/gold", "minecraft:gold_ingot", 1),
             new TagPrecursorMapping("#raw_materials/copper", "minecraft:copper_ingot", 1),
-            new TagPrecursorMapping("#raw_materials/tin", "ic2:tin_ingot", 1),
-            new TagPrecursorMapping("#raw_materials/silver", "ic2:silver_ingot", 1),
-            new TagPrecursorMapping("#raw_materials/lead", "ic2:lead_ingot", 1),
-            new TagPrecursorMapping("#ingots/iridium", "ic2:iridium", 1)
+            new TagPrecursorMapping("#raw_materials/tin", "mhera:tin_ingot", 1),
+            new TagPrecursorMapping("#raw_materials/silver", "mhera:silver_ingot", 1),
+            new TagPrecursorMapping("#raw_materials/lead", "mhera:lead_ingot", 1),
+            new TagPrecursorMapping("#ingots/iridium", "mhera:iridium", 1)
     );
 
     /** Intrinsic per-unit reference values (IC) used to distinguish primary vs secondary ingredients in dual mint recipes. */
@@ -62,14 +62,14 @@ public final class MacroEconomyEngine {
     static {
         Map<String, PrecursorMapping> m = new LinkedHashMap<>();
         m.put("minecraft:ancient_debris", new PrecursorMapping("minecraft:netherite_scrap", 1));
-        m.put("ic2:iridium_shard", new PrecursorMapping("ic2:iridium_ore", 9));
-        m.put("ecc2:iridium_ingot", new PrecursorMapping("ic2:iridium", 1));
+        m.put("mhera:iridium_shard", new PrecursorMapping("mhera:iridium_ore", 9));
+        m.put("ecera:iridium_ingot", new PrecursorMapping("mhera:iridium", 1));
         m.put("minecraft:raw_iron", new PrecursorMapping("minecraft:iron_ingot", 1));
         m.put("minecraft:raw_gold", new PrecursorMapping("minecraft:gold_ingot", 1));
         m.put("minecraft:raw_copper", new PrecursorMapping("minecraft:copper_ingot", 1));
-        m.put("ic2:raw_tin", new PrecursorMapping("ic2:tin_ingot", 1));
-        m.put("ic2:raw_silver", new PrecursorMapping("ic2:silver_ingot", 1));
-        m.put("ic2:raw_lead", new PrecursorMapping("ic2:lead_ingot", 1));
+        m.put("mhera:raw_tin", new PrecursorMapping("mhera:tin_ingot", 1));
+        m.put("mhera:raw_silver", new PrecursorMapping("mhera:silver_ingot", 1));
+        m.put("mhera:raw_lead", new PrecursorMapping("mhera:lead_ingot", 1));
         MINT_PRECURSOR_ALIASES = Collections.unmodifiableMap(m);
 
         Map<String, Double> iv = new LinkedHashMap<>();
@@ -77,11 +77,11 @@ public final class MacroEconomyEngine {
             iv.putIfAbsent(g.itemId().trim().toLowerCase(Locale.ROOT), (double) g.basePrice());
         }
         iv.putIfAbsent("minecraft:emerald", 100.0);
-        iv.putIfAbsent("ic2:iridium", 1_000.0);
-        iv.putIfAbsent("ic2:iridium_ore", 1_000.0);
-        iv.putIfAbsent("ic2:mixed_metal_ingot", 100.0);
+        iv.putIfAbsent("mhera:iridium", 1_000.0);
+        iv.putIfAbsent("mhera:iridium_ore", 1_000.0);
+        iv.putIfAbsent("mhera:mixed_metal_ingot", 100.0);
         iv.putIfAbsent("minecraft:netherite_ingot", 1_000.0);
-        iv.putIfAbsent("ic2:refined_iron_ingot", 20.0);
+        iv.putIfAbsent("mhera:refined_iron_ingot", 20.0);
         DEFAULT_INTRINSIC_UNIT_VALUES = Collections.unmodifiableMap(iv);
     }
 

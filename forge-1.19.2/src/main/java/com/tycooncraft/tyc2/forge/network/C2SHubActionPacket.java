@@ -121,7 +121,7 @@ public final class C2SHubActionPacket {
                     S2CHubSyncPacket.buildFor(
                             player, village, hubBe,
                             menu.getWarehouseZone(), menu.getWarehousePage(), menu.getWarehouseSearch(),
-                            Component.translatable("status.tyc2.hub.not_owner")
+                            Component.translatable("status.mnera.hub.not_owner")
                     )
             );
             ctx.setPacketHandled(true);
@@ -227,7 +227,7 @@ public final class C2SHubActionPacket {
             }
             case RENAME_VILLAGE -> {
                 if (!TycoonForgeWorldManager.canManageVillage(player, data, village)) {
-                    feedback = Component.translatable("status.tyc2.hub.not_owner");
+                    feedback = Component.translatable("status.mnera.hub.not_owner");
                 } else {
                     String cleaned = pkt.textArg.trim();
                     if (!cleaned.isEmpty()) {

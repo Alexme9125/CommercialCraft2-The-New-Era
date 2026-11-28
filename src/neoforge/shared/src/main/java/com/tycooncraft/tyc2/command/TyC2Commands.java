@@ -51,7 +51,7 @@ public final class TyC2Commands {
     }
 
     private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("tyc2")
+        dispatcher.register(Commands.literal("mnera")
                 .then(Commands.literal("status").executes(ctx -> cmdStatus(ctx.getSource())))
                 .then(Commands.literal("season").executes(ctx -> cmdSeason(ctx.getSource())))
                 .then(Commands.literal("cpi").executes(ctx -> cmdCpi(ctx.getSource())))
@@ -115,7 +115,7 @@ public final class TyC2Commands {
         long partnered = data.allVillages().stream().filter(VillageRecord::isPartnered).count();
 
         src.sendSuccess(() -> Component.literal(String.format(
-                "[TyC2] CPI: %.2f (%s) | M: %d IC | Q: %.0f | Season: %s | Villages: %d (%d partnered)",
+                "[MNERA] CPI: %.2f (%s) | M: %d UC | Q: %.0f | Season: %s | Villages: %d (%d partnered)",
                 econ.computeCpi(),
                 econ.getInflationState().name(),
                 econ.totalMoneySupply(),
@@ -135,7 +135,7 @@ public final class TyC2Commands {
                             Math.round((es.tradeQuantityMultiplier(cfg) - 1.0) * 100.0))
                     : "";
             src.sendSuccess(() -> Component.literal(String.format(
-                    "  Nearest: %s (Lv.%d, Pop=%d, Unemp=%d%% [%d/%d]%s, Aid=%d/%d, Funds=%d IC, Orders=%d, Partnered=%s)",
+                    "  Nearest: %s (Lv.%d, Pop=%d, Unemp=%d%% [%d/%d]%s, Aid=%d/%d, Funds=%d UC, Orders=%d, Partnered=%s)",
                     v.getVillageName(),
                     v.getLevel(),
                     v.getPopulation(),
@@ -155,7 +155,7 @@ public final class TyC2Commands {
 
     private static int cmdSeason(CommandSourceStack src) {
         Season season = SeasonSoftBridge.currentSeason(src.getLevel());
-        src.sendSuccess(() -> Component.literal("[TyC2] Active Season: " + season.name())
+        src.sendSuccess(() -> Component.literal("[MNERA] Active Season: " + season.name())
                 .withStyle(ChatFormatting.GREEN), false);
         return 1;
     }
@@ -164,7 +164,7 @@ public final class TyC2Commands {
         TycoonSavedData data = TyC2WorldManager.getData(src.getLevel());
         MacroEconomyEngine econ = data.economy();
         src.sendSuccess(() -> Component.literal(String.format(
-                "[TyC2] CPI=%.3f | State=%s | MoneySupply=%d IC | Circulation=%.1f | Samples=%d",
+                "[MNERA] CPI=%.3f | State=%s | MoneySupply=%d UC | Circulation=%.1f | Samples=%d",
                 econ.computeCpi(),
                 econ.getInflationState().name(),
                 econ.totalMoneySupply(),
@@ -185,9 +185,9 @@ public final class TyC2Commands {
         BankAccountManager bank = data.bank();
         bank.getOrCreatePersonal(player.getUUID(), player.getName().getString());
         BankAccountManager.AccountRef ref = bank.resolveSettlementAccount(player.getUUID());
-        bank.creditAccount(ref, amount, BankAccountManager.TransactionType.DEPOSIT, level.getGameTime(), "OP Grant", "/tyc2 bank give");
+        bank.creditAccount(ref, amount, BankAccountManager.TransactionType.DEPOSIT, level.getGameTime(), "OP Grant", "/mnera bank give");
         data.setDirty();
-        src.sendSuccess(() -> Component.literal("[TyC2] Credited " + amount + " IC to active bank account.")
+        src.sendSuccess(() -> Component.literal("[MNERA] Credited " + amount + " UC to active bank account.")
                 .withStyle(ChatFormatting.GREEN), true);
         return 1;
     }
@@ -215,7 +215,7 @@ public final class TyC2Commands {
         }
         data.economy().recordMinting(amount);
         data.setDirty();
-        src.sendSuccess(() -> Component.literal("[TyC2] Minted " + amount + " IC into inventory.")
+        src.sendSuccess(() -> Component.literal("[MNERA] Minted " + amount + " UC into inventory.")
                 .withStyle(ChatFormatting.GOLD), true);
         return 1;
     }
@@ -225,7 +225,7 @@ public final class TyC2Commands {
         BlockPos pos = BlockPos.containing(src.getPosition());
         Optional<VillageRecord> nearest = TyC2WorldManager.findNearestVillage(level, pos, 96);
         if (nearest.isEmpty()) {
-            src.sendFailure(Component.literal("No TyC2 village within 96 blocks."));
+            src.sendFailure(Component.literal("No Monetera village within 96 blocks."));
             return 0;
         }
         ProjectType explicit = null;
@@ -243,7 +243,7 @@ public final class TyC2Commands {
             return 0;
         }
         src.sendSuccess(() -> Component.literal(
-                "[TyC2] Launched collision-safe expansion for " + nearest.get().getVillageName()
+                "[MNERA] Launched collision-safe expansion for " + nearest.get().getVillageName()
                         + " (" + res.job().getPlacements().size() + " blocks)."
         ).withStyle(ChatFormatting.GREEN), true);
         return 1;
@@ -254,7 +254,7 @@ public final class TyC2Commands {
         BlockPos pos = BlockPos.containing(src.getPosition());
         Optional<VillageRecord> nearest = TyC2WorldManager.findNearestVillage(level, pos, 96);
         if (nearest.isEmpty()) {
-            src.sendFailure(Component.literal("No TyC2 village within 96 blocks."));
+            src.sendFailure(Component.literal("No Monetera village within 96 blocks."));
             return 0;
         }
         VillageRecord v = nearest.get();
@@ -267,7 +267,7 @@ public final class TyC2Commands {
         TyC2WorldManager.refreshVillageOrders(level, data, v, TyC2Native.dayTime(level));
         data.setDirty();
         src.sendSuccess(() -> Component.literal(
-                "[TyC2] Elevated " + v.getVillageName() + " to Lv." + v.getLevel()
+                "[MNERA] Elevated " + v.getVillageName() + " to Lv." + v.getLevel()
         ).withStyle(ChatFormatting.GOLD), true);
         return 1;
     }
@@ -277,13 +277,13 @@ public final class TyC2Commands {
         BlockPos pos = BlockPos.containing(src.getPosition());
         Optional<VillageRecord> nearest = TyC2WorldManager.findNearestVillage(level, pos, 96);
         if (nearest.isEmpty()) {
-            src.sendFailure(Component.literal("No TyC2 village within 96 blocks."));
+            src.sendFailure(Component.literal("No Monetera village within 96 blocks."));
             return 0;
         }
         TycoonSavedData data = TyC2WorldManager.getData(level);
         TyC2WorldManager.refreshVillageOrders(level, data, nearest.get(), TyC2Native.dayTime(level));
         src.sendSuccess(() -> Component.literal(
-                "[TyC2] Refreshed trade orders for " + nearest.get().getVillageName()
+                "[MNERA] Refreshed trade orders for " + nearest.get().getVillageName()
                         + " (" + nearest.get().getActiveOrders().size() + " active orders)."
         ).withStyle(ChatFormatting.AQUA), true);
         return 1;
@@ -294,7 +294,7 @@ public final class TyC2Commands {
         BlockPos pos = BlockPos.containing(src.getPosition());
         Optional<VillageRecord> nearest = TyC2WorldManager.findNearestVillage(level, pos, 128);
         if (nearest.isEmpty()) {
-            src.sendFailure(Component.literal("No TyC2 village within 128 blocks."));
+            src.sendFailure(Component.literal("No Monetera village within 128 blocks."));
             return 0;
         }
         VillageRecord v = nearest.get();
@@ -304,7 +304,7 @@ public final class TyC2Commands {
         }
         BlockPos hubPos = TyC2WorldManager.restoreHubBlock(level, v);
         src.sendSuccess(() -> Component.translatable(
-                "status.tyc2.hub.restored",
+                "status.mnera.hub.restored",
                 v.getVillageName(),
                 hubPos.getX() + "," + hubPos.getY() + "," + hubPos.getZ()
         ).withStyle(ChatFormatting.GREEN), true);
@@ -316,12 +316,12 @@ public final class TyC2Commands {
         BlockPos pos = BlockPos.containing(src.getPosition());
         Optional<VillageRecord> nearest = TyC2WorldManager.findNearestVillage(level, pos, 96);
         if (nearest.isEmpty()) {
-            src.sendFailure(Component.literal("No TyC2 village within 96 blocks."));
+            src.sendFailure(Component.literal("No Monetera village within 96 blocks."));
             return 0;
         }
         String trimmed = rawArgs == null ? "" : rawArgs.trim();
         if (trimmed.isEmpty()) {
-            src.sendFailure(Component.literal("Usage: /tyc2 aid <profession> [small|large]"));
+            src.sendFailure(Component.literal("Usage: /mnera aid <profession> [small|large]"));
             return 0;
         }
         String[] parts = trimmed.split("\\s+");
@@ -338,7 +338,7 @@ public final class TyC2Commands {
         }
         VillageRecord v = nearest.get();
         src.sendSuccess(() -> Component.literal(
-                "[TyC2] Queued " + size.id() + " aid construction (" + profArg + ") for "
+                "[MNERA] Queued " + size.id() + " aid construction (" + profArg + ") for "
                         + v.getVillageName() + " (queue=" + v.getAidProjects().size() + ")."
         ).withStyle(ChatFormatting.GREEN), true);
         return 1;
@@ -347,7 +347,7 @@ public final class TyC2Commands {
     private static int cmdReload(CommandSourceStack src) {
         TyC2DataLoader.reloadExternalConfigsOnly();
         src.sendSuccess(() -> Component.literal(
-                "[TyC2] Reloaded config/tyc2/*.json ("
+                "[MNERA] Reloaded config/mnera/*.json ("
                         + TyC2DataLoader.mintRecipes().allRecipes().size() + " mint recipes, "
                         + TyC2DataLoader.goodsCatalog().allGoods().size() + " catalog goods, "
                         + TyC2DataLoader.workplaceCatalog().getAvailableWorkplaces(TyC2Native::blockExists).size()

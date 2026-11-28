@@ -94,7 +94,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
             this.village = dto;
             this.setHighlighted(selected);
             this.setMessage(dto == null ? Component.empty()
-                    : Component.translatable("gui.tyc2.terminal.level_prefix", dto.level(), dto.name()));
+                    : Component.translatable("gui.mnera.terminal.level_prefix", dto.level(), dto.name()));
         }
 
         @Override
@@ -165,7 +165,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
             ));
         }
         railPrevBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 10, topPos + 170, 16, 12, Component.translatable("gui.tyc2.prev"),
+                leftPos + 10, topPos + 170, 16, 12, Component.translatable("gui.mnera.prev"),
                 btn -> {
                     railOffset = Math.max(0, railOffset - RAIL_VISIBLE);
                     refreshWidgets();
@@ -173,7 +173,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                 ButtonTheme.PDA_ACTION
         ));
         railNextBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 54, topPos + 170, 16, 12, Component.translatable("gui.tyc2.next"),
+                leftPos + 54, topPos + 170, 16, 12, Component.translatable("gui.mnera.next"),
                 btn -> {
                     if (sync != null && railOffset + RAIL_VISIBLE < sync.boundVillages.size()) {
                         railOffset += RAIL_VISIBLE;
@@ -183,7 +183,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                 ButtonTheme.PDA_ACTION
         ));
         unbindBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 10, topPos + 184, 60, 13, Component.translatable("gui.tyc2.terminal.unbind"),
+                leftPos + 10, topPos + 184, 60, 13, Component.translatable("gui.mnera.terminal.unbind"),
                 btn -> TyC2ForgeNetwork.sendToServer(C2STerminalActionPacket.simple(
                         C2STerminalActionPacket.Action.UNBIND_VILLAGE
                 )),
@@ -192,10 +192,10 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
 
         // Right Tactical Viewport (76,22,164x178): header in y=24..40, 4 PDA_TAB sub-tabs at y=43..55
         String[] subKeys = {
-                "gui.tyc2.terminal.tab.orders",
-                "gui.tyc2.terminal.tab.stock",
-                "gui.tyc2.terminal.tab.cpi",
-                "gui.tyc2.terminal.tab.growth"
+                "gui.mnera.terminal.tab.orders",
+                "gui.mnera.terminal.tab.stock",
+                "gui.mnera.terminal.tab.cpi",
+                "gui.mnera.terminal.tab.growth"
         };
         for (int i = 0; i < 4; i++) {
             final int idx = i;
@@ -211,7 +211,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
 
         // Orders sub-tab controls (toolbar y=58..70)
         sideBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 78, topPos + 58, 68, 12, Component.translatable("gui.tyc2.hub.sell_orders"),
+                leftPos + 78, topPos + 58, 68, 12, Component.translatable("gui.mnera.hub.sell_orders"),
                 btn -> {
                     showBuyOrders = !showBuyOrders;
                     orderPage = 0;
@@ -220,7 +220,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                 ButtonTheme.PDA_ACTION
         ));
         qtyBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 148, topPos + 58, 56, 12, Component.translatable("gui.tyc2.hub.qty_preset", 1),
+                leftPos + 148, topPos + 58, 56, 12, Component.translatable("gui.mnera.hub.qty_preset", 1),
                 btn -> {
                     qtyPreset = (qtyPreset + 1) % 3;
                     refreshWidgets();
@@ -228,7 +228,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                 ButtonTheme.PDA_ACTION
         ));
         orderPrevBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 206, topPos + 58, 15, 12, Component.translatable("gui.tyc2.prev"),
+                leftPos + 206, topPos + 58, 15, 12, Component.translatable("gui.mnera.prev"),
                 btn -> {
                     orderPage = Math.max(0, orderPage - 1);
                     refreshWidgets();
@@ -236,7 +236,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                 ButtonTheme.PDA_ACTION
         ));
         orderNextBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 223, topPos + 58, 15, 12, Component.translatable("gui.tyc2.next"),
+                leftPos + 223, topPos + 58, 15, 12, Component.translatable("gui.mnera.next"),
                 btn -> {
                     orderPage++;
                     refreshWidgets();
@@ -248,12 +248,12 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
             final int row = i;
             int ry = topPos + 75 + i * 22;
             orderActBtns[i] = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                    leftPos + 198, ry, 38, 14, Component.translatable("gui.tyc2.hub.buy"),
+                    leftPos + 198, ry, 38, 14, Component.translatable("gui.mnera.hub.buy"),
                     btn -> executeRemoteOrder(row),
                     ButtonTheme.PDA_PRIMARY
             ));
             orderAutoBtns[i] = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                    leftPos + 219, ry, 17, 14, Component.translatable("gui.tyc2.hub.btn.auto_tiny.off"),
+                    leftPos + 219, ry, 17, 14, Component.translatable("gui.mnera.hub.btn.auto_tiny.off"),
                     btn -> toggleRemoteOrderAuto(row),
                     ButtonTheme.PDA_ACTION
             ));
@@ -261,7 +261,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
 
         // Growth sub-tab controls (Expansion / Aid mode toggle at y=58..69)
         growthExpModeBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 78, topPos + 58, 79, 11, Component.translatable("gui.tyc2.hub.tab.expansion"),
+                leftPos + 78, topPos + 58, 79, 11, Component.translatable("gui.mnera.hub.tab.expansion"),
                 btn -> {
                     growthAidMode = false;
                     refreshWidgets();
@@ -269,7 +269,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                 ButtonTheme.PDA_SUBTAB
         ));
         growthAidModeBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 159, topPos + 58, 79, 11, Component.translatable("gui.tyc2.hub.tab.aid"),
+                leftPos + 159, topPos + 58, 79, 11, Component.translatable("gui.mnera.hub.tab.aid"),
                 btn -> {
                     growthAidMode = true;
                     refreshWidgets();
@@ -278,7 +278,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         ));
         upgradeBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
                 leftPos + 80, topPos + 93, 156, 12,
-                Component.translatable("gui.tyc2.terminal.upgrade_short", TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU),
+                Component.translatable("gui.mnera.terminal.upgrade_short", TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU),
                 btn -> TyC2ForgeNetwork.sendToServer(C2STerminalActionPacket.simple(
                         C2STerminalActionPacket.Action.UPGRADE_VILLAGE
                 )),
@@ -286,21 +286,21 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         ));
         expDeliverBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
                 leftPos + 80, topPos + 135, 70, 12,
-                Component.translatable("gui.tyc2.terminal.deliver_short", TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU),
+                Component.translatable("gui.mnera.terminal.deliver_short", TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU),
                 btn -> TyC2ForgeNetwork.sendToServer(C2STerminalActionPacket.simple(
                         C2STerminalActionPacket.Action.DELIVER_EXPANSION
                 )),
                 ButtonTheme.PDA_PRIMARY
         ));
         expAutoBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 152, topPos + 135, 41, 12, Component.translatable("gui.tyc2.hub.auto_short.off"),
+                leftPos + 152, topPos + 135, 41, 12, Component.translatable("gui.mnera.hub.auto_short.off"),
                 btn -> TyC2ForgeNetwork.sendToServer(C2STerminalActionPacket.simple(
                         C2STerminalActionPacket.Action.TOGGLE_EXPANSION_AUTO
                 )),
                 ButtonTheme.PDA_ACTION
         ));
         expPauseBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 195, topPos + 135, 41, 12, Component.translatable("gui.tyc2.hub.pause_btn"),
+                leftPos + 195, topPos + 135, 41, 12, Component.translatable("gui.mnera.hub.pause_btn"),
                 btn -> TyC2ForgeNetwork.sendToServer(C2STerminalActionPacket.simple(
                         C2STerminalActionPacket.Action.TOGGLE_EXPANSION_PAUSE
                 )),
@@ -309,17 +309,17 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
 
         // Remote Aid Construction controls inside Growth tab
         aidProfPrevBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 80, topPos + 90, 14, 14, Component.translatable("gui.tyc2.prev"),
+                leftPos + 80, topPos + 90, 14, 14, Component.translatable("gui.mnera.prev"),
                 btn -> stepWorkplace(-1),
                 ButtonTheme.PDA_ACTION
         ));
         aidProfNextBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 222, topPos + 90, 14, 14, Component.translatable("gui.tyc2.next"),
+                leftPos + 222, topPos + 90, 14, 14, Component.translatable("gui.mnera.next"),
                 btn -> stepWorkplace(1),
                 ButtonTheme.PDA_ACTION
         ));
         aidSizeBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 80, topPos + 106, 76, 12, Component.translatable("gui.tyc2.aid.size.small"),
+                leftPos + 80, topPos + 106, 76, 12, Component.translatable("gui.mnera.aid.size.small"),
                 btn -> {
                     aidLargeSize = !aidLargeSize;
                     refreshWidgets();
@@ -328,14 +328,14 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         ));
         aidStartBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
                 leftPos + 158, topPos + 106, 78, 12,
-                Component.translatable("gui.tyc2.aid.start_cost_btn", TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU),
+                Component.translatable("gui.mnera.aid.start_cost_btn", TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU),
                 btn -> sendRemoteStartAid(),
                 ButtonTheme.PDA_PRIMARY
         ));
         for (int i = 0; i < MAX_AID_ROWS; i++) {
             final int row = i;
             aidCancelBtns[i] = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                    leftPos + 202, topPos + 138 + i * 14, 34, 13, Component.translatable("gui.tyc2.aid.cancel_btn"),
+                    leftPos + 202, topPos + 138 + i * 14, 34, 13, Component.translatable("gui.mnera.aid.cancel_btn"),
                     btn -> sendRemoteCancelAid(row),
                     ButtonTheme.PDA_DANGER
             ));
@@ -511,15 +511,15 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         orderPage = Math.min(orderPage, maxPage);
 
         sideBtn.visible = t0;
-        sideBtn.setMessage(Component.translatable(showBuyOrders ? "gui.tyc2.hub.buy_orders" : "gui.tyc2.hub.sell_orders"));
+        sideBtn.setMessage(Component.translatable(showBuyOrders ? "gui.mnera.hub.buy_orders" : "gui.mnera.hub.sell_orders"));
         sideBtn.setHighlighted(true);
         sideBtn.setAccentColor(showBuyOrders ? 0xFF8C5318 : 0xFF124D6B);
 
         qtyBtn.visible = t0;
         qtyBtn.setMessage(switch (qtyPreset) {
-            case 0 -> Component.translatable("gui.tyc2.hub.qty_preset", 1);
-            case 1 -> Component.translatable("gui.tyc2.hub.qty_preset", 8);
-            default -> Component.translatable("gui.tyc2.hub.qty_preset", Component.translatable("gui.tyc2.hub.qty_all"));
+            case 0 -> Component.translatable("gui.mnera.hub.qty_preset", 1);
+            case 1 -> Component.translatable("gui.mnera.hub.qty_preset", 8);
+            default -> Component.translatable("gui.mnera.hub.qty_preset", Component.translatable("gui.mnera.hub.qty_all"));
         });
         orderPrevBtn.visible = t0;
         orderNextBtn.visible = t0;
@@ -538,7 +538,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                 S2CHubSyncPacket.OrderDto o = orders.get(idx);
                 orderActBtns[i].x = leftPos + (isBuy ? 184 : 198);
                 orderActBtns[i].setWidth(isBuy ? 33 : 38);
-                orderActBtns[i].setMessage(Component.translatable(isBuy ? "gui.tyc2.hub.deliver" : "gui.tyc2.hub.buy"));
+                orderActBtns[i].setMessage(Component.translatable(isBuy ? "gui.mnera.hub.deliver" : "gui.mnera.hub.buy"));
                 orderActBtns[i].setAccentColor(isBuy ? 0xFF945817 : 0xFF0F564A);
                 if (isBuy) {
                     orderAutoBtns[i].setHighlighted(o.autoFulfill());
@@ -548,7 +548,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                         orderAutoBtns[i].clearAccentColor();
                     }
                     orderAutoBtns[i].setMessage(Component.translatable(
-                            o.autoFulfill() ? "gui.tyc2.hub.btn.auto_tiny.on" : "gui.tyc2.hub.btn.auto_tiny.off"
+                            o.autoFulfill() ? "gui.mnera.hub.btn.auto_tiny.on" : "gui.mnera.hub.btn.auto_tiny.off"
                     ));
                 }
             }
@@ -577,7 +577,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                 expAutoBtn.clearAccentColor();
             }
             expAutoBtn.setMessage(Component.translatable(
-                    sync.selectedVillage.expAutoFulfill ? "gui.tyc2.hub.auto_short.on" : "gui.tyc2.hub.auto_short.off"
+                    sync.selectedVillage.expAutoFulfill ? "gui.mnera.hub.auto_short.on" : "gui.mnera.hub.auto_short.off"
             ));
         }
         expPauseBtn.visible = t3Exp;
@@ -589,7 +589,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                 expPauseBtn.clearAccentColor();
             }
             expPauseBtn.setMessage(Component.translatable(
-                    sync.selectedVillage.expansionPaused ? "gui.tyc2.hub.resume_btn" : "gui.tyc2.hub.pause_btn"
+                    sync.selectedVillage.expansionPaused ? "gui.mnera.hub.resume_btn" : "gui.mnera.hub.pause_btn"
             ));
         }
 
@@ -604,14 +604,14 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         if (wp != null) {
             if (aidLargeSize) {
                 aidSizeBtn.setMessage(wp.largeUnlocked()
-                        ? Component.translatable("gui.tyc2.aid.size.large")
-                        : Component.translatable("gui.tyc2.aid.size.large_locked", wp.minLevelLarge()));
+                        ? Component.translatable("gui.mnera.aid.size.large")
+                        : Component.translatable("gui.mnera.aid.size.large_locked", wp.minLevelLarge()));
             } else {
-                aidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.small"));
+                aidSizeBtn.setMessage(Component.translatable("gui.mnera.aid.size.small"));
             }
             aidSizeBtn.setHighlighted(aidLargeSize && wp.largeUnlocked());
         } else {
-            aidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.small"));
+            aidSizeBtn.setMessage(Component.translatable("gui.mnera.aid.size.small"));
             aidSizeBtn.setHighlighted(false);
         }
         boolean sizeUnlocked = wp != null && (aidLargeSize ? wp.largeUnlocked() : wp.smallUnlocked());
@@ -784,7 +784,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         }
 
         if (sync.selectedVillage == null) {
-            List<FormattedCharSequence> emptyLines = font.split(Component.translatable("gui.tyc2.terminal.no_villages"), 148);
+            List<FormattedCharSequence> emptyLines = font.split(Component.translatable("gui.mnera.terminal.no_villages"), 148);
             for (int i = 0; i < Math.min(3, emptyLines.size()); i++) {
                 font.draw(poseStack, emptyLines.get(i), 84, 72 + i * 11, 0xFFCC66);
             }
@@ -802,7 +802,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         TyC2UiWidgets.drawFittedStringScaled(
                 poseStack, font, v.villageName, 114, 25, 60, 0.84F, 0.52F, 0xF2FAFF, true
         );
-        String fundsLine = Component.translatable("gui.tyc2.hub.village_funds", TyC2UiWidgets.compactIc(v.villageBalance)).getString();
+        String fundsLine = Component.translatable("gui.mnera.hub.village_funds", TyC2UiWidgets.compactIc(v.villageBalance)).getString();
         TyC2UiWidgets.drawFittedStringScaled(
                 poseStack, font, fundsLine, 91, 33, 83, 0.74F, 0.48F, 0x6EF29E, false
         );
@@ -824,7 +824,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         Component footerComp = hasFeedback
                 ? activeFeedbackComponent
                 : Component.translatable(
-                        "gui.tyc2.terminal.footer",
+                        "gui.mnera.terminal.footer",
                         TyC2UiWidgets.compactIc(v.activeBankBalance),
                         TriModePowerMath.TERMINAL_COST_TRADE_EU,
                         TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU
@@ -852,7 +852,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         if (list.isEmpty()) {
             TyC2UiWidgets.drawCenteredFittedString(
                     poseStack, font,
-                    Component.translatable("gui.tyc2.hub.no_orders").getString(),
+                    Component.translatable("gui.mnera.hub.no_orders").getString(),
                     80, 96, 156, 0.86F, 0.56F, 0xFFAA66
             );
             return;
@@ -869,7 +869,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
             int nameCol = o.seasonalBonus() ? 0xFFF08A : (o.biomeSpecialty() ? 0xD8FFE6 : 0xEEF6FF);
             TyC2UiWidgets.drawFittedStringScaled(poseStack, font, name, 99, cardY + 2, nameMaxW, 0.80F, 0.52F, nameCol, false);
 
-            String detail = o.fulfilledQty() + "/" + o.totalQty() + " · " + TyC2UiWidgets.compactIc(o.unitPrice()) + " IC";
+            String detail = o.fulfilledQty() + "/" + o.totalQty() + " · " + TyC2UiWidgets.compactIc(o.unitPrice()) + " UC";
             TyC2UiWidgets.drawFittedStringScaled(
                     poseStack, font, detail, 99, cardY + 11, rightEdge - 99, 0.76F, 0.50F, 0x7CF2C4, false
             );
@@ -877,14 +877,14 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
     }
 
     private void renderRemoteStock(PoseStack poseStack, S2CHubSyncPacket v) {
-        String compact = Component.translatable("gui.tyc2.terminal.stock_compact", v.inboundUsed, v.outboundUsed).getString();
+        String compact = Component.translatable("gui.mnera.terminal.stock_compact", v.inboundUsed, v.outboundUsed).getString();
         TyC2UiWidgets.drawCenteredFittedString(poseStack, font, compact, 80, 61, 156, 0.80F, 0.54F, 0x7CF4FF);
 
         TyC2UiWidgets.drawFittedStringScaled(poseStack, font,
-                Component.translatable("gui.tyc2.hub.zone.inbound").getString(),
+                Component.translatable("gui.mnera.hub.zone.inbound").getString(),
                 82, 74, 100, 0.80F, 0.56F, 0x7CC2FF, false);
         TyC2UiWidgets.drawRightFittedString(poseStack, font,
-                Component.translatable("gui.tyc2.hub.zone.used", v.inboundUsed).getString(),
+                Component.translatable("gui.mnera.hub.zone.used", v.inboundUsed).getString(),
                 234, 74, 58, 0.74F, 0.50F, 0x90B8D4);
         for (int i = 0; i < Math.min(4, sync.inboundSummary.size()); i++) {
             var e = sync.inboundSummary.get(i);
@@ -893,10 +893,10 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         }
 
         TyC2UiWidgets.drawFittedStringScaled(poseStack, font,
-                Component.translatable("gui.tyc2.hub.zone.outbound").getString(),
+                Component.translatable("gui.mnera.hub.zone.outbound").getString(),
                 82, 129, 100, 0.80F, 0.56F, 0xFFBD6B, false);
         TyC2UiWidgets.drawRightFittedString(poseStack, font,
-                Component.translatable("gui.tyc2.hub.zone.used", v.outboundUsed).getString(),
+                Component.translatable("gui.mnera.hub.zone.used", v.outboundUsed).getString(),
                 234, 129, 58, 0.74F, 0.50F, 0xC8B090);
         for (int i = 0; i < Math.min(4, sync.outboundSummary.size()); i++) {
             var e = sync.outboundSummary.get(i);
@@ -908,16 +908,16 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
     private void renderRemoteCpi(PoseStack poseStack, S2CHubSyncPacket v) {
         int col = v.cpi > 1.08 ? 0xFF7A5A : (v.cpi < 0.92 ? 0x5AE2FF : 0x66F298);
         String regimeKey = switch (v.inflationState) {
-            case "DEFLATION" -> "gui.tyc2.economy.deflation";
-            case "STABLE" -> "gui.tyc2.economy.stable";
-            default -> "gui.tyc2.economy.inflation";
+            case "DEFLATION" -> "gui.mnera.economy.deflation";
+            case "STABLE" -> "gui.mnera.economy.stable";
+            default -> "gui.mnera.economy.inflation";
         };
-        String cpiLine = Component.translatable("gui.tyc2.economy.cpi", String.format(Locale.ROOT, "%.2f", v.cpi)).getString()
+        String cpiLine = Component.translatable("gui.mnera.economy.cpi", String.format(Locale.ROOT, "%.2f", v.cpi)).getString()
                 + " (" + Component.translatable(regimeKey).getString() + ")";
         TyC2UiWidgets.drawFittedStringScaled(poseStack, font, cpiLine, 82, 61, 152, 0.80F, 0.52F, col, false);
 
-        String moneyShort = Component.translatable("gui.tyc2.economy.money_short", TyC2UiWidgets.compactIc(v.moneySupply)).getString();
-        String goodsShort = Component.translatable("gui.tyc2.economy.goods_short", TyC2UiWidgets.compactIc(Math.round(v.goodsCirculation))).getString();
+        String moneyShort = Component.translatable("gui.mnera.economy.money_short", TyC2UiWidgets.compactIc(v.moneySupply)).getString();
+        String goodsShort = Component.translatable("gui.mnera.economy.goods_short", TyC2UiWidgets.compactIc(Math.round(v.goodsCirculation))).getString();
         TyC2UiWidgets.drawFittedStringScaled(poseStack, font, moneyShort, 82, 72, 82, 0.74F, 0.48F, 0xFFE07A, false);
         TyC2UiWidgets.drawRightFittedString(poseStack, font, goodsShort, 234, 72, 72, 0.74F, 0.48F, 0x82EED2);
 
@@ -932,13 +932,13 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         // Upgrade card (78,72,160x35)
         if (v.level >= 10) {
             TyC2UiWidgets.drawFittedStringScaled(poseStack, font,
-                    Component.translatable("gui.tyc2.hub.max_level").getString(), 82, 77, 152, 0.80F, 0.56F, 0x66F298, false);
+                    Component.translatable("gui.mnera.hub.max_level").getString(), 82, 77, 152, 0.80F, 0.56F, 0x66F298, false);
         } else {
             TyC2UiWidgets.drawFittedStringScaled(poseStack, font,
-                    Component.translatable("gui.tyc2.hub.upgrade_cost", v.nextSinkCost).getString(),
+                    Component.translatable("gui.mnera.hub.upgrade_cost", v.nextSinkCost).getString(),
                     82, 74, 152, 0.76F, 0.52F, 0xFFE070, false);
             String req = Component.translatable(
-                    "gui.tyc2.hub.upgrade_req",
+                    "gui.mnera.hub.upgrade_req",
                     v.population + "/" + v.nextMinPop,
                     TyC2UiWidgets.compactIc(v.cumulativeVolume) + "/" + TyC2UiWidgets.compactIc(v.nextMinVol),
                     TyC2UiWidgets.compactIc(v.villageBalance) + "/" + TyC2UiWidgets.compactIc(v.nextMinBal)
@@ -950,16 +950,16 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         if (v.hasJob) {
             int pct = v.jobTotal > 0 ? (v.jobPlaced * 100) / v.jobTotal : 0;
             String msg = Component.translatable(
-                    "gui.tyc2.expansion.building",
-                    Component.translatable("project.tyc2." + v.jobProjectKey),
+                    "gui.mnera.expansion.building",
+                    Component.translatable("project.mnera." + v.jobProjectKey),
                     pct
             ).getString();
             TyC2UiWidgets.drawFittedStringScaled(poseStack, font, msg, 82, 116, 152, 0.78F, 0.52F, 0x66F298, false);
         } else if (v.hasExpansion) {
             String proj = Component.translatable(
-                    "gui.tyc2.expansion.project",
-                    Component.translatable("project.tyc2." + v.expProjectKey)
-            ).getString() + " (" + v.expBudget + " IC)";
+                    "gui.mnera.expansion.project",
+                    Component.translatable("project.mnera." + v.expProjectKey)
+            ).getString() + " (" + v.expBudget + " UC)";
             TyC2UiWidgets.drawFittedStringScaled(poseStack, font, proj, 82, 110, 152, 0.72F, 0.48F, 0xFFE07A, false);
 
             int matCount = v.expMaterials.size();
@@ -1000,16 +1000,16 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
             }
         } else {
             TyC2UiWidgets.drawFittedStringScaled(poseStack, font,
-                    Component.translatable("gui.tyc2.expansion.none").getString(), 82, 118, 152, 0.76F, 0.54F, 0x8CA2B8, false);
+                    Component.translatable("gui.mnera.expansion.none").getString(), 82, 118, 152, 0.76F, 0.54F, 0x8CA2B8, false);
         }
 
         // Bottom telemetry card (78,150,160x31)
         String unempLine = Component.translatable(
-                "gui.tyc2.hub.unemployment", v.unemploymentPct, v.unemployedCount, v.workforceCount
+                "gui.mnera.hub.unemployment", v.unemploymentPct, v.unemployedCount, v.workforceCount
         ).getString();
         if (v.employmentBonusActive) {
             unempLine += "  " + Component.translatable(
-                    "gui.tyc2.hub.unemployment_bonus", v.qtyBonusPct
+                    "gui.mnera.hub.unemployment_bonus", v.qtyBonusPct
             ).getString();
         }
         TyC2UiWidgets.drawFittedStringScaled(poseStack, font, unempLine, 82, 153, 152, 0.70F, 0.46F,
@@ -1017,24 +1017,24 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
 
         if (!v.nearbyLc2Stations.isEmpty()) {
             TyC2UiWidgets.drawFittedStringScaled(poseStack, font,
-                    Component.translatable("gui.tyc2.terminal.lc2_nearby", v.nearbyLc2Stations.size()).getString(),
+                    Component.translatable("gui.mnera.terminal.lc2_nearby", v.nearbyLc2Stations.size()).getString(),
                     82, 162, 152, 0.70F, 0.50F, 0x5CEEFF, false);
             String label = Lc2SoftBridge.formatStationLabel(v.nearbyLc2Stations.get(0));
             TyC2UiWidgets.drawFittedStringScaled(poseStack, font, label, 82, 171, 152, 0.68F, 0.46F, 0xAAD8F2, false);
         } else {
             TyC2UiWidgets.drawFittedStringScaled(poseStack, font,
-                    Component.translatable("gui.tyc2.terminal.no_lc2").getString(),
+                    Component.translatable("gui.mnera.terminal.no_lc2").getString(),
                     82, 165, 152, 0.72F, 0.50F, 0x7A93A8, false);
         }
     }
 
     private void renderRemoteAid(PoseStack poseStack, S2CHubSyncPacket v) {
         TyC2UiWidgets.drawFittedStringScaled(poseStack, font,
-                Component.translatable("gui.tyc2.hub.unemployment", v.unemploymentPct, v.unemployedCount, v.workforceCount).getString(),
+                Component.translatable("gui.mnera.hub.unemployment", v.unemploymentPct, v.unemployedCount, v.workforceCount).getString(),
                 82, 74, 152, 0.74F, 0.50F, v.employmentBonusActive ? 0x66F298 : 0xFFCC66, false);
         String bonusLine = v.employmentBonusActive
-                ? Component.translatable("gui.tyc2.aid.bonus_active", v.qtyBonusPct).getString()
-                : Component.translatable("gui.tyc2.aid.bonus_inactive", v.lowUnempThresholdPct).getString();
+                ? Component.translatable("gui.mnera.aid.bonus_active", v.qtyBonusPct).getString()
+                : Component.translatable("gui.mnera.aid.bonus_inactive", v.lowUnempThresholdPct).getString();
         TyC2UiWidgets.drawFittedStringScaled(poseStack, font, bonusLine,
                 82, 82, 152, 0.64F, 0.44F, v.employmentBonusActive ? 0x66FF99 : 0x8CA2B8, false);
 
@@ -1046,9 +1046,9 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
             TyC2UiWidgets.drawFittedStringScaled(poseStack, font, profName, 114, 93, 106, 0.80F, 0.52F, 0xFFE888, false);
             long cost = aidLargeSize ? wp.costLargeIc() : wp.costSmallIc();
             boolean unlocked = aidLargeSize ? wp.largeUnlocked() : wp.smallUnlocked();
-            String costGather = Component.translatable("gui.tyc2.aid.cost", cost).getString()
+            String costGather = Component.translatable("gui.mnera.aid.cost", cost).getString()
                     + " · " + Component.translatable(
-                            "gui.tyc2.aid.gather_rate",
+                            "gui.mnera.aid.gather_rate",
                             String.format(Locale.ROOT, "%.2f", v.gatherSpeedMult),
                             v.unemployedCount
                     ).getString();
@@ -1057,11 +1057,11 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         }
 
         TyC2UiWidgets.drawFittedStringScaled(poseStack, font,
-                Component.translatable("gui.tyc2.aid.queue_header", v.aidProjects.size(), v.maxQueuedAid).getString(),
+                Component.translatable("gui.mnera.aid.queue_header", v.aidProjects.size(), v.maxQueuedAid).getString(),
                 82, 130, 152, 0.74F, 0.52F, 0x5CEEFF, false);
         if (v.aidProjects.isEmpty()) {
             TyC2UiWidgets.drawCenteredFittedString(poseStack, font,
-                    Component.translatable("gui.tyc2.aid.queue_empty").getString(),
+                    Component.translatable("gui.mnera.aid.queue_empty").getString(),
                     82, 152, 152, 0.78F, 0.54F, 0x8096AA);
             return;
         }
@@ -1115,7 +1115,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                     if (mouseX >= ix && mouseX < ix + 16 && mouseY >= iy && mouseY < iy + 16) {
                         if (o.isVillageBuy() && o.optionalTag() != null && !o.optionalTag().isEmpty()) {
                             List<Component> lines = new ArrayList<>(getTooltipFromItem(icon));
-                            lines.add(Component.translatable("gui.tyc2.order.tooltip.accepts_tag", o.optionalTag())
+                            lines.add(Component.translatable("gui.mnera.order.tooltip.accepts_tag", o.optionalTag())
                                     .withStyle(ChatFormatting.GOLD));
                             hoveredTips = lines;
                         } else {
@@ -1132,22 +1132,22 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                         gx -= 9;
                         if (relX >= gx && relX <= gx + 8) {
                             hoveredTips = List.of(Component.translatable(o.isVillageBuy()
-                                    ? "gui.tyc2.order.tooltip.season_buy"
-                                    : "gui.tyc2.order.tooltip.season_sell").withStyle(ChatFormatting.AQUA));
+                                    ? "gui.mnera.order.tooltip.season_buy"
+                                    : "gui.mnera.order.tooltip.season_sell").withStyle(ChatFormatting.AQUA));
                         }
                     }
                     if (hoveredTips == null && hasBiome) {
                         gx -= 9;
                         if (relX >= gx && relX <= gx + 8) {
                             hoveredTips = List.of(Component.translatable(o.isVillageBuy()
-                                    ? "gui.tyc2.order.tooltip.biome_buy"
-                                    : "gui.tyc2.order.tooltip.biome_sell").withStyle(ChatFormatting.GREEN));
+                                    ? "gui.mnera.order.tooltip.biome_buy"
+                                    : "gui.mnera.order.tooltip.biome_sell").withStyle(ChatFormatting.GREEN));
                         }
                     }
                     if (hoveredTips == null && o.isVillageBuy() && relX >= 219 && relX <= 236) {
                         hoveredTips = List.of(Component.translatable(o.autoFulfill()
-                                ? "gui.tyc2.hub.auto_fulfill.on"
-                                : "gui.tyc2.hub.auto_fulfill.off").withStyle(
+                                ? "gui.mnera.hub.auto_fulfill.on"
+                                : "gui.mnera.hub.auto_fulfill.off").withStyle(
                                 o.autoFulfill() ? ChatFormatting.GREEN : ChatFormatting.GRAY));
                     }
                 }
@@ -1167,7 +1167,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                 if (hovered.isEmpty() && wp.aidLimitReached()
                         && relX >= 158 && relX < 236 && relY >= 106 && relY < 118) {
                     hoveredTips = List.of(Component.translatable(
-                            "status.tyc2.aid.profession_limit",
+                            "status.mnera.aid.profession_limit",
                             WorkplaceCatalog.MAX_AID_BUILDS_PER_PROFESSION
                     ).withStyle(ChatFormatting.RED));
                 }
@@ -1189,7 +1189,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         // Hover tooltips for Left Rail header/cards & Right Tactical Header icons
         if (sync != null && hovered.isEmpty() && hoveredTips == null) {
             if (relX >= 9 && relX <= 70 && relY >= 23 && relY <= 33) {
-                hoveredTips = List.of(Component.translatable("gui.tyc2.terminal.bound_count", sync.boundVillages.size())
+                hoveredTips = List.of(Component.translatable("gui.mnera.terminal.bound_count", sync.boundVillages.size())
                         .withStyle(ChatFormatting.AQUA));
             } else if (relX >= 10 && relX <= 70 && relY >= 35 && relY < 35 + RAIL_VISIBLE * 16) {
                 int row = (relY - 35) / 16;
@@ -1197,24 +1197,24 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
                 if (idx >= 0 && idx < sync.boundVillages.size()) {
                     S2CTerminalSyncPacket.BoundVillageDto bv = sync.boundVillages.get(idx);
                     hoveredTips = List.of(
-                            Component.translatable("gui.tyc2.hub.level", bv.level(), bv.name()).withStyle(ChatFormatting.GOLD),
-                            Component.translatable("gui.tyc2.hub.biome_tooltip",
-                                    Component.translatable("biome.tyc2." + bv.biomeStyleId())).withStyle(ChatFormatting.AQUA),
-                            Component.translatable("gui.tyc2.hub.village_funds", TyC2UiWidgets.compactIc(bv.balance()))
+                            Component.translatable("gui.mnera.hub.level", bv.level(), bv.name()).withStyle(ChatFormatting.GOLD),
+                            Component.translatable("gui.mnera.hub.biome_tooltip",
+                                    Component.translatable("biome.mnera." + bv.biomeStyleId())).withStyle(ChatFormatting.AQUA),
+                            Component.translatable("gui.mnera.hub.village_funds", TyC2UiWidgets.compactIc(bv.balance()))
                                     .withStyle(ChatFormatting.GREEN)
                     );
                 }
             } else if (sync.selectedVillage != null && relY >= 24 && relY <= 40) {
                 S2CHubSyncPacket v = sync.selectedVillage;
                 if (relX >= 78 && relX <= 90) {
-                    hoveredTips = List.of(Component.translatable("gui.tyc2.hub.biome_tooltip",
-                            Component.translatable("biome.tyc2." + v.biomeStyleId)).withStyle(ChatFormatting.GOLD));
+                    hoveredTips = List.of(Component.translatable("gui.mnera.hub.biome_tooltip",
+                            Component.translatable("biome.mnera." + v.biomeStyleId)).withStyle(ChatFormatting.GOLD));
                 } else if (relX >= 175 && relX <= 223) {
-                    hoveredTips = List.of(Component.translatable("gui.tyc2.hub.refresh_tooltip",
+                    hoveredTips = List.of(Component.translatable("gui.mnera.hub.refresh_tooltip",
                             TyC2UiWidgets.formatRefreshCountdown(liveRefreshRemaining(v))).withStyle(ChatFormatting.YELLOW));
                 } else if (relX >= 224 && relX <= 237 && TyC2UiWidgets.pdaSeasonU(v.seasonKey) >= 0) {
-                    hoveredTips = List.of(Component.translatable("gui.tyc2.hub.season_tooltip",
-                            Component.translatable("season.tyc2." + v.seasonKey)).withStyle(ChatFormatting.AQUA));
+                    hoveredTips = List.of(Component.translatable("gui.mnera.hub.season_tooltip",
+                            Component.translatable("season.mnera." + v.seasonKey)).withStyle(ChatFormatting.AQUA));
                 }
             }
         }
@@ -1226,7 +1226,7 @@ public class CommTerminalScreen extends AbstractContainerScreen<CommTerminalMenu
         } else if (sync != null && relX >= 178 && relX <= 236 && relY >= 6 && relY <= 18) {
             renderTooltip(
                     poseStack,
-                    Component.translatable("gui.tyc2.terminal.battery", sync.batteryEu, sync.maxBatteryEu),
+                    Component.translatable("gui.mnera.terminal.battery", sync.batteryEu, sync.maxBatteryEu),
                     mouseX, mouseY
             );
         } else if (sync != null && !activeFeedback.isEmpty()

@@ -17,10 +17,10 @@ import net.minecraftforge.fml.ModList;
  */
 public final class Lc2SoftBridge {
 
-    public static final String MOD_ID = "lc2";
-    public static final String CHUNK_LOADING_UPGRADE_ID = "lc2:chunk_loading_upgrade";
-    public static final String SMART_PORT_ID = "lc2:smart_port";
-    public static final String CARGO_STATION_ID = "lc2:cargo_station";
+    public static final String MOD_ID = "trera";
+    public static final String CHUNK_LOADING_UPGRADE_ID = "trera:chunk_loading_upgrade";
+    public static final String SMART_PORT_ID = "trera:smart_port";
+    public static final String CARGO_STATION_ID = "trera:cargo_station";
 
     private Lc2SoftBridge() {
     }

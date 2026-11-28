@@ -74,7 +74,7 @@ public final class TyC2MixinPlugin implements IMixinConfigPlugin {
             }
             if (loadingList != null) {
                 Method getModFile = loadingList.getClass().getMethod("getModFileById", String.class);
-                if (getModFile.invoke(loadingList, "ic2") != null) {
+                if (getModFile.invoke(loadingList, "mhera") != null) {
                     return true;
                 }
             }

@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 public final class TopSoftBridge {
 
     public static final String MOD_ID = "theoneprobe";
-    private static final Logger LOGGER = LoggerFactory.getLogger("tyc2");
+    private static final Logger LOGGER = LoggerFactory.getLogger("mnera");
 
     private TopSoftBridge() {
     }

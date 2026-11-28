@@ -67,8 +67,8 @@ public class PrimitiveMintMachineScreen extends AbstractContainerScreen<Primitiv
 
         // Status / Upgrade-Required Banner LCD (76, 48, 92x25) -> inner (78..166, 50..71)
         if (menu.isBlockedByIndustrialTier()) {
-            String warnTitle = Component.translatable("gui.tyc2.primitive_mint.requires_industrial").getString();
-            String warnShort = Component.translatable("gui.tyc2.primitive_mint.requires_industrial_short").getString();
+            String warnTitle = Component.translatable("gui.mnera.primitive_mint.requires_industrial").getString();
+            String warnShort = Component.translatable("gui.mnera.primitive_mint.requires_industrial_short").getString();
             TyC2UiWidgets.drawFittedString(poseStack, font, warnTitle, 94, 51, 70, 0.50F, 0xFFCC44);
             TyC2UiWidgets.drawFittedString(poseStack, font, warnShort, 94, 62, 70, 0.50F, 0xFFAA66);
         } else {
@@ -76,16 +76,16 @@ public class PrimitiveMintMachineScreen extends AbstractContainerScreen<Primitiv
             int color1;
             if (menu.getProgress() > 0) {
                 int pct = Math.min(100, (menu.getProgress() * 100) / menu.getMaxProgress());
-                line1 = Component.translatable("gui.tyc2.primitive_mint.minting", pct).getString();
+                line1 = Component.translatable("gui.mnera.primitive_mint.minting", pct).getString();
                 color1 = 0x66FF88;
             } else if (menu.getBurnRemaining() <= 0 && menu.hasAnyInput()) {
-                line1 = Component.translatable("gui.tyc2.primitive_mint.no_fuel").getString();
+                line1 = Component.translatable("gui.mnera.primitive_mint.no_fuel").getString();
                 color1 = 0xFF8866;
             } else {
-                line1 = Component.translatable("gui.tyc2.primitive_mint.idle").getString();
+                line1 = Component.translatable("gui.mnera.primitive_mint.idle").getString();
                 color1 = 0xDDE6EE;
             }
-            String scope = Component.translatable("gui.tyc2.primitive_mint.scope_hint").getString();
+            String scope = Component.translatable("gui.mnera.primitive_mint.scope_hint").getString();
             TyC2UiWidgets.drawFittedString(poseStack, font, line1, 80, 52, 85, 0.60F, color1);
             TyC2UiWidgets.drawFittedString(poseStack, font, scope, 80, 63, 85, 0.60F, 0xAACCDD);
         }
@@ -101,24 +101,24 @@ public class PrimitiveMintMachineScreen extends AbstractContainerScreen<Primitiv
         int relY = mouseY - topPos;
         if (relX >= 49 && relX <= 63 && relY >= 41 && relY <= 55) {
             int sec = Math.max(0, menu.getBurnRemaining() / 20);
-            renderTooltip(poseStack, Component.translatable("hud.tyc2.primitive_mint.fuel", sec), mouseX, mouseY);
+            renderTooltip(poseStack, Component.translatable("hud.mnera.primitive_mint.fuel", sec), mouseX, mouseY);
         } else if (relX >= 82 && relX <= 106 && relY >= 23 && relY <= 39) {
             Component msg;
             if (menu.isBlockedByIndustrialTier()) {
-                msg = Component.translatable("gui.tyc2.primitive_mint.requires_industrial");
+                msg = Component.translatable("gui.mnera.primitive_mint.requires_industrial");
             } else if (menu.getProgress() > 0) {
                 int pct = Math.min(100, (menu.getProgress() * 100) / menu.getMaxProgress());
-                msg = Component.translatable("gui.tyc2.primitive_mint.minting", pct);
+                msg = Component.translatable("gui.mnera.primitive_mint.minting", pct);
             } else if (menu.getBurnRemaining() <= 0) {
-                msg = Component.translatable("gui.tyc2.primitive_mint.no_fuel");
+                msg = Component.translatable("gui.mnera.primitive_mint.no_fuel");
             } else {
-                msg = Component.translatable("gui.tyc2.primitive_mint.idle");
+                msg = Component.translatable("gui.mnera.primitive_mint.idle");
             }
             renderTooltip(poseStack, msg, mouseX, mouseY);
         } else if (relX >= 76 && relX <= 168 && relY >= 48 && relY <= 73 && menu.isBlockedByIndustrialTier()) {
             List<Component> tip = new ArrayList<>();
-            tip.add(Component.translatable("gui.tyc2.primitive_mint.requires_industrial"));
-            tip.add(Component.translatable("gui.tyc2.primitive_mint.requires_industrial_detail"));
+            tip.add(Component.translatable("gui.mnera.primitive_mint.requires_industrial"));
+            tip.add(Component.translatable("gui.mnera.primitive_mint.requires_industrial_detail"));
             renderComponentTooltip(poseStack, tip, mouseX, mouseY);
         }
     }

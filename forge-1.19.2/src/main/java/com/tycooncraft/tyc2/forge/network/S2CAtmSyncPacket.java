@@ -147,16 +147,16 @@ public final class S2CAtmSyncPacket {
 
     private static String txTypeKey(BankAccountManager.TransactionType type) {
         if (type == null) {
-            return "gui.tyc2.atm.tx.deposit";
+            return "gui.mnera.atm.tx.deposit";
         }
         return switch (type) {
-            case DEPOSIT -> "gui.tyc2.atm.tx.deposit";
-            case SYSTEM_ADJUST, COMPANY_DISSOLVE -> "gui.tyc2.atm.tx.system_adjust";
-            case WITHDRAW -> "gui.tyc2.atm.tx.withdraw";
-            case TRANSFER_IN -> "gui.tyc2.atm.tx.transfer_in";
-            case TRANSFER_OUT -> "gui.tyc2.atm.tx.transfer_out";
-            case TRADE_BUY, NEGOTIATION -> "gui.tyc2.atm.tx.trade_buy";
-            case TRADE_SELL -> "gui.tyc2.atm.tx.trade_sell";
+            case DEPOSIT -> "gui.mnera.atm.tx.deposit";
+            case SYSTEM_ADJUST, COMPANY_DISSOLVE -> "gui.mnera.atm.tx.system_adjust";
+            case WITHDRAW -> "gui.mnera.atm.tx.withdraw";
+            case TRANSFER_IN -> "gui.mnera.atm.tx.transfer_in";
+            case TRANSFER_OUT -> "gui.mnera.atm.tx.transfer_out";
+            case TRADE_BUY, NEGOTIATION -> "gui.mnera.atm.tx.trade_buy";
+            case TRADE_SELL -> "gui.mnera.atm.tx.trade_sell";
         };
     }
 

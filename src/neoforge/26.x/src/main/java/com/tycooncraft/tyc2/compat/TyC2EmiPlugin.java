@@ -149,22 +149,22 @@ public final class TyC2EmiPlugin implements EmiPlugin {
     private static void registerInfoPages(EmiRegistry registry, List<EmiIngredient> ecc2Stacks) {
         registry.addRecipe(new EmiInfoRecipe(
                 List.of(EmiStack.of(TyC2Registries.PRIMITIVE_MINT_MACHINE_ITEM.get())),
-                List.of(Component.translatable("emi.info.tyc2.primitive_mint_machine")),
+                List.of(Component.translatable("emi.info.mnera.primitive_mint_machine")),
                 id("/info/primitive_mint_machine")
         ));
         registry.addRecipe(new EmiInfoRecipe(
                 List.of(EmiStack.of(TyC2Registries.MINT_MACHINE_ITEM.get())),
-                List.of(Component.translatable("emi.info.tyc2.mint_machine")),
+                List.of(Component.translatable("emi.info.mnera.mint_machine")),
                 id("/info/mint_machine")
         ));
         registry.addRecipe(new EmiInfoRecipe(
                 List.of(EmiStack.of(TyC2Registries.ATM_MACHINE_ITEM.get())),
-                List.of(Component.translatable("emi.info.tyc2.atm_machine")),
+                List.of(Component.translatable("emi.info.mnera.atm_machine")),
                 id("/info/atm_machine")
         ));
         registry.addRecipe(new EmiInfoRecipe(
                 List.of(EmiStack.of(TyC2Registries.COOPERATION_HUB_ITEM.get())),
-                List.of(Component.translatable("emi.info.tyc2.cooperation_hub")),
+                List.of(Component.translatable("emi.info.mnera.cooperation_hub")),
                 id("/info/cooperation_hub")
         ));
         ItemStack chargedTerminal = new ItemStack(TyC2Registries.COMM_TERMINAL_ITEM.get());
@@ -174,7 +174,7 @@ public final class TyC2EmiPlugin implements EmiPlugin {
                         EmiStack.of(TyC2Registries.COMM_TERMINAL_ITEM.get()),
                         EmiStack.of(chargedTerminal)
                 ),
-                List.of(Component.translatable("emi.info.tyc2.comm_terminal")),
+                List.of(Component.translatable("emi.info.mnera.comm_terminal")),
                 id("/info/comm_terminal")
         ));
         registry.addRecipe(new EmiInfoRecipe(
@@ -189,14 +189,14 @@ public final class TyC2EmiPlugin implements EmiPlugin {
                         EmiStack.of(TyC2Registries.COIN_500.get()),
                         EmiStack.of(TyC2Registries.COIN_1000.get())
                 ),
-                List.of(Component.translatable("emi.info.tyc2.coins")),
+                List.of(Component.translatable("emi.info.mnera.coins")),
                 id("/info/coins")
         ));
         if (!ecc2Stacks.isEmpty()) {
             registry.addRecipe(new EmiInfoRecipe(
                     ecc2Stacks,
-                    List.of(Component.translatable("emi.info.tyc2.ecc2_trade")),
-                    id("/info/ecc2_trade")
+                    List.of(Component.translatable("emi.info.mnera.ecera_trade")),
+                    id("/info/ecera_trade")
             ));
         }
     }
@@ -316,11 +316,11 @@ public final class TyC2EmiPlugin implements EmiPlugin {
             widgets.addSlot(outputs.get(0), 78, 4).recipeContext(this);
 
             Component powerLine = primitive
-                    ? Component.translatable("jei.tyc2.primitive_minting.fuel_only")
-                    : Component.translatable("jei.tyc2.minting.eu", recipe.energyEu());
+                    ? Component.translatable("jei.mnera.primitive_minting.fuel_only")
+                    : Component.translatable("jei.mnera.minting.eu", recipe.energyEu());
             widgets.addText(powerLine, 4, 25, TEXT_COLOR, false);
             widgets.addText(
-                    Component.translatable("jei.tyc2.minting.ticks", effectiveTicks, formatSeconds(effectiveTicks)),
+                    Component.translatable("jei.mnera.minting.ticks", effectiveTicks, formatSeconds(effectiveTicks)),
                     4,
                     35,
                     TEXT_COLOR,
@@ -355,22 +355,22 @@ public final class TyC2EmiPlugin implements EmiPlugin {
             widgets.addFillingArrow(28, 5, 2500);
             widgets.addSlot(outputs.get(0), 58, 4).recipeContext(this);
             widgets.addText(
-                    Component.translatable(villageBuys ? "emi.tyc2.trade.village_buys" : "emi.tyc2.trade.village_sells"),
+                    Component.translatable(villageBuys ? "emi.mnera.trade.village_buys" : "emi.mnera.trade.village_sells"),
                     82,
                     9,
                     TEXT_COLOR,
                     false
             );
             widgets.addText(
-                    Component.translatable("emi.tyc2.trade.price_level", good.basePrice(), good.minLevel(), good.maxLevel()),
+                    Component.translatable("emi.mnera.trade.price_level", good.basePrice(), good.minLevel(), good.maxLevel()),
                     4,
                     25,
                     TEXT_COLOR,
                     false
             );
-            Component catName = Component.translatable("category.tyc2." + good.category().name().toLowerCase(Locale.ROOT));
+            Component catName = Component.translatable("category.mnera." + good.category().name().toLowerCase(Locale.ROOT));
             widgets.addText(
-                    Component.translatable("emi.tyc2.trade.tier_category", catName, good.industrialTierRequired().level()),
+                    Component.translatable("emi.mnera.trade.tier_category", catName, good.industrialTierRequired().level()),
                     4,
                     35,
                     TEXT_COLOR,

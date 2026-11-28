@@ -60,7 +60,7 @@ import org.slf4j.LoggerFactory;
  */
 public final class TyC2ClientLiveServer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("tyc2_live_server");
+    private static final Logger LOGGER = LoggerFactory.getLogger("mnera_live_server");
 
     private int surfaceY;
     private BlockPos primMintPos;
@@ -129,15 +129,15 @@ public final class TyC2ClientLiveServer {
             mint.setItem(MintMachineBlockEntity.SLOT_INPUT_0, new ItemStack(Items.COPPER_INGOT, 32));
             mint.setItem(MintMachineBlockEntity.SLOT_TERMINAL, new ItemStack(TyC2Registries.COMM_TERMINAL_ITEM.get()));
             if (Ic2SoftBridge.isIc2Loaded()) {
-                mint.setItem(MintMachineBlockEntity.SLOT_BATTERY, TyC2Native.stack("ic2:single_use_battery", 1));
+                mint.setItem(MintMachineBlockEntity.SLOT_BATTERY, TyC2Native.stack("mhera:single_use_battery", 1));
             }
         }
 
         // In Enhanced mode: attach real IC2 Generator + Insulated Copper Cable to Industrial Minting Machine!
         if (Ic2SoftBridge.isIc2Loaded()) {
             var fake = TyC2QaPlatform.createFakePlayer(level, UUID.randomUUID(), "SceneBuilder");
-            TyC2QaChecks.survivalPlace(level, fake, "ic2:generator", ic2GenPos);
-            TyC2QaChecks.survivalPlace(level, fake, "ic2:insulated_copper_cable", ic2CablePos);
+            TyC2QaChecks.survivalPlace(level, fake, "mhera:generator", ic2GenPos);
+            TyC2QaChecks.survivalPlace(level, fake, "mhera:insulated_copper_cable", ic2CablePos);
             if (level.getBlockEntity(ic2GenPos) instanceof Container gen) {
                 gen.setItem(0, new ItemStack(Items.COAL, 16));
             }
@@ -192,7 +192,7 @@ public final class TyC2ClientLiveServer {
                         CooperationHubBlockEntity.LOCAL_SLOT_UPGRADE_0,
                         TyC2Native.stack(TyC2Constants.ITEM_LC2_CHUNK_LOADER, 1)
                 );
-                level.setBlockAndUpdate(lc2StationPos, TyC2QaChecks.block("lc2:cargo_station").defaultBlockState());
+                level.setBlockAndUpdate(lc2StationPos, TyC2QaChecks.block("trera:cargo_station").defaultBlockState());
             }
         }
 
@@ -306,7 +306,7 @@ public final class TyC2ClientLiveServer {
                                         handleLiveCommand(level, player, action);
                                         return 1;
                                     } catch (Exception e) {
-                                        LOGGER.error("[TYC2-LIVE] /tyc2live {} failed", action, e);
+                                        LOGGER.error("[TYC2-LIVE] /mnelive {} failed", action, e);
                                         return 0;
                                     }
                                 }))
@@ -321,7 +321,7 @@ public final class TyC2ClientLiveServer {
                 case "prim_set_blocked" -> {
                     if (level.getBlockEntity(primMintPos) instanceof PrimitiveMintMachineBlockEntity pm) {
                         pm.setItem(PrimitiveMintMachineBlockEntity.SLOT_INPUT_0,
-                                Ic2SoftBridge.isIc2Loaded() ? TyC2Native.stack("ic2:alloy", 1) : new ItemStack(Items.DIAMOND, 1));
+                                Ic2SoftBridge.isIc2Loaded() ? TyC2Native.stack("mhera:alloy", 1) : new ItemStack(Items.DIAMOND, 1));
                         pm.setItem(PrimitiveMintMachineBlockEntity.SLOT_INPUT_1, new ItemStack(Items.GOLD_INGOT, 2));
                         pm.setItem(PrimitiveMintMachineBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
                     }
@@ -332,7 +332,7 @@ public final class TyC2ClientLiveServer {
                 case "tp_mayor" -> TyC2QaPlatform.teleportPlayer(player, level, mayorPos.getX() + 0.5, surfaceY, mayorPos.getZ() + 2.8, 180.0F, 5.0F);
                 case "dump_state" -> {
                 }
-                default -> throw new IllegalArgumentException("Unknown /tyc2live action: " + action);
+                default -> throw new IllegalArgumentException("Unknown /mnelive action: " + action);
             }
         }
         writeStateJson(level, player);

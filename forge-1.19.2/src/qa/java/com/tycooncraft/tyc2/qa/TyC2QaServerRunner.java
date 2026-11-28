@@ -350,7 +350,7 @@ final class TyC2QaServerRunner {
                 ItemStack primOut = prim.getItem(PrimitiveMintMachineBlockEntity.SLOT_OUTPUT);
                 if (!primOut.isEmpty()) {
                     long elapsed = level.getGameTime() - primMintStartTick;
-                    String expected1x = enhanced ? CurrencyDenomination.IC2_COIN_ID : "tyc2:coin_1";
+                    String expected1x = enhanced ? CurrencyDenomination.IC2_COIN_ID : "mnera:coin_1";
                     qa.check("primitive_mint.saw_active_and_1_5x", sawPrimMintActiveAnd15x, "elapsed=" + elapsed);
                     qa.check("primitive_mint.elapsed_at_least_90_ticks", elapsed >= 88L, "elapsed=" + elapsed);
                     qa.checkEquals("primitive_mint.copper_output_item_id", expected1x, TyC2Ids.itemId(primOut));
@@ -425,7 +425,7 @@ final class TyC2QaServerRunner {
 
                 ItemStack out = mint.getItem(MintMachineBlockEntity.SLOT_OUTPUT);
                 if (!out.isEmpty()) {
-                    qa.checkEquals("mint.dual_1000x_output_id", "tyc2:coin_1000", TyC2Ids.itemId(out));
+                    qa.checkEquals("mint.dual_1000x_output_id", "mnera:coin_1000", TyC2Ids.itemId(out));
                     qa.checkEquals("mint.dual_1000x_output_count", 1, out.getCount());
                     int termEu = CommTerminalItem.getStoredEu(mint.getItem(MintMachineBlockEntity.SLOT_TERMINAL));
                     qa.check("mint.terminal_charged", termEu > 0, "terminalEu=" + termEu);
@@ -836,7 +836,7 @@ final class TyC2QaServerRunner {
                         playerA, villageId, "minecraft:librarian", WorkplaceSize.SMALL, true, null, null
                 );
                 qa.check("aid.start_succeeded",
-                        startRes.success() && "status.tyc2.aid.started".equals(startRes.translationKey()),
+                        startRes.success() && "status.mnera.aid.started".equals(startRes.translationKey()),
                         "success=" + startRes.success() + ", key=" + startRes.translationKey());
                 qa.check("aid.start_queued_and_cpi_priced",
                         village.getAidProjects().size() == 1
@@ -863,7 +863,7 @@ final class TyC2QaServerRunner {
                         playerA, villageId, firstAid.projectId(), true
                 );
                 qa.check("aid.cancel_succeeded",
-                        cancelRes.success() && "status.tyc2.aid.cancelled".equals(cancelRes.translationKey()),
+                        cancelRes.success() && "status.mnera.aid.cancelled".equals(cancelRes.translationKey()),
                         "success=" + cancelRes.success() + ", key=" + cancelRes.translationKey());
                 qa.check("aid.cancel_removed_and_full_refund",
                         village.getAidProjects().isEmpty() && bank.getBalance(activeRef) == balBeforeStart,
@@ -897,12 +897,12 @@ final class TyC2QaServerRunner {
 
                 // (f-1) Jade/TOP HUD bridge lines while Aid is COLLECTING
                 List<Component> hubHudCollecting = JadeSoftBridge.buildBlockHudLines(level, hubPos);
-                verifyHudLine("hud.hub_unemployment_collecting", hubHudCollecting, "hud.tyc2.hub.unemployment");
-                verifyHudLine("hud.hub_aid_active_collecting", hubHudCollecting, "hud.tyc2.hub.aid_active");
+                verifyHudLine("hud.hub_unemployment_collecting", hubHudCollecting, "hud.mnera.hub.unemployment");
+                verifyHudLine("hud.hub_aid_active_collecting", hubHudCollecting, "hud.mnera.hub.aid_active");
                 Villager mayorEnt = findVillagerByUuid(level, hubPos, village.getMayorState().getMayorEntityUuid());
                 qa.check("hud.mayor_entity_found", mayorEnt != null, "mayor=" + mayorEnt);
                 List<Component> mayorHud = JadeSoftBridge.buildEntityHudLines(level, mayorEnt);
-                verifyHudLine("hud.mayor_unemployment", mayorHud, "hud.tyc2.mayor.unemployment");
+                verifyHudLine("hud.mayor_unemployment", mayorHud, "hud.mnera.mayor.unemployment");
 
                 advance(Stage.W6B_AID_WAIT_GATHERING);
             }
@@ -979,7 +979,7 @@ final class TyC2QaServerRunner {
                         );
                         qa.check("aid.cancel_rejected_while_building",
                                 !cancelBuild.success()
-                                        && "status.tyc2.aid.cannot_cancel".equals(cancelBuild.translationKey())
+                                        && "status.mnera.aid.cannot_cancel".equals(cancelBuild.translationKey())
                                         && village.findAidProject(aidProjectId).isPresent(),
                                 "key=" + cancelBuild.translationKey());
                     } else if (stageTicks > 80) {
@@ -1066,8 +1066,8 @@ final class TyC2QaServerRunner {
 
                 // (f-2) Jade/TOP HUD bridge lines AFTER unemployment < 25% now emit employment_bonus!
                 List<Component> hubHudAfter = JadeSoftBridge.buildBlockHudLines(level, hubPos);
-                verifyHudLine("hud.hub_unemployment_after_aid", hubHudAfter, "hud.tyc2.hub.unemployment");
-                verifyHudLine("hud.hub_employment_bonus_active", hubHudAfter, "hud.tyc2.hub.employment_bonus");
+                verifyHudLine("hud.hub_unemployment_after_aid", hubHudAfter, "hud.mnera.hub.unemployment");
+                verifyHudLine("hud.hub_employment_bonus_active", hubHudAfter, "hud.mnera.hub.employment_bonus");
 
                 // Queue 1 small mason aid project right before shutdown to verify cold-restart NBT persistence!
                 TycoonForgeWorldManager.ActionFeedback persistStart = TycoonForgeWorldManager.startAidConstruction(
@@ -1128,9 +1128,9 @@ final class TyC2QaServerRunner {
     }
 
     private void runBootAndRegistryChecks(MinecraftServer server, ServerLevel level) {
-        qa.check("boot.tyc2_loaded", ModList.get().isLoaded("tyc2"), "mod tyc2 loaded");
-        qa.checkEquals("boot.ic2_loaded_matches_profile", enhanced, ModList.get().isLoaded("ic2"));
-        qa.checkEquals("boot.lc2_loaded_matches_profile", enhanced, ModList.get().isLoaded("lc2"));
+        qa.check("boot.mnera_loaded", ModList.get().isLoaded("mnera"), "mod tyc2 loaded");
+        qa.checkEquals("boot.ic2_loaded_matches_profile", enhanced, ModList.get().isLoaded("mhera"));
+        qa.checkEquals("boot.lc2_loaded_matches_profile", enhanced, ModList.get().isLoaded("trera"));
         qa.checkEquals("boot.ic2_bridge_matches_profile", enhanced, Ic2Bridge.isLoaded());
         qa.checkEquals("boot.lc2_bridge_matches_profile", enhanced, Lc2SoftBridge.isLoaded());
 
@@ -1220,27 +1220,27 @@ final class TyC2QaServerRunner {
         // Conditional Crafting Recipes loaded in RecipeManager (primitive always; mint_machine_ic2 vs mint_machine_standalone!)
         var rm = server.getRecipeManager();
         Optional<? extends Recipe<?>> primRec = rm.byKey(TyC2Ids.id("primitive_mint_machine"));
-        Optional<? extends Recipe<?>> ic2MintRec = rm.byKey(TyC2Ids.id("mint_machine_ic2"));
+        Optional<? extends Recipe<?>> ic2MintRec = rm.byKey(TyC2Ids.id("mint_machine_mhera"));
         Optional<? extends Recipe<?>> standaloneMintRec = rm.byKey(TyC2Ids.id("mint_machine_standalone"));
         Optional<? extends Recipe<?>> staleMintRec = rm.byKey(TyC2Ids.id("mint_machine"));
         qa.check("recipe.primitive_mint_loaded",
-                primRec.isPresent() && TyC2Ids.itemId(primRec.get().getResultItem()).equals("tyc2:primitive_mint_machine"),
+                primRec.isPresent() && TyC2Ids.itemId(primRec.get().getResultItem()).equals("mnera:primitive_mint_machine"),
                 "present=" + primRec.isPresent());
         qa.check("recipe.stale_unconditional_mint_absent", staleMintRec.isEmpty(), "stale=" + staleMintRec.isPresent());
         if (enhanced) {
-            qa.check("recipe.enhanced.mint_machine_ic2_loaded", ic2MintRec.isPresent(), "present=" + ic2MintRec.isPresent());
+            qa.check("recipe.enhanced.mint_machine_mhera_loaded", ic2MintRec.isPresent(), "present=" + ic2MintRec.isPresent());
             qa.check("recipe.enhanced.mint_machine_standalone_not_loaded", standaloneMintRec.isEmpty(), "present=" + standaloneMintRec.isPresent());
             if (ic2MintRec.isPresent()) {
-                for (String reqId : List.of("tyc2:primitive_mint_machine", "ic2:machine", "ic2:circuit", "ic2:iron_plate", "ic2:electric_motor")) {
+                for (String reqId : List.of("mnera:primitive_mint_machine", "mhera:machine", "mhera:circuit", "mhera:iron_plate", "mhera:electric_motor")) {
                     qa.check("recipe.enhanced.ic2_mint_requires." + reqId,
                             recipeHasIngredient(ic2MintRec.get(), reqId), reqId);
                 }
             }
         } else {
             qa.check("recipe.standalone.mint_machine_standalone_loaded", standaloneMintRec.isPresent(), "present=" + standaloneMintRec.isPresent());
-            qa.check("recipe.standalone.mint_machine_ic2_not_loaded", ic2MintRec.isEmpty(), "present=" + ic2MintRec.isPresent());
+            qa.check("recipe.standalone.mint_machine_mhera_not_loaded", ic2MintRec.isEmpty(), "present=" + ic2MintRec.isPresent());
             if (standaloneMintRec.isPresent()) {
-                for (String reqId : List.of("tyc2:primitive_mint_machine", "minecraft:diamond", "minecraft:redstone_block")) {
+                for (String reqId : List.of("mnera:primitive_mint_machine", "minecraft:diamond", "minecraft:redstone_block")) {
                     qa.check("recipe.standalone.mint_requires." + reqId,
                             recipeHasIngredient(standaloneMintRec.get(), reqId), reqId);
                 }
@@ -1253,10 +1253,10 @@ final class TyC2QaServerRunner {
         int cpiRc = server.getCommands().performPrefixedCommand(src, "tyc2 cpi");
         int seasonRc = server.getCommands().performPrefixedCommand(src, "tyc2 season");
         int villagesRc = server.getCommands().performPrefixedCommand(src, "tyc2 villages");
-        qa.check("command.tyc2_status", statusRc > 0, "rc=" + statusRc);
-        qa.check("command.tyc2_cpi", cpiRc > 0, "rc=" + cpiRc);
-        qa.check("command.tyc2_season", seasonRc > 0, "rc=" + seasonRc);
-        qa.check("command.tyc2_villages", villagesRc > 0, "rc=" + villagesRc);
+        qa.check("command.mnera_status", statusRc > 0, "rc=" + statusRc);
+        qa.check("command.mnera_cpi", cpiRc > 0, "rc=" + cpiRc);
+        qa.check("command.mnera_season", seasonRc > 0, "rc=" + seasonRc);
+        qa.check("command.mnera_villages", villagesRc > 0, "rc=" + villagesRc);
 
         // Create two FakePlayers for banking & negotiation
         playerA = FakePlayerFactory.get(level, new GameProfile(PLAYER_A_UUID, "TyC2TesterA"));
@@ -1351,7 +1351,7 @@ final class TyC2QaServerRunner {
         qa.checkEquals("atm.withdraw_exact_cash_186", 186L, withdrawnCash);
 
         // Check canonical 1x coin dispensed by ATM withdrawal (ic2:coin in enhanced, tyc2:coin_1 in standalone)
-        String expected1x = enhanced ? CurrencyDenomination.IC2_COIN_ID : "tyc2:coin_1";
+        String expected1x = enhanced ? CurrencyDenomination.IC2_COIN_ID : "mnera:coin_1";
         boolean foundCanonical1x = TyC2Ids.itemId(atm.getItem(AtmMachineBlockEntity.SLOT_WITHDRAW)).equals(expected1x);
         for (int i = 0; i < playerA.getInventory().getContainerSize(); i++) {
             if (TyC2Ids.itemId(playerA.getInventory().getItem(i)).equals(expected1x)) {
@@ -1505,7 +1505,7 @@ final class TyC2QaServerRunner {
                 playerA, villageId, qaCopperOrderId, 4, true, false, termGuard
         );
         qa.check("trade.terminal_missing_goods_exact_error",
-                !termNoGoods.success() && "status.tyc2.terminal.insufficient_goods".equals(termNoGoods.translationKey()),
+                !termNoGoods.success() && "status.mnera.terminal.insufficient_goods".equals(termNoGoods.translationKey()),
                 "success=" + termNoGoods.success() + ", key=" + termNoGoods.translationKey());
         qa.checkEquals("trade.terminal_missing_goods_preserves_50eu", 5000, CommTerminalItem.getStoredEu(termGuard));
 
@@ -1521,7 +1521,7 @@ final class TyC2QaServerRunner {
         int playerCopperAfterLowFunds = playerA.getInventory().countItem(Items.COPPER_INGOT);
         int inboundCopperAfterLowFunds = village.getStorage().countInInbound("minecraft:copper_ingot");
         qa.check("trade.hub_low_funds_exact_error",
-                !lowFundsRes.success() && "status.tyc2.hub.village_low_funds_detail".equals(lowFundsRes.translationKey()),
+                !lowFundsRes.success() && "status.mnera.hub.village_low_funds_detail".equals(lowFundsRes.translationKey()),
                 "success=" + lowFundsRes.success() + ", key=" + lowFundsRes.translationKey());
         qa.checkEquals("trade.hub_low_funds_keeps_player_items_intact", 8, playerCopperAfterLowFunds);
         qa.checkEquals("trade.hub_low_funds_does_not_drain_to_inbound", 0, inboundCopperAfterLowFunds);
@@ -1536,7 +1536,7 @@ final class TyC2QaServerRunner {
         );
         qa.check("trade.hub_buy_order_delivery_succeeds",
                 okBuyRes.success()
-                        && "status.tyc2.hub.order_fulfilled".equals(okBuyRes.translationKey())
+                        && "status.mnera.hub.order_fulfilled".equals(okBuyRes.translationKey())
                         && playerA.getInventory().countItem(Items.COPPER_INGOT) == 4,
                 "key=" + okBuyRes.translationKey() + ", playerRem=" + playerA.getInventory().countItem(Items.COPPER_INGOT));
 
@@ -1655,7 +1655,7 @@ final class TyC2QaServerRunner {
         );
         qa.check("expansion.partial_delivery_exact_key",
                 partialRes.success()
-                        && "status.tyc2.expansion.delivered_partial".equals(partialRes.translationKey())
+                        && "status.mnera.expansion.delivered_partial".equals(partialRes.translationKey())
                         && village.getActiveConstructionJob().isEmpty(),
                 "success=" + partialRes.success() + ", key=" + partialRes.translationKey()
                         + ", remaining=" + village.getActiveExpansion().remainingMaterials());
@@ -1668,7 +1668,7 @@ final class TyC2QaServerRunner {
         );
         qa.check("expansion.repeat_zero_delivery_missing_materials",
                 !missingAgainRes.success()
-                        && "status.tyc2.expansion.missing_materials".equals(missingAgainRes.translationKey())
+                        && "status.mnera.expansion.missing_materials".equals(missingAgainRes.translationKey())
                         && village.getActiveConstructionJob().isEmpty(),
                 "success=" + missingAgainRes.success() + ", key=" + missingAgainRes.translationKey());
 
@@ -1680,7 +1680,7 @@ final class TyC2QaServerRunner {
         );
         qa.check("expansion.terminal_missing_materials_exact_key",
                 !termMissingRes.success()
-                        && "status.tyc2.expansion.missing_materials".equals(termMissingRes.translationKey())
+                        && "status.mnera.expansion.missing_materials".equals(termMissingRes.translationKey())
                         && village.getActiveConstructionJob().isEmpty(),
                 "success=" + termMissingRes.success() + ", key=" + termMissingRes.translationKey());
         qa.checkEquals("expansion.terminal_missing_materials_zero_eu_deducted",
@@ -1699,7 +1699,7 @@ final class TyC2QaServerRunner {
         );
         qa.check("expansion.low_funds_exact_error",
                 !expLowFunds.success()
-                        && "status.tyc2.expansion.low_funds".equals(expLowFunds.translationKey())
+                        && "status.mnera.expansion.low_funds".equals(expLowFunds.translationKey())
                         && village.getActiveExpansion() != null
                         && village.getActiveExpansion().allMaterialsDelivered()
                         && !village.getActiveExpansion().autoFulfill()
@@ -1724,8 +1724,8 @@ final class TyC2QaServerRunner {
         // and that Primitive Mint blocks IC2 Tin/Alloy/Iridium inputs while Electric Mint accepts them!
         TyC2QaIc2Checks.checkCableDoesNotConnectToPrimitiveMint(level, ic2CablePrimPos, ic2PrimPos, qa);
         PrimitiveMintMachineBlockEntity ic2Prim = (PrimitiveMintMachineBlockEntity) level.getBlockEntity(ic2PrimPos);
-        Item tinIngot = TyC2Ids.getItem("ic2:tin_ingot");
-        qa.check("ic2.tin_ingot_registered", tinIngot != null, "ic2:tin_ingot");
+        Item tinIngot = TyC2Ids.getItem("mhera:tin_ingot");
+        qa.check("ic2.tin_ingot_registered", tinIngot != null, "mhera:tin_ingot");
         ic2Prim.setItem(PrimitiveMintMachineBlockEntity.SLOT_FUEL, new ItemStack(Items.COAL, 4));
         ic2Prim.setItem(PrimitiveMintMachineBlockEntity.SLOT_INPUT_0, new ItemStack(tinIngot, 2));
 
@@ -1742,8 +1742,8 @@ final class TyC2QaServerRunner {
                 MintMachineBlockEntity.isValidBatteryItem(reBat, 1)
                         && ic2Mint.canPlaceItem(MintMachineBlockEntity.SLOT_BATTERY, reBat),
                 "reBat=" + reBat);
-        Item singleUseBatItem = TyC2Ids.getItem("ic2:single_use_battery");
-        qa.check("ic2.single_use_battery_registered", singleUseBatItem != null, "ic2:single_use_battery");
+        Item singleUseBatItem = TyC2Ids.getItem("mhera:single_use_battery");
+        qa.check("ic2.single_use_battery_registered", singleUseBatItem != null, "mhera:single_use_battery");
         level.setBlock(ic2SingleUseBatMintPos, TyC2ForgeRegistries.MINT_MACHINE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
         MintMachineBlockEntity singleBatMint = (MintMachineBlockEntity) level.getBlockEntity(ic2SingleUseBatMintPos);
         qa.check("ic2.single_use_bat_mint_placed", singleBatMint != null, "pos=" + ic2SingleUseBatMintPos);
@@ -1752,9 +1752,9 @@ final class TyC2QaServerRunner {
         // Verify Primitive Mint blocks IC2 alloys/iridium via requiresIndustrialMint
         qa.check("ic2.primitive_blocks_alloy_and_iridium",
                 TyC2RuntimeData.mintRecipes().requiresIndustrialMint(
-                        "ic2:alloy", 1, "minecraft:gold_ingot", 1, TyC2Ids.ITEM_TAG_MATCHER, ModList.get()::isLoaded)
+                        "mhera:alloy", 1, "minecraft:gold_ingot", 1, TyC2Ids.ITEM_TAG_MATCHER, ModList.get()::isLoaded)
                         && TyC2RuntimeData.mintRecipes().requiresIndustrialMint(
-                        "ic2:iridium_ore", 1, "ic2:alloy", 1, TyC2Ids.ITEM_TAG_MATCHER, ModList.get()::isLoaded),
+                        "mhera:iridium_ore", 1, "mhera:alloy", 1, TyC2Ids.ITEM_TAG_MATCHER, ModList.get()::isLoaded),
                 "ic2 alloy + iridium blocked on primitive");
 
         // 3. IC2 BatBox charging tyc2:comm_terminal via Generator -> Cable -> BatBox
@@ -1765,36 +1765,36 @@ final class TyC2QaServerRunner {
         AtmMachineBlockEntity atmMain = (AtmMachineBlockEntity) level.getBlockEntity(atmPos);
         TycoonForgeSavedData enhData = TycoonForgeSavedData.get(server);
         long balBefore1x = enhData.bank().getActiveBalance(PLAYER_A_UUID);
-        atmMain.setItem(AtmMachineBlockEntity.SLOT_DEPOSIT, new ItemStack(TyC2Ids.getItem("ic2:coin"), 5));
+        atmMain.setItem(AtmMachineBlockEntity.SLOT_DEPOSIT, new ItemStack(TyC2Ids.getItem("mhera:coin"), 5));
         atmMain.handleDepositSlot(playerA);
         atmMain.setItem(AtmMachineBlockEntity.SLOT_DEPOSIT, new ItemStack(TyC2ForgeRegistries.COIN_1.get(), 3));
         atmMain.handleDepositSlot(playerA);
-        qa.checkEquals("ic2.atm_accepts_ic2_coin_and_tyc2_coin1_1to1",
+        qa.checkEquals("ic2.atm_accepts_ic2_coin_and_mnera_coin1_1to1",
                 balBefore1x + 8L, enhData.bank().getActiveBalance(PLAYER_A_UUID));
 
         // 4. IC2 Alloys, Iridium & Crops loaded in GoodsCatalog & MintRecipeRegistry!
         GoodsCatalog cat = TyC2RuntimeData.goodsCatalog();
-        for (String ic2Item : List.of("ic2:resin", "ic2:hops", "ic2:coffee_beans", "ic2:terra_wart",
-                "ic2:alloy", "ic2:iridium_shard")) {
+        for (String ic2Item : List.of("mhera:resin", "mhera:hops", "mhera:coffee_beans", "mhera:terra_wart",
+                "mhera:alloy", "mhera:iridium_shard")) {
             qa.check("ic2.item_registered." + ic2Item, TyC2Ids.itemExists(ic2Item), ic2Item);
             qa.check("ic2.good_in_catalog." + ic2Item, cat.findByItemId(ic2Item).isPresent(), ic2Item);
         }
         var iridiumMatch = TyC2RuntimeData.mintRecipes().findMatch(
-                "ic2:iridium", 1, "ic2:alloy", 1, TyC2Ids.ITEM_TAG_MATCHER, ModList.get()::isLoaded
+                "mhera:iridium", 1, "mhera:alloy", 1, TyC2Ids.ITEM_TAG_MATCHER, ModList.get()::isLoaded
         );
         var alloyMatch = TyC2RuntimeData.mintRecipes().findMatch(
-                "ic2:alloy", 1, "minecraft:gold_ingot", 1, TyC2Ids.ITEM_TAG_MATCHER, ModList.get()::isLoaded
+                "mhera:alloy", 1, "minecraft:gold_ingot", 1, TyC2Ids.ITEM_TAG_MATCHER, ModList.get()::isLoaded
         );
         qa.check("ic2.mint_recipe_alloy_100x", alloyMatch.isPresent(), "alloyMatch=" + alloyMatch);
         qa.check("ic2.mint_recipe_iridium_1000x",
                 iridiumMatch.isPresent() || TyC2RuntimeData.mintRecipes().findMatch(
-                        "ic2:iridium_ore", 1, "ic2:alloy", 1, TyC2Ids.ITEM_TAG_MATCHER, ModList.get()::isLoaded
+                        "mhera:iridium_ore", 1, "mhera:alloy", 1, TyC2Ids.ITEM_TAG_MATCHER, ModList.get()::isLoaded
                 ).isPresent(),
                 "iridiumMatch=" + iridiumMatch);
 
         // 5. LC2 Chunk Loading Upgrade inside Cooperation Hub (placed at far chunk (10, 0) with NO QA force ticket!)
-        Item lc2Upgrade = TyC2Ids.getItem("lc2:chunk_loading_upgrade");
-        qa.check("lc2.chunk_loading_upgrade_registered", lc2Upgrade != null, "lc2:chunk_loading_upgrade");
+        Item lc2Upgrade = TyC2Ids.getItem("trera:chunk_loading_upgrade");
+        qa.check("lc2.chunk_loading_upgrade_registered", lc2Upgrade != null, "trera:chunk_loading_upgrade");
         level.getChunk(new ChunkPos(lc2HubPos).x, new ChunkPos(lc2HubPos).z);
         level.setBlock(lc2HubPos, TyC2ForgeRegistries.COOPERATION_HUB_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
         CooperationHubBlockEntity lc2Hub = (CooperationHubBlockEntity) level.getBlockEntity(lc2HubPos);
@@ -2012,7 +2012,7 @@ final class TyC2QaServerRunner {
         }
         String rendered = matched == null ? "<missing>" : matched.getString();
         boolean hasLang = Language.getInstance().has(expectedKey);
-        boolean noRawSubkeys = matched != null && !rendered.isBlank() && !rendered.contains(".tyc2.");
+        boolean noRawSubkeys = matched != null && !rendered.isBlank() && !rendered.contains(".mnera.");
         qa.check(checkName, matched != null && hasLang && noRawSubkeys,
                 "key=" + expectedKey + ", hasLang=" + hasLang + ", rendered=" + rendered);
     }

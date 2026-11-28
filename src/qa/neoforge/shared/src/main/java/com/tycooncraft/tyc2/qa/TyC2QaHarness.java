@@ -103,10 +103,10 @@ import org.slf4j.LoggerFactory;
  * Supports BOTH {@code standalone} (NO IC2, NO LC2) and {@code enhanced} (IC2 1.0.5 + LC2 1.1.0)
  * profiles with full {@code write} + cold-restart {@code read} persistence verification.
  */
-@Mod("tyc2_qa")
+@Mod("mnera_qa")
 public final class TyC2QaHarness {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("tyc2_qa");
+    private static final Logger LOGGER = LoggerFactory.getLogger("mnera_qa");
 
     private static final UUID PLAYER_A_UUID = UUID.fromString("11111111-2222-3333-4444-555555555551");
     private static final UUID PLAYER_B_UUID = UUID.fromString("11111111-2222-3333-4444-555555555552");
@@ -239,22 +239,22 @@ public final class TyC2QaHarness {
     }
 
     private void verifyLoadedArtifacts() throws IOException {
-        Path tyc2Jar = ModList.get().getModContainerById("tyc2").orElseThrow()
+        Path tyc2Jar = ModList.get().getModContainerById("mnera").orElseThrow()
                 .getModInfo().getOwningFile().getFile().getFilePath();
         String expectedTyc2 = System.getProperty("tyc2.qa.expectedTyc2Jar", tyc2Jar.getFileName().toString());
         checks.putMeta("tyc2Artifact", tyc2Jar.getFileName().toString());
-        checks.check("boot.jar.tyc2_from_mods",
+        checks.check("boot.jar.mnera_from_mods",
                 Files.isSameFile(tyc2Jar, Path.of("mods", expectedTyc2)), tyc2Jar.getFileName().toString());
 
         if ("standalone".equals(profile)) {
-            checks.check("boot.standalone.no_ic2", !ModList.get().isLoaded("ic2") && !Ic2SoftBridge.isIc2Loaded());
-            checks.check("boot.standalone.no_lc2", !ModList.get().isLoaded("lc2") && !Lc2SoftBridge.isLc2Loaded());
+            checks.check("boot.standalone.no_ic2", !ModList.get().isLoaded("mhera") && !Ic2SoftBridge.isIc2Loaded());
+            checks.check("boot.standalone.no_lc2", !ModList.get().isLoaded("trera") && !Lc2SoftBridge.isLc2Loaded());
         } else {
-            checks.check("boot.enhanced.ic2_loaded", ModList.get().isLoaded("ic2") && Ic2SoftBridge.isIc2Loaded());
-            checks.check("boot.enhanced.lc2_loaded", ModList.get().isLoaded("lc2") && Lc2SoftBridge.isLc2Loaded());
-            Path ic2Jar = ModList.get().getModContainerById("ic2").orElseThrow()
+            checks.check("boot.enhanced.ic2_loaded", ModList.get().isLoaded("mhera") && Ic2SoftBridge.isIc2Loaded());
+            checks.check("boot.enhanced.lc2_loaded", ModList.get().isLoaded("trera") && Lc2SoftBridge.isLc2Loaded());
+            Path ic2Jar = ModList.get().getModContainerById("mhera").orElseThrow()
                     .getModInfo().getOwningFile().getFile().getFilePath();
-            Path lc2Jar = ModList.get().getModContainerById("lc2").orElseThrow()
+            Path lc2Jar = ModList.get().getModContainerById("trera").orElseThrow()
                     .getModInfo().getOwningFile().getFile().getFilePath();
             checks.putMeta("ic2Artifact", ic2Jar.getFileName().toString());
             checks.putMeta("lc2Artifact", lc2Jar.getFileName().toString());
@@ -302,10 +302,10 @@ public final class TyC2QaHarness {
         switch (stage) {
             case 0 -> {
                 // Stage 0: Configs, Datapacks, Registries, Crafting Recipes, Commands
-                checks.check("config.general_created", Files.isRegularFile(Path.of("config/tyc2/general.json")));
-                checks.check("config.custom_goods_created", Files.isRegularFile(Path.of("config/tyc2/custom_goods.json")));
-                checks.check("config.custom_mint_created", Files.isRegularFile(Path.of("config/tyc2/custom_mint_recipes.json")));
-                checks.check("config.custom_workplaces_created", Files.isRegularFile(Path.of("config/tyc2/custom_workplaces.json")));
+                checks.check("config.general_created", Files.isRegularFile(Path.of("config/mnera/general.json")));
+                checks.check("config.custom_goods_created", Files.isRegularFile(Path.of("config/mnera/custom_goods.json")));
+                checks.check("config.custom_mint_created", Files.isRegularFile(Path.of("config/mnera/custom_mint_recipes.json")));
+                checks.check("config.custom_workplaces_created", Files.isRegularFile(Path.of("config/mnera/custom_workplaces.json")));
 
                 checks.check("datapack.mint_recipes_loaded",
                         TyC2DataLoader.mintRecipes().allRecipes().size() >= 18,
@@ -362,36 +362,36 @@ public final class TyC2QaHarness {
                         "JUNGLE & SWAMP blueprint blocks & WORKSTATION markers verified");
 
                 for (String b : List.of(
-                        "tyc2:primitive_mint_machine", "tyc2:mint_machine", "tyc2:atm_machine", "tyc2:cooperation_hub")) {
+                        "mnera:primitive_mint_machine", "mnera:mint_machine", "mnera:atm_machine", "mnera:cooperation_hub")) {
                     checks.check("reg.block." + b, TyC2QaChecks.hasBlock(b));
                     checks.check("reg.be." + b, TyC2QaChecks.hasBlockEntity(b));
                 }
                 for (String it : List.of(
-                        "tyc2:primitive_mint_machine", "tyc2:mint_machine", "tyc2:atm_machine",
-                        "tyc2:cooperation_hub", "tyc2:comm_terminal",
-                        "tyc2:coin_1", "tyc2:coin_5", "tyc2:coin_10", "tyc2:coin_20", "tyc2:coin_50",
-                        "tyc2:coin_100", "tyc2:coin_200", "tyc2:coin_500", "tyc2:coin_1000")) {
+                        "mnera:primitive_mint_machine", "mnera:mint_machine", "mnera:atm_machine",
+                        "mnera:cooperation_hub", "mnera:comm_terminal",
+                        "mnera:coin_1", "mnera:coin_5", "mnera:coin_10", "mnera:coin_20", "mnera:coin_50",
+                        "mnera:coin_100", "mnera:coin_200", "mnera:coin_500", "mnera:coin_1000")) {
                     checks.check("reg.item." + it, TyC2QaChecks.hasItem(it));
                 }
                 for (String m : List.of(
-                        "tyc2:primitive_mint_machine", "tyc2:mint_machine", "tyc2:atm_machine",
-                        "tyc2:cooperation_hub", "tyc2:comm_terminal", "tyc2:mayor_negotiation")) {
+                        "mnera:primitive_mint_machine", "mnera:mint_machine", "mnera:atm_machine",
+                        "mnera:cooperation_hub", "mnera:comm_terminal", "mnera:mayor_negotiation")) {
                     checks.check("reg.menu." + m, TyC2QaChecks.hasMenu(m));
                 }
 
                 Set<String> recipes = TyC2QaPlatform.allRecipeIds(server);
                 for (String r : List.of(
-                        "tyc2:primitive_mint_machine", "tyc2:mint_machine_standalone",
-                        "tyc2:atm_machine", "tyc2:comm_terminal")) {
+                        "mnera:primitive_mint_machine", "mnera:mint_machine_standalone",
+                        "mnera:atm_machine", "mnera:comm_terminal")) {
                     checks.check("recipe.present." + r, recipes.contains(r), "in RecipeManager");
                 }
-                checks.check("recipe.absent.tyc2:mint_machine_ic2",
-                        !recipes.contains("tyc2:mint_machine_ic2"),
+                checks.check("recipe.absent.mnera:mint_machine_mhera",
+                        !recipes.contains("mnera:mint_machine_mhera"),
                         "IC2 conditional recipe skipped standalone");
 
-                checks.check("cmd.tyc2_status", TyC2QaPlatform.executeCommand(server, "tyc2 status") >= 1);
-                checks.check("cmd.tyc2_cpi", TyC2QaPlatform.executeCommand(server, "tyc2 cpi") >= 1);
-                checks.check("cmd.tyc2_season", TyC2QaPlatform.executeCommand(server, "tyc2 season") >= 1);
+                checks.check("cmd.mnera_status", TyC2QaPlatform.executeCommand(server, "tyc2 status") >= 1);
+                checks.check("cmd.mnera_cpi", TyC2QaPlatform.executeCommand(server, "tyc2 cpi") >= 1);
+                checks.check("cmd.mnera_season", TyC2QaPlatform.executeCommand(server, "tyc2 season") >= 1);
 
                 playerA = TyC2QaPlatform.createFakePlayer(level, PLAYER_A_UUID, "TycoonAlice");
                 playerB = TyC2QaPlatform.createFakePlayer(level, PLAYER_B_UUID, "TycoonBob");
@@ -462,12 +462,12 @@ public final class TyC2QaHarness {
                     checks.check("primitive_mint.coal_burned", primMint.burnTimeRemaining() > 0,
                             "burnRem=" + primMint.burnTimeRemaining());
                     checks.check("primitive_mint.coin1_output",
-                            "tyc2:coin_1".equals(TyC2Native.itemId(primOut)) && primOut.getCount() == 2,
+                            "mnera:coin_1".equals(TyC2Native.itemId(primOut)) && primOut.getCount() == 2,
                             "out=" + TyC2Native.itemId(primOut) + " x" + primOut.getCount());
 
                     checks.check("mint.active_blockstate_seen", mintSawActive);
                     checks.check("mint.standalone_coin1_output",
-                            "tyc2:coin_1".equals(TyC2Native.itemId(out)) && out.getCount() == 2,
+                            "mnera:coin_1".equals(TyC2Native.itemId(out)) && out.getCount() == 2,
                             "out=" + TyC2Native.itemId(out) + " x" + out.getCount());
                     checks.check("mint.money_supply_injected",
                             TyC2WorldManager.getData(level).economy().totalMintedNet() >= 4L,
@@ -504,12 +504,12 @@ public final class TyC2QaHarness {
                 ItemStack out = mint.getItem(MintMachineBlockEntity.SLOT_OUTPUT);
                 if (!primOut.isEmpty() && !out.isEmpty()) {
                     checks.check("primitive_mint.coin100_vanilla_allowed",
-                            "tyc2:coin_100".equals(TyC2Native.itemId(primOut)) && primOut.getCount() == 1
+                            "mnera:coin_100".equals(TyC2Native.itemId(primOut)) && primOut.getCount() == 1
                                     && primMint.maxProgress() == 210,
                             "out=" + TyC2Native.itemId(primOut) + " x" + primOut.getCount()
                                     + ", maxProgress=" + primMint.maxProgress());
                     checks.check("mint.coin_1000_dual_input",
-                            "tyc2:coin_1000".equals(TyC2Native.itemId(out)) && out.getCount() == 1,
+                            "mnera:coin_1000".equals(TyC2Native.itemId(out)) && out.getCount() == 1,
                             "out=" + TyC2Native.itemId(out) + " x" + out.getCount());
                     checks.check("mint.coin_1000_injected_supply",
                             TyC2WorldManager.getData(level).economy().totalMintedNet() >= 1104L,
@@ -884,7 +884,7 @@ public final class TyC2QaHarness {
                         new TyC2ActionPayload("TERMINAL", BlockPos.ZERO, "SELL_ORDER",
                                 "{\"villageId\":\"" + villageId + "\",\"orderId\":\"" + buyOrder.orderId() + "\",\"qty\":1}"));
                 checks.check("order.terminal_missing_goods_exact_key",
-                        "status.tyc2.terminal.insufficient_goods".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
+                        "status.mnera.terminal.insufficient_goods".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
                         "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
                 checks.check("order.terminal_missing_goods_no_eu_drain",
                         CommTerminalItem.getEnergyEu(errTerm) == 5_000,
@@ -910,7 +910,7 @@ public final class TyC2QaHarness {
                     }
                 }
                 checks.check("order.hub_low_funds_exact_key",
-                        "status.tyc2.hub.village_low_funds_detail".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
+                        "status.mnera.hub.village_low_funds_detail".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
                         "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
                 checks.check("order.hub_low_funds_preserves_player_inv",
                         invCountAfterLowFunds == 4 && village.getStorage().countInInbound(buyOrder.itemId()) == 0,
@@ -928,7 +928,7 @@ public final class TyC2QaHarness {
                 checks.check("order.hub_sell_order_delivers_and_pays",
                         afterManualSell.fulfilledQty() >= 2
                                 && data.bank().getActiveBalance(PLAYER_A_UUID) > bankBeforeManualSell
-                                && "status.tyc2.hub.order_fulfilled".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
+                                && "status.mnera.hub.order_fulfilled".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
                         "fulfilled=" + afterManualSell.fulfilledQty()
                                 + ", bank=" + bankBeforeManualSell + "->" + data.bank().getActiveBalance(PLAYER_A_UUID)
                                 + ", key=" + TyC2QaPlatform.lastActionBarKey(playerA));
@@ -1029,7 +1029,7 @@ public final class TyC2QaHarness {
                             new TyC2ActionPayload("HUB", bellPos, "DELIVER_EXPANSION", "{}"));
                     ExpansionDesire afterPartial = village.getActiveExpansion();
                     checks.check("expansion.partial_delivery_exact_key",
-                            "status.tyc2.expansion.delivered_partial".equals(TyC2QaPlatform.lastActionBarKey(playerA))
+                            "status.mnera.expansion.delivered_partial".equals(TyC2QaPlatform.lastActionBarKey(playerA))
                                     && afterPartial != null
                                     && !afterPartial.allMaterialsDelivered()
                                     && afterPartial.remainingFor("minecraft:white_wool") == 3
@@ -1042,7 +1042,7 @@ public final class TyC2QaHarness {
                     TyC2WorldManager.handleActionPayload(playerA, level,
                             new TyC2ActionPayload("HUB", bellPos, "DELIVER_EXPANSION", "{}"));
                     checks.check("expansion.hub_missing_materials_exact_key",
-                            "status.tyc2.expansion.missing_materials".equals(TyC2QaPlatform.lastActionBarKey(playerA))
+                            "status.mnera.expansion.missing_materials".equals(TyC2QaPlatform.lastActionBarKey(playerA))
                                     && village.getActiveConstructionJob().isEmpty(),
                             "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
 
@@ -1058,7 +1058,7 @@ public final class TyC2QaHarness {
                             new TyC2ActionPayload("TERMINAL", BlockPos.ZERO, "DELIVER_EXPANSION",
                                     "{\"villageId\":\"" + villageId + "\"}"));
                     checks.check("expansion.terminal_missing_materials_exact_key",
-                            "status.tyc2.expansion.missing_materials".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
+                            "status.mnera.expansion.missing_materials".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
                             "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
                     checks.check("expansion.terminal_missing_materials_no_eu_drain",
                             CommTerminalItem.getEnergyEu(expTerm) == 5_000,
@@ -1078,7 +1078,7 @@ public final class TyC2QaHarness {
                             new TyC2ActionPayload("HUB", bellPos, "DELIVER_EXPANSION", "{}"));
                     ExpansionDesire afterAllDelivered = village.getActiveExpansion();
                     checks.check("expansion.low_funds_exact_key",
-                            "status.tyc2.expansion.low_funds".equals(TyC2QaPlatform.lastActionBarKey(playerA))
+                            "status.mnera.expansion.low_funds".equals(TyC2QaPlatform.lastActionBarKey(playerA))
                                     && afterAllDelivered != null
                                     && afterAllDelivered.allMaterialsDelivered()
                                     && !afterAllDelivered.autoFulfill()
@@ -1096,7 +1096,7 @@ public final class TyC2QaHarness {
                             new TyC2ActionPayload("TERMINAL", BlockPos.ZERO, "DELIVER_EXPANSION",
                                     "{\"villageId\":\"" + villageId + "\"}"));
                     checks.check("expansion.terminal_low_funds_no_eu_drain",
-                            "status.tyc2.expansion.low_funds".equals(TyC2QaPlatform.lastActionBarKey(playerA))
+                            "status.mnera.expansion.low_funds".equals(TyC2QaPlatform.lastActionBarKey(playerA))
                                     && CommTerminalItem.getEnergyEu(expTerm) == 5_000,
                             "key=" + TyC2QaPlatform.lastActionBarKey(playerA)
                                     + ", eu=" + CommTerminalItem.getEnergyEu(expTerm));
@@ -1282,7 +1282,7 @@ public final class TyC2QaHarness {
                                 "{\"professionId\":\"minecraft:librarian\",\"size\":\"small\",\"cashMode\":false}"));
 
                 checks.check("aid.start_action_key",
-                        "status.tyc2.aid.started".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
+                        "status.mnera.aid.started".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
                         "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
                 checks.check("aid.start_queued_and_cpi_priced",
                         village.getAidProjects().size() == 1
@@ -1314,7 +1314,7 @@ public final class TyC2QaHarness {
                                 "{\"projectId\":\"" + firstAid.projectId() + "\"}"));
 
                 checks.check("aid.cancel_action_key",
-                        "status.tyc2.aid.cancelled".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
+                        "status.mnera.aid.cancelled".equals(TyC2QaPlatform.lastActionBarKey(playerA)),
                         "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
                 checks.check("aid.cancel_removed_and_full_refund",
                         village.getAidProjects().isEmpty()
@@ -1342,7 +1342,7 @@ public final class TyC2QaHarness {
                         new TyC2ActionPayload("HUB", bellPos, "START_AID",
                                 "{\"professionId\":\"minecraft:librarian\",\"size\":\"small\",\"cashMode\":false}"));
                 checks.check("aid.start_while_paused_succeeds",
-                        "status.tyc2.aid.started".equals(TyC2QaPlatform.lastActionBarKey(playerA))
+                        "status.mnera.aid.started".equals(TyC2QaPlatform.lastActionBarKey(playerA))
                                 && village.getAidProjects().size() == 1,
                         "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
                 AidConstructionProject activeAid = village.getAidProjects().get(0);
@@ -1353,13 +1353,13 @@ public final class TyC2QaHarness {
 
                 // (f-1) Jade/TOP HUD bridge lines while Aid is COLLECTING (unemployment + active aid + mayor)
                 List<Component> hubHudCollecting = JadeSoftBridge.buildBlockHudLines(level, bellPos);
-                verifyHudContainsValidKey("hud.hub_unemployment_collecting", hubHudCollecting, "hud.tyc2.hub.unemployment");
-                verifyHudContainsValidKey("hud.hub_aid_active_collecting", hubHudCollecting, "hud.tyc2.hub.aid_active");
+                verifyHudContainsValidKey("hud.hub_unemployment_collecting", hubHudCollecting, "hud.mnera.hub.unemployment");
+                verifyHudContainsValidKey("hud.hub_aid_active_collecting", hubHudCollecting, "hud.mnera.hub.aid_active");
                 Entity mayorEntity = nearbyVillagers.stream()
                         .filter(e -> mayorUuid != null && mayorUuid.equals(e.getUUID()))
                         .findFirst().orElseThrow(() -> new AssertionError("Mayor entity missing for HUD check"));
                 List<Component> mayorHud = JadeSoftBridge.buildEntityHudLines(level, mayorEntity);
-                verifyHudContainsValidKey("hud.mayor_unemployment", mayorHud, "hud.tyc2.mayor.unemployment");
+                verifyHudContainsValidKey("hud.mayor_unemployment", mayorHud, "hud.mnera.mayor.unemployment");
 
                 stage = 61;
                 stageStartTick = ticks;
@@ -1441,7 +1441,7 @@ public final class TyC2QaHarness {
                                 new TyC2ActionPayload("HUB", bellPos, "CANCEL_AID",
                                         "{\"projectId\":\"" + aidProjectId + "\"}"));
                         checks.check("aid.cancel_rejected_while_building",
-                                "status.tyc2.aid.cannot_cancel".equals(TyC2QaPlatform.lastActionBarKey(playerA))
+                                "status.mnera.aid.cannot_cancel".equals(TyC2QaPlatform.lastActionBarKey(playerA))
                                         && village.findAidProject(aidProjectId).isPresent(),
                                 "key=" + TyC2QaPlatform.lastActionBarKey(playerA));
                     } else if (ticks - stageStartTick > 80) {
@@ -1545,8 +1545,8 @@ public final class TyC2QaHarness {
 
                 // (f-2) Jade/TOP HUD bridge lines AFTER unemployment < 25% now emit employment_bonus!
                 List<Component> hubHudAfter = JadeSoftBridge.buildBlockHudLines(level, bellPos);
-                verifyHudContainsValidKey("hud.hub_unemployment_after_aid", hubHudAfter, "hud.tyc2.hub.unemployment");
-                verifyHudContainsValidKey("hud.hub_employment_bonus_active", hubHudAfter, "hud.tyc2.hub.employment_bonus");
+                verifyHudContainsValidKey("hud.hub_unemployment_after_aid", hubHudAfter, "hud.mnera.hub.unemployment");
+                verifyHudContainsValidKey("hud.hub_employment_bonus_active", hubHudAfter, "hud.mnera.hub.employment_bonus");
 
                 // Queue 1 small mason aid project right before shutdown to test cold-restart NBT persistence
                 TyC2WorldManager.handleActionPayload(playerA, level,
@@ -1584,7 +1584,7 @@ public final class TyC2QaHarness {
         }
         String rendered = matched == null ? "<missing>" : matched.getString();
         boolean hasLang = Language.getInstance().has(expectedKey);
-        boolean noRawSubkeys = matched != null && !rendered.isBlank() && !rendered.contains(".tyc2.");
+        boolean noRawSubkeys = matched != null && !rendered.isBlank() && !rendered.contains(".mnera.");
         checks.check(checkName, matched != null && hasLang && noRawSubkeys,
                 "key=" + expectedKey + ", hasLang=" + hasLang + ", rendered=" + rendered);
     }
@@ -1598,8 +1598,8 @@ public final class TyC2QaHarness {
             return;
         }
         TycoonSavedData data = TyC2WorldManager.getData(level);
-        checks.check("read.config_present", Files.isRegularFile(Path.of("config/tyc2/general.json")));
-        checks.check("read.custom_workplaces_present", Files.isRegularFile(Path.of("config/tyc2/custom_workplaces.json")));
+        checks.check("read.config_present", Files.isRegularFile(Path.of("config/mnera/general.json")));
+        checks.check("read.custom_workplaces_present", Files.isRegularFile(Path.of("config/mnera/custom_workplaces.json")));
         long expectedAliceBal = -1L;
         String expectedAidId = "";
         long expectedAidPaid = -1L;
@@ -1678,12 +1678,12 @@ public final class TyC2QaHarness {
 
                 // 0. Verify conditional crafting recipes in Enhanced (IC2 loaded) mode!
                 Set<String> recipes = TyC2QaPlatform.allRecipeIds(server);
-                checks.check("recipe.enhanced.present.tyc2:primitive_mint_machine",
-                        recipes.contains("tyc2:primitive_mint_machine"), "unconditional Vanilla recipe loaded");
-                checks.check("recipe.enhanced.present.tyc2:mint_machine_ic2",
-                        recipes.contains("tyc2:mint_machine_ic2"), "IC2 conditional recipe loaded");
-                checks.check("recipe.enhanced.absent.tyc2:mint_machine_standalone",
-                        !recipes.contains("tyc2:mint_machine_standalone"), "Standalone conditional recipe skipped");
+                checks.check("recipe.enhanced.present.mnera:primitive_mint_machine",
+                        recipes.contains("mnera:primitive_mint_machine"), "unconditional Vanilla recipe loaded");
+                checks.check("recipe.enhanced.present.mnera:mint_machine_mhera",
+                        recipes.contains("mnera:mint_machine_mhera"), "IC2 conditional recipe loaded");
+                checks.check("recipe.enhanced.absent.mnera:mint_machine_standalone",
+                        !recipes.contains("mnera:mint_machine_standalone"), "Standalone conditional recipe skipped");
 
                 // 1. Verify IC2 ProcessingRecipesMixin & WorkshopRecipesMixin disabled metal_former_cutting -> ic2:coin!
                 Class<?> procClass = Class.forName("com.industrialage.ia2.content.ProcessingRecipes");
@@ -1693,8 +1693,8 @@ public final class TyC2QaHarness {
                 Method findMethod = procClass.getDeclaredMethod("find", String.class, String.class, Predicate.class);
                 findMethod.setAccessible(true);
                 Predicate<String> noTags = t -> false;
-                Object blockedCoinRecipe = findMethod.invoke(builtin, "metal_former_cutting", "ic2:iron_casing", noTags);
-                Object allowedOtherRecipe = findMethod.invoke(builtin, "metal_former_cutting", "ic2:copper_plate", noTags);
+                Object blockedCoinRecipe = findMethod.invoke(builtin, "metal_former_cutting", "mhera:iron_casing", noTags);
+                Object allowedOtherRecipe = findMethod.invoke(builtin, "metal_former_cutting", "mhera:copper_plate", noTags);
                 checks.check("mixin.ic2_processing_coin_recipe_disabled",
                         blockedCoinRecipe == null,
                         "iron_casing->coin=" + blockedCoinRecipe + ", copper_plate=" + allowedOtherRecipe);
@@ -1704,7 +1704,7 @@ public final class TyC2QaHarness {
                 forType.setAccessible(true);
                 List<?> cuttingRecipes = (List<?>) forType.invoke(null, "metal_former_cutting");
                 boolean anyIc2CoinWorkshop = cuttingRecipes != null && cuttingRecipes.stream()
-                        .anyMatch(r -> r != null && r.toString().contains("ic2:coin"));
+                        .anyMatch(r -> r != null && r.toString().contains("mhera:coin"));
                 checks.check("mixin.ic2_workshop_coin_recipe_disabled",
                         !anyIc2CoinWorkshop,
                         "cuttingCount=" + (cuttingRecipes == null ? -1 : cuttingRecipes.size()));
@@ -1714,15 +1714,15 @@ public final class TyC2QaHarness {
                         .getAvailableGoods(TyC2Native::itemExists)
                         .stream().map(TradeGood::itemId).collect(Collectors.toSet());
                 for (String ic2Good : List.of(
-                        "ic2:resin", "ic2:hops", "ic2:coffee_beans",
-                        "ic2:tin_ingot", "ic2:alloy", "ic2:iridium_shard")) {
+                        "mhera:resin", "mhera:hops", "mhera:coffee_beans",
+                        "mhera:tin_ingot", "mhera:alloy", "mhera:iridium_shard")) {
                     checks.check("catalog.ic2_good_active." + ic2Good, availableIds.contains(ic2Good));
                 }
 
                 // 3. Test Ic2CableBlockMixin + Real IC2 EU delivery: Generator -> Cable -> MintMachine
-                TyC2QaChecks.survivalPlace(level, playerA, "ic2:generator", ic2GenMintPos);
+                TyC2QaChecks.survivalPlace(level, playerA, "mhera:generator", ic2GenMintPos);
                 level.setBlockAndUpdate(ic2MintPos, TyC2Registries.MINT_MACHINE_BLOCK.get().defaultBlockState());
-                TyC2QaChecks.survivalPlace(level, playerA, "ic2:insulated_copper_cable", ic2CableMintPos);
+                TyC2QaChecks.survivalPlace(level, playerA, "mhera:insulated_copper_cable", ic2CableMintPos);
                 BlockState cableState = level.getBlockState(ic2CableMintPos);
                 checks.check("mixin.ic2_cable_connects_to_mint",
                         cableState.hasProperty(BlockStateProperties.EAST)
@@ -1737,9 +1737,9 @@ public final class TyC2QaHarness {
                 mint.setItem(MintMachineBlockEntity.SLOT_INPUT_0, new ItemStack(Items.COPPER_INGOT, 1));
 
                 // 3b. Verify IC2 cable does NOT visually connect to Primitive Minting Machine!
-                TyC2QaChecks.survivalPlace(level, playerA, "ic2:generator", enhPrimGenPos);
+                TyC2QaChecks.survivalPlace(level, playerA, "mhera:generator", enhPrimGenPos);
                 level.setBlockAndUpdate(enhPrimPos, TyC2Registries.PRIMITIVE_MINT_MACHINE_BLOCK.get().defaultBlockState());
-                TyC2QaChecks.survivalPlace(level, playerA, "ic2:insulated_copper_cable", enhPrimCablePos);
+                TyC2QaChecks.survivalPlace(level, playerA, "mhera:insulated_copper_cable", enhPrimCablePos);
                 BlockState primCableState = level.getBlockState(enhPrimCablePos);
                 checks.check("ic2.cable_does_not_connect_to_primitive_mint",
                         primCableState.hasProperty(BlockStateProperties.EAST)
@@ -1755,25 +1755,25 @@ public final class TyC2QaHarness {
                 PrimitiveMintMachineBlockEntity enhPrimBlocked =
                         (PrimitiveMintMachineBlockEntity) level.getBlockEntity(enhPrimBlockedPos);
                 enhPrimBlocked.setItem(PrimitiveMintMachineBlockEntity.SLOT_FUEL, new ItemStack(Items.COAL, 4));
-                enhPrimBlocked.setItem(PrimitiveMintMachineBlockEntity.SLOT_INPUT_0, TyC2Native.stack("ic2:alloy", 1));
+                enhPrimBlocked.setItem(PrimitiveMintMachineBlockEntity.SLOT_INPUT_0, TyC2Native.stack("mhera:alloy", 1));
                 enhPrimBlocked.setItem(PrimitiveMintMachineBlockEntity.SLOT_INPUT_1, new ItemStack(Items.GOLD_INGOT, 1));
 
                 // 3d. Verify pure-electric Mint discharges IC2 single_use_battery in Slot 3 & mints IC2 tin_ingot -> ic2:coin!
                 level.setBlockAndUpdate(enhBatteryMintPos, TyC2Registries.MINT_MACHINE_BLOCK.get().defaultBlockState());
                 MintMachineBlockEntity battMint = (MintMachineBlockEntity) level.getBlockEntity(enhBatteryMintPos);
-                battMint.setItem(MintMachineBlockEntity.SLOT_BATTERY, TyC2Native.stack("ic2:single_use_battery", 1));
-                battMint.setItem(MintMachineBlockEntity.SLOT_INPUT_0, TyC2Native.stack("ic2:tin_ingot", 1));
+                battMint.setItem(MintMachineBlockEntity.SLOT_BATTERY, TyC2Native.stack("mhera:single_use_battery", 1));
+                battMint.setItem(MintMachineBlockEntity.SLOT_INPUT_0, TyC2Native.stack("mhera:tin_ingot", 1));
 
                 // 3e. Verify pure-electric Mint mints IC2 Endgame 1000x (ic2:iridium + ic2:alloy -> tyc2:coin_1000)!
                 level.setBlockAndUpdate(enhIridiumMintPos, TyC2Registries.MINT_MACHINE_BLOCK.get().defaultBlockState());
                 MintMachineBlockEntity iridMint = (MintMachineBlockEntity) level.getBlockEntity(enhIridiumMintPos);
-                iridMint.setItem(MintMachineBlockEntity.SLOT_INPUT_0, TyC2Native.stack("ic2:iridium", 1));
-                iridMint.setItem(MintMachineBlockEntity.SLOT_INPUT_1, TyC2Native.stack("ic2:alloy", 1));
+                iridMint.setItem(MintMachineBlockEntity.SLOT_INPUT_0, TyC2Native.stack("mhera:iridium", 1));
+                iridMint.setItem(MintMachineBlockEntity.SLOT_INPUT_1, TyC2Native.stack("mhera:alloy", 1));
 
                 // 4. Test Ic2PortableGearMixin: Generator -> Cable -> BatBox charging empty tyc2:comm_terminal!
-                TyC2QaChecks.survivalPlace(level, playerA, "ic2:generator", ic2GenBatPos);
-                TyC2QaChecks.survivalPlace(level, playerA, "ic2:batbox", ic2BatBoxPos);
-                TyC2QaChecks.survivalPlace(level, playerA, "ic2:insulated_copper_cable", ic2CableBatPos);
+                TyC2QaChecks.survivalPlace(level, playerA, "mhera:generator", ic2GenBatPos);
+                TyC2QaChecks.survivalPlace(level, playerA, "mhera:batbox", ic2BatBoxPos);
+                TyC2QaChecks.survivalPlace(level, playerA, "mhera:insulated_copper_cable", ic2CableBatPos);
                 Container genBat = (Container) level.getBlockEntity(ic2GenBatPos);
                 Container batBox = (Container) level.getBlockEntity(ic2BatBoxPos);
                 checks.check("ic2.batbox_present", genBat != null && batBox != null);
@@ -1800,7 +1800,7 @@ public final class TyC2QaHarness {
                         CooperationHubBlockEntity.LOCAL_SLOT_UPGRADE_0,
                         TyC2Native.stack(TyC2Constants.ITEM_LC2_CHUNK_LOADER, 1)
                 );
-                level.setBlockAndUpdate(enhancedLc2StationPos, TyC2QaChecks.block("lc2:cargo_station").defaultBlockState());
+                level.setBlockAndUpdate(enhancedLc2StationPos, TyC2QaChecks.block("trera:cargo_station").defaultBlockState());
 
                 // 6. Test ATM accepts BOTH ic2:coin AND tyc2:coin_1 at 1:1!
                 level.setBlockAndUpdate(atmPos, TyC2Registries.ATM_MACHINE_BLOCK.get().defaultBlockState());
@@ -1809,14 +1809,14 @@ public final class TyC2QaHarness {
                 playerA.containerMenu = new AtmMachineMenu(
                         30, playerA.getInventory(), atm, new SimpleContainerData(AtmMachineBlockEntity.DATA_COUNT)
                 );
-                atm.setItem(AtmMachineBlockEntity.SLOT_DEPOSIT, TyC2Native.stack("ic2:coin", 5));
+                atm.setItem(AtmMachineBlockEntity.SLOT_DEPOSIT, TyC2Native.stack("mhera:coin", 5));
                 TyC2WorldManager.handleActionPayload(playerA, level,
                         new TyC2ActionPayload("ATM", atmPos, "DEPOSIT_SLOT", "{}"));
                 atm.setItem(AtmMachineBlockEntity.SLOT_DEPOSIT, new ItemStack(TyC2Registries.COIN_1.get(), 3));
                 TyC2WorldManager.handleActionPayload(playerA, level,
                         new TyC2ActionPayload("ATM", atmPos, "DEPOSIT_SLOT", "{}"));
                 long bal = TyC2WorldManager.getData(level).bank().getOrCreatePersonal(PLAYER_A_UUID, "TycoonAlice").balance();
-                checks.check("ic2.atm_accepts_ic2_coin_and_tyc2_coin1_1to1", bal == 8L, "bal=" + bal);
+                checks.check("ic2.atm_accepts_ic2_coin_and_mnera_coin1_1to1", bal == 8L, "bal=" + bal);
 
                 stage = 1;
                 stageStartTick = ticks;
@@ -1846,10 +1846,10 @@ public final class TyC2QaHarness {
                         && termEu > 0 && chunkActive) {
                     checks.check("ic2.mint_received_eu_over_cable", true, "storedEu=" + mint.storedEu());
                     checks.check("ic2.mint_outputs_canonical_ic2_coin",
-                            "ic2:coin".equals(TyC2Native.itemId(mintedOut)) && mintedOut.getCount() == 2,
+                            "mhera:coin".equals(TyC2Native.itemId(mintedOut)) && mintedOut.getCount() == 2,
                             "out=" + TyC2Native.itemId(mintedOut) + " x" + mintedOut.getCount());
                     checks.check("ic2.primitive_mint_outputs_canonical_ic2_coin",
-                            "ic2:coin".equals(TyC2Native.itemId(primOut)) && primOut.getCount() == 2,
+                            "mhera:coin".equals(TyC2Native.itemId(primOut)) && primOut.getCount() == 2,
                             "out=" + TyC2Native.itemId(primOut) + " x" + primOut.getCount());
                     checks.check("ic2.primitive_mint_blocks_ic2_alloy",
                             enhPrimBlocked.isBlockedByIndustrialTier()
@@ -1858,11 +1858,11 @@ public final class TyC2QaHarness {
                             "blocked=" + enhPrimBlocked.isBlockedByIndustrialTier()
                                     + ", prog=" + enhPrimBlocked.progress());
                     checks.check("ic2.mint_battery_discharge_and_tin_recipe",
-                            "ic2:coin".equals(TyC2Native.itemId(battOut)) && battOut.getCount() == 2,
+                            "mhera:coin".equals(TyC2Native.itemId(battOut)) && battOut.getCount() == 2,
                             "out=" + TyC2Native.itemId(battOut) + " x" + battOut.getCount()
                                     + ", storedEu=" + battMint.storedEu());
                     checks.check("ic2.mint_iridium_alloy_1000x",
-                            "tyc2:coin_1000".equals(TyC2Native.itemId(iridOut)) && iridOut.getCount() == 1,
+                            "mnera:coin_1000".equals(TyC2Native.itemId(iridOut)) && iridOut.getCount() == 1,
                             "out=" + TyC2Native.itemId(iridOut) + " x" + iridOut.getCount());
                     checks.check("mixin.ic2_portable_gear_charges_comm_terminal",
                             termEu > 0, "terminalEu=" + termEu);
@@ -1899,7 +1899,7 @@ public final class TyC2QaHarness {
         checks.check("enhanced.read.hub_chunk_loader_rearmed",
                 hub != null && hub.hasChunkLoadingUpgrade() && hub.isChunkLoaderActive());
         checks.check("enhanced.read.mint_output_preserved",
-                mint != null && "ic2:coin".equals(TyC2Native.itemId(mint.getItem(MintMachineBlockEntity.SLOT_OUTPUT))));
+                mint != null && "mhera:coin".equals(TyC2Native.itemId(mint.getItem(MintMachineBlockEntity.SLOT_OUTPUT))));
         checks.check("enhanced.read.bank_preserved",
                 TyC2WorldManager.getData(level).bank().getOrCreatePersonal(PLAYER_A_UUID, "TycoonAlice").balance() == 8L);
         checks.check("enhanced.read.world_saved", server.saveEverything(false, true, true));

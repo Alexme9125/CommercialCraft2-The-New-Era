@@ -30,7 +30,7 @@ public final class MayorNegotiationScreen extends TyC2ScreenBase<MayorNegotiatio
     protected void init() {
         super.init();
         signBtn = addRenderableWidget(Button.builder(
-                Component.translatable("gui.tyc2.mayor.sign"),
+                Component.translatable("gui.mnera.mayor.sign"),
                 b -> TyC2Native.sendToServer(new TyC2ActionPayload(
                         "MAYOR",
                         menu.villagePos(),
@@ -40,7 +40,7 @@ public final class MayorNegotiationScreen extends TyC2ScreenBase<MayorNegotiatio
         ).bounds(leftPos + 42, topPos + 122, 108, 18).build());
 
         addRenderableWidget(Button.builder(
-                Component.translatable("gui.tyc2.cancel"),
+                Component.translatable("gui.mnera.cancel"),
                 b -> onClose()
         ).bounds(leftPos + 154, topPos + 122, 54, 18).build());
 
@@ -67,27 +67,27 @@ public final class MayorNegotiationScreen extends TyC2ScreenBase<MayorNegotiatio
 
         // Top Mayor Banner (8, 14, 204x34); crown is baked at (14, 23)
         canvas.drawClippedString(
-                Component.translatable("mayor.tyc2.name_format", name).getString(),
+                Component.translatable("mayor.mnera.name_format", name).getString(),
                 40, 17, 168, 0xFFFFE066
         );
         drawWrappedTwoLines(
                 canvas,
-                Component.translatable("gui.tyc2.mayor.greeting").getString(),
+                Component.translatable("gui.mnera.mayor.greeting").getString(),
                 40, 28, 168, 0.80F, 0xFFD0DCEB
         );
 
         // Left side of Contract Box (12..89, divider baked at x=92..93): Village Profile
         canvas.drawClippedString(
-                Component.translatable("gui.tyc2.mayor.village_info").getString(),
+                Component.translatable("gui.mnera.mayor.village_info").getString(),
                 12, 56, 78, 0xFF3A2D18
         );
         canvas.drawClippedString(name, 12, 68, 78, 0xFF202020);
         canvas.drawClippedString(
-                Component.translatable("biome.tyc2." + biome).getString(),
+                Component.translatable("biome.mnera." + biome).getString(),
                 12, 80, 78, 0xFF444444
         );
         canvas.drawClippedString(
-                Component.translatable("gui.tyc2.hub.population", pop).getString(),
+                Component.translatable("gui.mnera.hub.population", pop).getString(),
                 12, 92, 78, 0xFF2B5B34
         );
 
@@ -108,18 +108,18 @@ public final class MayorNegotiationScreen extends TyC2ScreenBase<MayorNegotiatio
         int haveFood = JsonLite.getInt(snap, "haveFood", 0);
         boolean foodOk = JsonLite.getBoolean(snap, "foodOk", false);
 
-        drawReqRow(canvas, 56, icOk, Component.translatable("gui.tyc2.mayor.req_currency", haveIc + "/" + reqIc).getString());
-        drawReqRow(canvas, 70, logsOk, Component.translatable("gui.tyc2.mayor.req_logs", haveLogs + "/" + reqLogs).getString());
-        drawReqRow(canvas, 84, ironOk, Component.translatable("gui.tyc2.mayor.req_iron", haveIron + "/" + reqIron).getString());
-        drawReqRow(canvas, 98, foodOk, Component.translatable("gui.tyc2.mayor.req_food", haveFood + "/" + reqFood).getString());
+        drawReqRow(canvas, 56, icOk, Component.translatable("gui.mnera.mayor.req_currency", haveIc + "/" + reqIc).getString());
+        drawReqRow(canvas, 70, logsOk, Component.translatable("gui.mnera.mayor.req_logs", haveLogs + "/" + reqLogs).getString());
+        drawReqRow(canvas, 84, ironOk, Component.translatable("gui.mnera.mayor.req_iron", haveIron + "/" + reqIron).getString());
+        drawReqRow(canvas, 98, foodOk, Component.translatable("gui.mnera.mayor.req_food", haveFood + "/" + reqFood).getString());
 
         // Action Bar Wax Seal at (14, 121, 20x20) from UV (64, 196, 20x20)
         canvas.blit(GUI_TEX, 14, 121, 64, 196, 20, 20);
 
         // Benefits LCD (8, 148, 204x36): scale cleanly so all 3 localized lines fit with zero clipping
-        String b1 = Component.translatable("gui.tyc2.mayor.benefits.line1").getString();
-        String b2 = Component.translatable("gui.tyc2.mayor.benefits.line2").getString();
-        String b3 = Component.translatable("gui.tyc2.mayor.benefits.line3").getString();
+        String b1 = Component.translatable("gui.mnera.mayor.benefits.line1").getString();
+        String b2 = Component.translatable("gui.mnera.mayor.benefits.line2").getString();
+        String b3 = Component.translatable("gui.mnera.mayor.benefits.line3").getString();
         int maxBenW = Math.max(canvas.textWidth(b1), Math.max(canvas.textWidth(b2), canvas.textWidth(b3)));
         float benScale = maxBenW <= 194 ? 1.0F : Math.max(0.55F, Math.min(0.82F, 194.0F / (float) maxBenW));
         canvas.drawScaledString(b1, 12, 153, 196, benScale, 0xFF8BE8B0);

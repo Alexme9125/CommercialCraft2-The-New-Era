@@ -416,7 +416,7 @@ public class MintMachineBlockEntity extends BlockEntity implements WorldlyContai
             return;
         }
         if (!Ic2Bridge.matchesUpgradeFilter(
-                upgradeList(), "ic2:ejector_upgrade", "ic2:advanced_ejector_upgrade", out)) {
+                upgradeList(), "mhera:ejector_upgrade", "mhera:advanced_ejector_upgrade", out)) {
             return;
         }
         List<Direction> faces = collectUpgradeFaces(true);
@@ -450,7 +450,7 @@ public class MintMachineBlockEntity extends BlockEntity implements WorldlyContai
                 s -> TyC2RuntimeData.mintRecipes().isValidInputItem(
                         TyC2Ids.itemId(s), TyC2Ids.ITEM_TAG_MATCHER, ModList.get()::isLoaded
                 ) && Ic2Bridge.matchesUpgradeFilter(
-                        upgs, "ic2:pulling_upgrade", "ic2:advanced_pulling_upgrade", s
+                        upgs, "mhera:pulling_upgrade", "mhera:advanced_pulling_upgrade", s
                 ),
                 be -> be != this,
                 this::freeInputCapacity,
@@ -504,8 +504,8 @@ public class MintMachineBlockEntity extends BlockEntity implements WorldlyContai
             ItemStack st = items.get(SLOT_UPGRADE_START + i);
             String id = TyC2Ids.itemId(st);
             boolean match = ejector
-                    ? ("ic2:ejector_upgrade".equals(id) || "ic2:advanced_ejector_upgrade".equals(id))
-                    : ("ic2:pulling_upgrade".equals(id) || "ic2:advanced_pulling_upgrade".equals(id));
+                    ? ("mhera:ejector_upgrade".equals(id) || "mhera:advanced_ejector_upgrade".equals(id))
+                    : ("mhera:pulling_upgrade".equals(id) || "mhera:advanced_pulling_upgrade".equals(id));
             if (match) {
                 faces.addAll(Ic2Bridge.resolveUpgradeFaces(st));
             }
@@ -589,11 +589,11 @@ public class MintMachineBlockEntity extends BlockEntity implements WorldlyContai
             }
             String id = TyC2Ids.itemId(st);
             switch (id) {
-                case "ic2:overclocker_upgrade" -> oc += st.getCount();
-                case "ic2:transformer_upgrade" -> tf += st.getCount();
-                case "ic2:energy_storage_upgrade" -> es += st.getCount();
-                case "ic2:ejector_upgrade", "ic2:advanced_ejector_upgrade" -> ej = true;
-                case "ic2:pulling_upgrade", "ic2:advanced_pulling_upgrade" -> pu = true;
+                case "mhera:overclocker_upgrade" -> oc += st.getCount();
+                case "mhera:transformer_upgrade" -> tf += st.getCount();
+                case "mhera:energy_storage_upgrade" -> es += st.getCount();
+                case "mhera:ejector_upgrade", "mhera:advanced_ejector_upgrade" -> ej = true;
+                case "mhera:pulling_upgrade", "mhera:advanced_pulling_upgrade" -> pu = true;
                 default -> {
                 }
             }
@@ -790,7 +790,7 @@ public class MintMachineBlockEntity extends BlockEntity implements WorldlyContai
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.tyc2.mint_machine");
+        return Component.translatable("container.mnera.mint_machine");
     }
 
     @Override

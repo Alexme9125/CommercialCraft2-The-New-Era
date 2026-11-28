@@ -20,7 +20,7 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public abstract class TyC2BlockEntityBase extends BlockEntity {
 
-    private static final String KEY_TYC2_DATA = "tyc2";
+    private static final String KEY_TYC2_DATA = "mnera";
 
     protected TyC2BlockEntityBase(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);

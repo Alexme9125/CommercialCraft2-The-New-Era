@@ -27,7 +27,7 @@ public abstract class Ic2ProcessingRecipesMixin {
             return;
         }
         ProcessingMachine.Recipe recipe = cir.getReturnValue();
-        if (recipe != null && "ic2:coin".equals(recipe.output())) {
+        if (recipe != null && "mhera:coin".equals(recipe.output())) {
             cir.setReturnValue(null);
         }
     }

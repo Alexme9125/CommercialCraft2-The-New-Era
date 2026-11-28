@@ -98,7 +98,7 @@ public final class TyC2DataLoader {
         try {
             config = TyC2Config.loadOrCreate(configDir.resolve("general.json"));
         } catch (IOException ex) {
-            LOGGER.warn("Failed to load config/tyc2/general.json, using defaults: {}", ex.getMessage());
+            LOGGER.warn("Failed to load config/mnera/general.json, using defaults: {}", ex.getMessage());
             config = TyC2Config.defaults();
         }
 
@@ -161,7 +161,7 @@ public final class TyC2DataLoader {
         try {
             config = TyC2Config.loadOrCreate(configDir.resolve("general.json"));
         } catch (IOException ex) {
-            LOGGER.warn("Failed to reload config/tyc2/general.json: {}", ex.getMessage());
+            LOGGER.warn("Failed to reload config/mnera/general.json: {}", ex.getMessage());
         }
 
         if (stagingWorkplaces == null) {
@@ -195,17 +195,17 @@ public final class TyC2DataLoader {
         try {
             recipes.loadExternalConfig(configDir.resolve("custom_mint_recipes.json"), true);
         } catch (Exception ex) {
-            LOGGER.warn("Failed to load config/tyc2/custom_mint_recipes.json: {}", ex.getMessage());
+            LOGGER.warn("Failed to load config/mnera/custom_mint_recipes.json: {}", ex.getMessage());
         }
         try {
             goods.loadExternalConfig(configDir.resolve("custom_goods.json"), true);
         } catch (Exception ex) {
-            LOGGER.warn("Failed to load config/tyc2/custom_goods.json: {}", ex.getMessage());
+            LOGGER.warn("Failed to load config/mnera/custom_goods.json: {}", ex.getMessage());
         }
         try {
             workplaces.loadExternalConfig(configDir.resolve("custom_workplaces.json"), true);
         } catch (Exception ex) {
-            LOGGER.warn("Failed to load config/tyc2/custom_workplaces.json: {}", ex.getMessage());
+            LOGGER.warn("Failed to load config/mnera/custom_workplaces.json: {}", ex.getMessage());
         }
     }
 
@@ -253,6 +253,6 @@ public final class TyC2DataLoader {
     }
 
     private static Path configDirectory() {
-        return FMLPaths.CONFIGDIR.get().resolve("tyc2");
+        return FMLPaths.CONFIGDIR.get().resolve("mnera");
     }
 }

@@ -60,46 +60,46 @@ public final class MintRecipeRegistry {
      */
     public void registerBuiltInDefaults() {
         // 1x denomination
-        register(single("tyc2:mint_copper_1", "#ingots/copper", 1, CurrencyDenomination.X1, 2, 300, 60, null, true));
-        register(single("tyc2:mint_tin_1", "#ingots/tin", 1, CurrencyDenomination.X1, 2, 300, 60, null, false));
+        register(single("mnera:mint_copper_1", "#ingots/copper", 1, CurrencyDenomination.X1, 2, 300, 60, null, true));
+        register(single("mnera:mint_tin_1", "#ingots/tin", 1, CurrencyDenomination.X1, 2, 300, 60, null, false));
 
         // 5x denomination
-        register(single("tyc2:mint_iron_5", "#ingots/iron", 1, CurrencyDenomination.X5, 1, 400, 80, null, true));
-        register(dual("tyc2:mint_copper_tin_5", "#ingots/copper", 1, "#ingots/tin", 1, CurrencyDenomination.X5, 2, 500, 80, null, false));
+        register(single("mnera:mint_iron_5", "#ingots/iron", 1, CurrencyDenomination.X5, 1, 400, 80, null, true));
+        register(dual("mnera:mint_copper_tin_5", "#ingots/copper", 1, "#ingots/tin", 1, CurrencyDenomination.X5, 2, 500, 80, null, false));
 
         // 10x denomination
-        register(single("tyc2:mint_bronze_10", "#ingots/bronze", 1, CurrencyDenomination.X10, 1, 600, 100, null, false));
-        register(dual("tyc2:mint_iron_pair_10", "#ingots/iron", 1, "#ingots/iron", 1, CurrencyDenomination.X10, 1, 600, 100, null, true));
+        register(single("mnera:mint_bronze_10", "#ingots/bronze", 1, CurrencyDenomination.X10, 1, 600, 100, null, false));
+        register(dual("mnera:mint_iron_pair_10", "#ingots/iron", 1, "#ingots/iron", 1, CurrencyDenomination.X10, 1, 600, 100, null, true));
 
         // 20x denomination
-        register(single("tyc2:mint_silver_20", "#ingots/silver", 1, CurrencyDenomination.X20, 1, 800, 100, null, false));
-        register(single("tyc2:mint_gold_20", "#ingots/gold", 1, CurrencyDenomination.X20, 1, 800, 100, null, true));
-        register(single("tyc2:mint_steel_20", "#ingots/steel", 1, CurrencyDenomination.X20, 1, 800, 100, null, false));
-        register(single("tyc2:mint_refined_iron_20", "ic2:refined_iron_ingot", 1, CurrencyDenomination.X20, 1, 800, 100, "ic2", false));
+        register(single("mnera:mint_silver_20", "#ingots/silver", 1, CurrencyDenomination.X20, 1, 800, 100, null, false));
+        register(single("mnera:mint_gold_20", "#ingots/gold", 1, CurrencyDenomination.X20, 1, 800, 100, null, true));
+        register(single("mnera:mint_steel_20", "#ingots/steel", 1, CurrencyDenomination.X20, 1, 800, 100, null, false));
+        register(single("mnera:mint_refined_iron_20", "mhera:refined_iron_ingot", 1, CurrencyDenomination.X20, 1, 800, 100, "mhera", false));
 
         // 50x denomination
-        register(dual("tyc2:mint_gold_iron_50", "#ingots/gold", 1, "#ingots/iron", 1, CurrencyDenomination.X50, 1, 1200, 120, null, true));
-        register(dual("tyc2:mint_gold_steel_50", "#ingots/gold", 1, "#ingots/steel", 1, CurrencyDenomination.X50, 1, 1200, 120, null, false));
-        register(dual("tyc2:mint_gold_silver_50", "#ingots/gold", 1, "#ingots/silver", 1, CurrencyDenomination.X50, 1, 1200, 120, null, false));
-        register(dual("tyc2:mint_gold_refined_iron_50", "#ingots/gold", 1, "ic2:refined_iron_ingot", 1, CurrencyDenomination.X50, 1, 1200, 120, "ic2", false));
+        register(dual("mnera:mint_gold_iron_50", "#ingots/gold", 1, "#ingots/iron", 1, CurrencyDenomination.X50, 1, 1200, 120, null, true));
+        register(dual("mnera:mint_gold_steel_50", "#ingots/gold", 1, "#ingots/steel", 1, CurrencyDenomination.X50, 1, 1200, 120, null, false));
+        register(dual("mnera:mint_gold_silver_50", "#ingots/gold", 1, "#ingots/silver", 1, CurrencyDenomination.X50, 1, 1200, 120, null, false));
+        register(dual("mnera:mint_gold_refined_iron_50", "#ingots/gold", 1, "mhera:refined_iron_ingot", 1, CurrencyDenomination.X50, 1, 1200, 120, "mhera", false));
 
         // 100x denomination
-        register(dual("tyc2:mint_gold_emerald_100", "#ingots/gold", 2, "#gems/emerald", 1, CurrencyDenomination.X100, 1, 1800, 140, null, true));
-        register(dual("tyc2:mint_alloy_gold_100", "ic2:alloy", 1, "#ingots/gold", 1, CurrencyDenomination.X100, 1, 1800, 140, "ic2", false));
-        register(dual("tyc2:mint_mixed_metal_gold_100", "ic2:mixed_metal_ingot", 1, "#ingots/gold", 1, CurrencyDenomination.X100, 1, 1800, 140, "ic2", false));
+        register(dual("mnera:mint_gold_emerald_100", "#ingots/gold", 2, "#gems/emerald", 1, CurrencyDenomination.X100, 1, 1800, 140, null, true));
+        register(dual("mnera:mint_alloy_gold_100", "mhera:alloy", 1, "#ingots/gold", 1, CurrencyDenomination.X100, 1, 1800, 140, "mhera", false));
+        register(dual("mnera:mint_mixed_metal_gold_100", "mhera:mixed_metal_ingot", 1, "#ingots/gold", 1, CurrencyDenomination.X100, 1, 1800, 140, "mhera", false));
 
         // 200x denomination (Industrial Mint only)
-        register(dual("tyc2:mint_diamond_gold_200", "#gems/diamond", 1, "#ingots/gold", 2, CurrencyDenomination.X200, 1, 2500, 160, null, false));
-        register(dual("tyc2:mint_alloy_diamond_200", "ic2:alloy", 2, "#gems/diamond", 1, CurrencyDenomination.X200, 1, 2500, 160, "ic2", false));
+        register(dual("mnera:mint_diamond_gold_200", "#gems/diamond", 1, "#ingots/gold", 2, CurrencyDenomination.X200, 1, 2500, 160, null, false));
+        register(dual("mnera:mint_alloy_diamond_200", "mhera:alloy", 2, "#gems/diamond", 1, CurrencyDenomination.X200, 1, 2500, 160, "mhera", false));
 
         // 500x denomination (Industrial Mint only)
-        register(dual("tyc2:mint_netherite_scrap_gold_500", "minecraft:netherite_scrap", 1, "#ingots/gold", 2, CurrencyDenomination.X500, 1, 4000, 200, null, false));
-        register(single("tyc2:mint_netherite_ingot_500", "#ingots/netherite", 1, CurrencyDenomination.X500, 2, 4000, 200, null, false));
+        register(dual("mnera:mint_netherite_scrap_gold_500", "minecraft:netherite_scrap", 1, "#ingots/gold", 2, CurrencyDenomination.X500, 1, 4000, 200, null, false));
+        register(single("mnera:mint_netherite_ingot_500", "#ingots/netherite", 1, CurrencyDenomination.X500, 2, 4000, 200, null, false));
 
         // 1000x denomination (Industrial Mint only)
-        register(dual("tyc2:mint_netherite_diamond_1000", "#ingots/netherite", 1, "#gems/diamond", 1, CurrencyDenomination.X1000, 1, 6000, 240, null, false));
-        register(dual("tyc2:mint_iridium_alloy_1000", "#ingots/iridium", 1, "ic2:alloy", 1, CurrencyDenomination.X1000, 1, 6000, 240, "ic2", false));
-        register(dual("tyc2:mint_iridium_ore_alloy_1000", "ic2:iridium_ore", 1, "ic2:alloy", 1, CurrencyDenomination.X1000, 1, 6000, 240, "ic2", false));
+        register(dual("mnera:mint_netherite_diamond_1000", "#ingots/netherite", 1, "#gems/diamond", 1, CurrencyDenomination.X1000, 1, 6000, 240, null, false));
+        register(dual("mnera:mint_iridium_alloy_1000", "#ingots/iridium", 1, "mhera:alloy", 1, CurrencyDenomination.X1000, 1, 6000, 240, "mhera", false));
+        register(dual("mnera:mint_iridium_ore_alloy_1000", "mhera:iridium_ore", 1, "mhera:alloy", 1, CurrencyDenomination.X1000, 1, 6000, 240, "mhera", false));
     }
 
     private static MintRecipe single(

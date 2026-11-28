@@ -136,7 +136,7 @@ public class CooperationHubBlock extends Block implements EntityBlock {
                 serverLevel.removeBlock(pos, false);
                 if (placer instanceof ServerPlayer sp) {
                     sp.displayClientMessage(
-                            Component.translatable("status.tyc2.hub.protected").withStyle(ChatFormatting.RED),
+                            Component.translatable("status.mnera.hub.protected").withStyle(ChatFormatting.RED),
                             true
                     );
                 }
@@ -159,7 +159,7 @@ public class CooperationHubBlock extends Block implements EntityBlock {
                     serverLevel.removeBlock(pos, false);
                     if (placer instanceof ServerPlayer sp) {
                         sp.displayClientMessage(
-                                Component.translatable("status.tyc2.hub.protected").withStyle(ChatFormatting.RED),
+                                Component.translatable("status.mnera.hub.protected").withStyle(ChatFormatting.RED),
                                 true
                         );
                     }
@@ -173,7 +173,7 @@ public class CooperationHubBlock extends Block implements EntityBlock {
                 serverLevel.removeBlock(pos, false);
                 if (placer instanceof ServerPlayer sp) {
                     sp.displayClientMessage(
-                            Component.translatable("status.tyc2.hub.wrong_dimension").withStyle(ChatFormatting.RED),
+                            Component.translatable("status.mnera.hub.wrong_dimension").withStyle(ChatFormatting.RED),
                             true
                     );
                     if (!sp.isCreative()) {

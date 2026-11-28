@@ -128,10 +128,10 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         // Top 4 Tabs seated precisely inside (8, 4, 232x16) matching baked separators at x=65, 123, 181.
         // Indices 0..3 stay visible & active at all times for live QA button index compatibility.
         String[] tabKeys = {
-                "gui.tyc2.hub.tab.orders",
-                "gui.tyc2.hub.tab.warehouse",
-                "gui.tyc2.hub.tab.economy",
-                "gui.tyc2.hub.tab.growth"
+                "gui.mnera.hub.tab.orders",
+                "gui.mnera.hub.tab.warehouse",
+                "gui.mnera.hub.tab.economy",
+                "gui.mnera.hub.tab.growth"
         };
         int[] tabX = {9, 66, 124, 182};
         int[] tabW = {56, 57, 57, 57};
@@ -185,14 +185,14 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
             addStyledButton(
                     leftPos + 206, topPos + 50, 14, 12,
-                    Component.translatable("gui.tyc2.prev"),
+                    Component.translatable("gui.mnera.prev"),
                     TyC2Theme.ButtonStyle.HUB_ACTION,
                     b -> orderPage = Math.max(0, orderPage - 1)
             );
 
             addStyledButton(
                     leftPos + 222, topPos + 50, 14, 12,
-                    Component.translatable("gui.tyc2.next"),
+                    Component.translatable("gui.mnera.next"),
                     TyC2Theme.ButtonStyle.HUB_ACTION,
                     b -> {
                         int maxPage = Math.max(0, (filteredOrders().size() - 1) / ORDERS_PER_PAGE);
@@ -205,14 +205,14 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             boolean isOut = "OUTBOUND".equals(whZone);
             whZoneBtn = addStyledButton(
                     leftPos + 10, topPos + 50, 54, 12,
-                    Component.translatable(isOut ? "gui.tyc2.hub.zone.outbound" : "gui.tyc2.hub.zone.inbound"),
+                    Component.translatable(isOut ? "gui.mnera.hub.zone.outbound" : "gui.mnera.hub.zone.inbound"),
                     isOut ? TyC2Theme.ButtonStyle.HUB_BUY : TyC2Theme.ButtonStyle.HUB_PRIMARY,
                     b -> {
                         whZone = "OUTBOUND".equals(whZone) ? "INBOUND" : "OUTBOUND";
                         whPage = 0;
                         boolean out = "OUTBOUND".equals(whZone);
                         b.setMessage(Component.translatable(
-                                out ? "gui.tyc2.hub.zone.outbound" : "gui.tyc2.hub.zone.inbound"
+                                out ? "gui.mnera.hub.zone.outbound" : "gui.mnera.hub.zone.inbound"
                         ));
                         whZoneBtn.setStyle(out ? TyC2Theme.ButtonStyle.HUB_BUY : TyC2Theme.ButtonStyle.HUB_PRIMARY);
                         requestSync();
@@ -221,7 +221,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
             searchInput = addTrackedEditBox(new EditBox(
                     font, leftPos + 66, topPos + 50, 74, 12,
-                    Component.translatable("gui.tyc2.hub.search_placeholder")
+                    Component.translatable("gui.mnera.hub.search_placeholder")
             ));
             searchInput.setMaxLength(32);
             searchInput.setValue(whSearch);
@@ -234,14 +234,14 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
             addStyledButton(
                     leftPos + 142, topPos + 50, 32, 12,
-                    Component.translatable("gui.tyc2.hub.btn.put"),
+                    Component.translatable("gui.mnera.hub.btn.put"),
                     TyC2Theme.ButtonStyle.HUB_ACTION,
                     b -> sendAction("WAREHOUSE_DEPOSIT_INV", viewArgs())
             );
 
             addStyledButton(
                     leftPos + 178, topPos + 50, 14, 12,
-                    Component.translatable("gui.tyc2.prev"),
+                    Component.translatable("gui.mnera.prev"),
                     TyC2Theme.ButtonStyle.HUB_ACTION,
                     b -> {
                         if (whPage > 0) {
@@ -253,7 +253,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
             addStyledButton(
                     leftPos + 222, topPos + 50, 14, 12,
-                    Component.translatable("gui.tyc2.next"),
+                    Component.translatable("gui.mnera.next"),
                     TyC2Theme.ButtonStyle.HUB_ACTION,
                     b -> {
                         int total = Math.max(1, JsonLite.getInt(menu.snapshot(), "whTotalPages", 1));
@@ -268,7 +268,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             // Sub-toggle: 0=Expansion, 1=Aid, 2=Settings
             addStyledButton(
                     leftPos + 10, topPos + 49, 44, 12,
-                    Component.translatable("gui.tyc2.hub.tab.expansion"),
+                    Component.translatable("gui.mnera.hub.tab.expansion"),
                     TyC2Theme.ButtonStyle.HUB_SUBTAB,
                     b -> {
                         growthSubTab = 0;
@@ -278,7 +278,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
             addStyledButton(
                     leftPos + 56, topPos + 49, 44, 12,
-                    Component.translatable("gui.tyc2.hub.tab.aid"),
+                    Component.translatable("gui.mnera.hub.tab.aid"),
                     TyC2Theme.ButtonStyle.HUB_SUBTAB,
                     b -> {
                         growthSubTab = 1;
@@ -289,7 +289,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
             addStyledButton(
                     leftPos + 102, topPos + 49, 44, 12,
-                    Component.translatable("gui.tyc2.hub.tab.settings"),
+                    Component.translatable("gui.mnera.hub.tab.settings"),
                     TyC2Theme.ButtonStyle.HUB_SUBTAB,
                     b -> {
                         growthSubTab = 2;
@@ -300,40 +300,40 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             if (growthSubTab == 0) {
                 addStyledButton(
                         leftPos + 152, topPos + 49, 84, 12,
-                        Component.translatable("gui.tyc2.hub.upgrade_btn"),
+                        Component.translatable("gui.mnera.hub.upgrade_btn"),
                         TyC2Theme.ButtonStyle.HUB_PRIMARY,
                         b -> sendAction("UPGRADE_VILLAGE", viewArgs())
                 );
 
                 addStyledButton(
                         leftPos + 10, topPos + 118, 86, 13,
-                        Component.translatable("gui.tyc2.expansion.deliver"),
+                        Component.translatable("gui.mnera.expansion.deliver"),
                         TyC2Theme.ButtonStyle.HUB_PRIMARY,
                         b -> sendAction("DELIVER_EXPANSION", viewArgs())
                 );
 
                 expAutoBtn = addStyledButton(
                         leftPos + 98, topPos + 118, 62, 13,
-                        Component.translatable("gui.tyc2.hub.auto_short.off"),
+                        Component.translatable("gui.mnera.hub.auto_short.off"),
                         TyC2Theme.ButtonStyle.HUB_ACTION,
                         b -> sendAction("TOGGLE_EXPANSION_AUTO", viewArgs())
                 );
 
                 expPauseBtn = addStyledButton(
                         leftPos + 162, topPos + 118, 74, 13,
-                        Component.translatable("gui.tyc2.hub.pause_btn"),
+                        Component.translatable("gui.mnera.hub.pause_btn"),
                         TyC2Theme.ButtonStyle.HUB_ACTION,
                         b -> sendAction("TOGGLE_PAUSE_EXPANSION", viewArgs())
                 );
             } else if (growthSubTab == 1) {
                 aidCashBtn = addStyledButton(
                         leftPos + 152, topPos + 49, 84, 12,
-                        Component.translatable(cashMode ? "gui.tyc2.hub.cash_mode" : "gui.tyc2.hub.bank_mode"),
+                        Component.translatable(cashMode ? "gui.mnera.hub.cash_mode" : "gui.mnera.hub.bank_mode"),
                         cashMode ? TyC2Theme.ButtonStyle.HUB_BUY : TyC2Theme.ButtonStyle.HUB_ACTION,
                         b -> {
                             cashMode = !cashMode;
                             b.setMessage(Component.translatable(
-                                    cashMode ? "gui.tyc2.hub.cash_mode" : "gui.tyc2.hub.bank_mode"
+                                    cashMode ? "gui.mnera.hub.cash_mode" : "gui.mnera.hub.bank_mode"
                             ));
                             aidCashBtn.setStyle(cashMode ? TyC2Theme.ButtonStyle.HUB_BUY : TyC2Theme.ButtonStyle.HUB_ACTION);
                         }
@@ -341,7 +341,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
                 addStyledButton(
                         leftPos + 10, topPos + 63, 13, 14,
-                        Component.translatable("gui.tyc2.prev"),
+                        Component.translatable("gui.mnera.prev"),
                         TyC2Theme.ButtonStyle.HUB_ACTION,
                         b -> {
                             int total = availableWorkplaces(menu.snapshot()).size();
@@ -353,7 +353,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
                 addStyledButton(
                         leftPos + 107, topPos + 63, 13, 14,
-                        Component.translatable("gui.tyc2.next"),
+                        Component.translatable("gui.mnera.next"),
                         TyC2Theme.ButtonStyle.HUB_ACTION,
                         b -> {
                             int total = availableWorkplaces(menu.snapshot()).size();
@@ -365,14 +365,14 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
                 aidSizeBtn = addStyledButton(
                         leftPos + 122, topPos + 63, 62, 14,
-                        Component.translatable(aidLarge ? "gui.tyc2.aid.size.large" : "gui.tyc2.aid.size.small"),
+                        Component.translatable(aidLarge ? "gui.mnera.aid.size.large" : "gui.mnera.aid.size.small"),
                         TyC2Theme.ButtonStyle.HUB_ACTION,
                         b -> aidLarge = !aidLarge
                 );
 
                 aidStartBtn = addStyledButton(
                         leftPos + 186, topPos + 63, 50, 14,
-                        Component.translatable("gui.tyc2.aid.start_btn"),
+                        Component.translatable("gui.mnera.aid.start_btn"),
                         TyC2Theme.ButtonStyle.HUB_PRIMARY,
                         b -> {
                             Map<String, Object> spec = selectedWorkplace(menu.snapshot());
@@ -388,7 +388,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             } else {
                 renameInput = addTrackedEditBox(new EditBox(
                         font, leftPos + 10, topPos + 66, 112, 12,
-                        Component.translatable("gui.tyc2.hub.rename_placeholder")
+                        Component.translatable("gui.mnera.hub.rename_placeholder")
                 ));
                 renameInput.setMaxLength(32);
                 renameInput.setValue(JsonLite.getString(menu.snapshot(), "villageName", ""));
@@ -396,7 +396,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
                 addStyledButton(
                         leftPos + 125, topPos + 66, 46, 12,
-                        Component.translatable("gui.tyc2.save"),
+                        Component.translatable("gui.mnera.save"),
                         TyC2Theme.ButtonStyle.HUB_PRIMARY,
                         b -> {
                             String val = renameInput.getValue().trim();
@@ -410,19 +410,19 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
                 addStyledButton(
                         leftPos + 10, topPos + 116, 108, 14,
-                        Component.translatable("gui.tyc2.hub.relocate"),
+                        Component.translatable("gui.mnera.hub.relocate"),
                         TyC2Theme.ButtonStyle.HUB_ACTION,
                         b -> sendAction("RELOCATE_HUB", viewArgs())
                 );
 
                 addStyledButton(
                         leftPos + 122, topPos + 116, 114, 14,
-                        Component.translatable("gui.tyc2.hub.terminate"),
+                        Component.translatable("gui.mnera.hub.terminate"),
                         TyC2Theme.ButtonStyle.HUB_DANGER,
                         b -> {
                             if (!terminateArmed) {
                                 terminateArmed = true;
-                                b.setMessage(Component.translatable("gui.tyc2.hub.terminate_confirm"));
+                                b.setMessage(Component.translatable("gui.mnera.hub.terminate_confirm"));
                             } else {
                                 terminateArmed = false;
                                 sendAction("TERMINATE_PARTNERSHIP", viewArgs());
@@ -461,20 +461,20 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             Map<String, Object> desire = JsonLite.asObject(snap.get("expansionDesire"));
             boolean auto = desire != null && JsonLite.getBoolean(desire, "autoFulfill", false);
             expAutoBtn.setMessage(Component.translatable(
-                    auto ? "gui.tyc2.hub.auto_short.on" : "gui.tyc2.hub.auto_short.off"
+                    auto ? "gui.mnera.hub.auto_short.on" : "gui.mnera.hub.auto_short.off"
             ));
             expAutoBtn.setSelected(auto);
         }
         if (expPauseBtn != null) {
             boolean paused = JsonLite.getBoolean(snap, "expansionPaused", false);
             expPauseBtn.setMessage(Component.translatable(
-                    paused ? "gui.tyc2.hub.resume_btn" : "gui.tyc2.hub.pause_btn"
+                    paused ? "gui.mnera.hub.resume_btn" : "gui.mnera.hub.pause_btn"
             ));
             expPauseBtn.setStyle(paused ? TyC2Theme.ButtonStyle.HUB_DANGER : TyC2Theme.ButtonStyle.HUB_ACTION);
         }
         if (aidCashBtn != null) {
             aidCashBtn.setMessage(Component.translatable(
-                    cashMode ? "gui.tyc2.hub.cash_mode" : "gui.tyc2.hub.bank_mode"
+                    cashMode ? "gui.mnera.hub.cash_mode" : "gui.mnera.hub.bank_mode"
             ));
             aidCashBtn.setStyle(cashMode ? TyC2Theme.ButtonStyle.HUB_BUY : TyC2Theme.ButtonStyle.HUB_ACTION);
         }
@@ -485,11 +485,11 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             boolean smallUnlocked = spec == null || JsonLite.getBoolean(spec, "smallUnlocked", true);
             if (aidSizeBtn != null) {
                 if (!aidLarge) {
-                    aidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.small"));
+                    aidSizeBtn.setMessage(Component.translatable("gui.mnera.aid.size.small"));
                 } else if (largeUnlocked) {
-                    aidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.large"));
+                    aidSizeBtn.setMessage(Component.translatable("gui.mnera.aid.size.large"));
                 } else {
-                    aidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.large_locked", minLvLarge));
+                    aidSizeBtn.setMessage(Component.translatable("gui.mnera.aid.size.large_locked", minLvLarge));
                 }
             }
             if (aidStartBtn != null) {
@@ -520,7 +520,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         canvas.blit(GUI_TEX, 12, 25, TyC2Theme.HUB_MAYOR_CROWN_U, TyC2Theme.HUB_SPRITE_V, 16, 16);
 
         // Line 1 right: Biome 10x10 emblem + compact localized biome pill (y=23..33, right edge x=189)
-        String biomeName = Component.translatable("biome.tyc2." + biomeKey).getString();
+        String biomeName = Component.translatable("biome.mnera." + biomeKey).getString();
         int biomeScaledW = Math.round(canvas.textWidth(biomeName) * 0.68F);
         bannerBiomeW = Math.max(30, Math.min(54, 13 + biomeScaledW + 3));
         bannerBiomeX = 189 - bannerBiomeW;
@@ -539,7 +539,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
         // Line 1 left: Village Name + golden Lv.X title (zero collision with biome pill)
         String lvlText = Component.translatable(
-                "gui.tyc2.hub.level", level, Component.translatable("level.tyc2." + level)
+                "gui.mnera.hub.level", level, Component.translatable("level.mnera." + level)
         ).getString();
         String titleLine = name.isEmpty() ? lvlText : (name + "  " + lvlText);
         TyC2Theme.drawFitString(canvas, titleLine, 30, 24, Math.max(40, bannerBiomeX - 33), 0.58F, TyC2Theme.GOLD_TEXT);
@@ -548,12 +548,12 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         if (depop) {
             TyC2Theme.drawFitString(
                     canvas,
-                    Component.translatable("gui.tyc2.hub.paused_depopulated").getString(),
+                    Component.translatable("gui.mnera.hub.paused_depopulated").getString(),
                     30, 35, 158, 0.56F, TyC2Theme.DANGER_TEXT
             );
         } else {
-            String stats = Component.translatable("gui.tyc2.hub.population", pop).getString()
-                    + " | " + Component.translatable("gui.tyc2.hub.village_funds", TyC2Theme.formatCompactNumber(funds)).getString()
+            String stats = Component.translatable("gui.mnera.hub.population", pop).getString()
+                    + " | " + Component.translatable("gui.mnera.hub.village_funds", TyC2Theme.formatCompactNumber(funds)).getString()
                     + (bonusActive ? " ★" : "");
             TyC2Theme.drawFitString(
                     canvas, stats, 30, 35, 101, 0.54F,
@@ -598,7 +598,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         if (orders.isEmpty()) {
             TyC2Theme.drawCenteredFitString(
                     canvas,
-                    Component.translatable("gui.tyc2.hub.no_orders").getString(),
+                    Component.translatable("gui.mnera.hub.no_orders").getString(),
                     14, 76, 220, 40, 0.70F, TyC2Theme.MUTED_TEXT
             );
             return;
@@ -646,12 +646,12 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             // Line 1: localized item name on left + inline Biome Specialty & Seasonal tag pills beside name
             String biomeLbl = biomeSpec
                     ? Component.translatable(
-                            villageSells ? "gui.tyc2.order.tag.biome_sell" : "gui.tyc2.order.tag.biome_buy"
+                            villageSells ? "gui.mnera.order.tag.biome_sell" : "gui.mnera.order.tag.biome_buy"
                     ).getString()
                     : "";
             String seasonLbl = seasonal
                     ? Component.translatable(
-                            villageSells ? "gui.tyc2.order.tag.season_sell" : "gui.tyc2.order.tag.season_buy"
+                            villageSells ? "gui.mnera.order.tag.season_sell" : "gui.mnera.order.tag.season_buy"
                     ).getString()
                     : "";
             int biomePillW = biomeSpec ? TyC2Theme.measureOrderTagPillWidth(canvas, biomeLbl, 0.56F) : 0;
@@ -675,7 +675,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                 );
                 orderTagTips.add(new TagTipRect(
                         tagCursorX, rowY + 1, biomePillW, 9,
-                        villageSells ? "gui.tyc2.order.tooltip.biome_sell" : "gui.tyc2.order.tooltip.biome_buy"
+                        villageSells ? "gui.mnera.order.tooltip.biome_sell" : "gui.mnera.order.tooltip.biome_buy"
                 ));
                 tagCursorX += biomePillW + 2;
             }
@@ -687,13 +687,13 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                 );
                 orderTagTips.add(new TagTipRect(
                         tagCursorX, rowY + 1, seasonPillW, 9,
-                        villageSells ? "gui.tyc2.order.tooltip.season_sell" : "gui.tyc2.order.tooltip.season_buy"
+                        villageSells ? "gui.mnera.order.tooltip.season_sell" : "gui.mnera.order.tooltip.season_buy"
                 ));
             }
 
             // Line 2: Progress on left + Unit price right-aligned
-            String progStr = Component.translatable("gui.tyc2.hub.order_progress", fulfilled, totalQty).getString();
-            String priceStr = Component.translatable("gui.tyc2.hub.unit_price", unitPrice).getString();
+            String progStr = Component.translatable("gui.mnera.hub.order_progress", fulfilled, totalQty).getString();
+            String priceStr = Component.translatable("gui.mnera.hub.unit_price", unitPrice).getString();
             int priceAlloc = Math.min(62, Math.max(42, (contentRight - 33) / 2));
             int progMaxW = Math.max(32, (contentRight - 33) - priceAlloc - 3);
             TyC2Theme.drawFitString(
@@ -717,8 +717,8 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             // Styled Buy/Deliver CTA button (184, rowY+3, 51x14)
             boolean hoverBtn = !done && pmx >= 184 && pmx < 235 && pmy >= rowY + 3 && pmy < rowY + 17;
             String btnLbl = done
-                    ? Component.translatable("gui.tyc2.confirm").getString()
-                    : Component.translatable(villageSells ? "gui.tyc2.hub.buy" : "gui.tyc2.hub.deliver").getString();
+                    ? Component.translatable("gui.mnera.confirm").getString()
+                    : Component.translatable(villageSells ? "gui.mnera.hub.buy" : "gui.mnera.hub.deliver").getString();
             TyC2Theme.drawBevelButtonBox(
                     canvas, 184, rowY + 3, 51, 14,
                     villageSells ? TyC2Theme.ButtonStyle.HUB_PRIMARY : TyC2Theme.ButtonStyle.HUB_BUY,
@@ -778,31 +778,31 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         canvas.outline(10, 50, 109, 83, 0xFF284059);
 
         int cpiColor = TyC2Theme.inflationColor(infl);
-        String inflText = Component.translatable("gui.tyc2.economy." + infl.toLowerCase(Locale.ROOT)).getString();
-        String cpiLine = Component.translatable("gui.tyc2.hub.status.cpi", String.format(Locale.ROOT, "%.2f", cpi)).getString()
+        String inflText = Component.translatable("gui.mnera.economy." + infl.toLowerCase(Locale.ROOT)).getString();
+        String cpiLine = Component.translatable("gui.mnera.hub.status.cpi", String.format(Locale.ROOT, "%.2f", cpi)).getString()
                 + " (" + inflText + ")";
         TyC2Theme.drawFitString(canvas, cpiLine, 13, 52, 103, 0.56F, cpiColor);
         canvas.fill(12, 61, 117, 62, 0xFF1A2C40);
 
         TyC2Theme.drawFitString(
                 canvas,
-                Component.translatable("gui.tyc2.economy.money_short", TyC2Theme.formatCompactNumber(money)).getString(),
+                Component.translatable("gui.mnera.economy.money_short", TyC2Theme.formatCompactNumber(money)).getString(),
                 13, 63, 103, 0.56F, 0xFFE2EFFA
         );
         TyC2Theme.drawFitString(
                 canvas,
-                Component.translatable("gui.tyc2.economy.goods_short", TyC2Theme.formatCompactNumber(goods)).getString(),
+                Component.translatable("gui.mnera.economy.goods_short", TyC2Theme.formatCompactNumber(goods)).getString(),
                 13, 73, 103, 0.56F, 0xFFE2EFFA
         );
         TyC2Theme.drawFitString(
                 canvas,
-                Component.translatable("gui.tyc2.economy.village_liquidity", String.format(Locale.ROOT, "%.2fx", liq)).getString(),
+                Component.translatable("gui.mnera.economy.village_liquidity", String.format(Locale.ROOT, "%.2fx", liq)).getString(),
                 13, 83, 103, 0.56F, 0xFFFFDF7F
         );
-        String envLine = Component.translatable("biome.tyc2." + biomeKey).getString()
-                + " · " + Component.translatable("season.tyc2." + season.toLowerCase(Locale.ROOT)).getString();
+        String envLine = Component.translatable("biome.mnera." + biomeKey).getString()
+                + " · " + Component.translatable("season.mnera." + season.toLowerCase(Locale.ROOT)).getString();
         TyC2Theme.drawFitString(canvas, envLine, 13, 93, 103, 0.56F, 0xFF9BE8FF);
-        TyC2Theme.drawFitString(canvas, Component.translatable("tier.tyc2." + tier).getString(), 13, 103, 103, 0.54F, 0xFFB8D4F0);
+        TyC2Theme.drawFitString(canvas, Component.translatable("tier.mnera." + tier).getString(), 13, 103, 103, 0.54F, 0xFFB8D4F0);
 
         int unempPct = JsonLite.getInt(snap, "unemploymentPct", 0);
         int unempCount = JsonLite.getInt(snap, "unemployedCount", 0);
@@ -813,19 +813,19 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
         TyC2Theme.drawFitString(
                 canvas,
-                Component.translatable("gui.tyc2.hub.unemployment", unempPct, unempCount, workforce).getString(),
+                Component.translatable("gui.mnera.hub.unemployment", unempPct, unempCount, workforce).getString(),
                 13, 113, 103, 0.52F, bonusActive ? TyC2Theme.MINT_TEXT : 0xFFE0ECF8
         );
         String bonusLine = bonusActive
-                ? Component.translatable("gui.tyc2.hub.unemployment_bonus", qtyPct).getString()
-                : Component.translatable("gui.tyc2.aid.bonus_inactive", thresholdPct).getString();
+                ? Component.translatable("gui.mnera.hub.unemployment_bonus", qtyPct).getString()
+                : Component.translatable("gui.mnera.aid.bonus_inactive", thresholdPct).getString();
         TyC2Theme.drawFitString(canvas, bonusLine, 13, 123, 103, 0.48F, bonusActive ? 0xFF56EC8B : TyC2Theme.MUTED_TEXT);
 
         // Right Chart Header + upgraded CPI Chart (122..237, 60..133)
-        String chartTitle = Component.translatable("gui.tyc2.economy.cpi_chart").getString();
+        String chartTitle = Component.translatable("gui.mnera.economy.cpi_chart").getString();
         TyC2Theme.drawFitString(canvas, chartTitle, 123, 51, 56, 0.62F, 0xFFB8D2EB);
         String restockStr = Component.translatable(
-                "gui.tyc2.hub.refresh_label", TyC2Theme.formatRestockCountdown(refreshRem)
+                "gui.mnera.hub.refresh_label", TyC2Theme.formatRestockCountdown(refreshRem)
         ).getString();
         TyC2Theme.drawRightFitString(canvas, restockStr, 237, 51, 56, 0.54F, 0xFFFFDF7A);
         CpiChartRenderer.drawChart(canvas, 122, 60, 115, 73, extractCpiHistory(snap), false);
@@ -846,7 +846,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             if (level >= 10) {
                 TyC2Theme.drawFitString(
                         canvas,
-                        Component.translatable("gui.tyc2.hub.max_level").getString(),
+                        Component.translatable("gui.mnera.hub.max_level").getString(),
                         14, 67, 219, 0.60F, TyC2Theme.GOLD_TEXT
                 );
             } else {
@@ -854,7 +854,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                 long reqVol = JsonLite.getLong(snap, "nextMinVol", 0L);
                 long reqBal = JsonLite.getLong(snap, "nextMinBal", 0L);
                 String reqLine = Component.translatable(
-                        "gui.tyc2.hub.upgrade_req",
+                        "gui.mnera.hub.upgrade_req",
                         pop + "/" + reqPop,
                         TyC2Theme.formatCompactNumber(vol) + "/" + TyC2Theme.formatCompactNumber(reqVol),
                         TyC2Theme.formatCompactNumber(bal) + "/" + TyC2Theme.formatCompactNumber(reqBal)
@@ -868,10 +868,10 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             if (build != null) {
                 String pType = JsonLite.getString(build, "projectType", "SMALL_COTTAGE").toLowerCase(Locale.ROOT);
                 int pct = Math.max(0, Math.min(100, JsonLite.getInt(build, "progressPct", 0)));
-                Component pName = Component.translatable("project.tyc2." + pType);
+                Component pName = Component.translatable("project.mnera." + pType);
                 TyC2Theme.drawFitString(
                         canvas,
-                        Component.translatable("gui.tyc2.expansion.building", pName, pct).getString(),
+                        Component.translatable("gui.mnera.expansion.building", pName, pct).getString(),
                         14, 79, 219, 0.60F, 0xFF64E8FF
                 );
                 canvas.fill(14, 92, 233, 102, 0xFF0A121C);
@@ -885,11 +885,11 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                 String pType = JsonLite.getString(desire, "projectType", "SMALL_COTTAGE").toLowerCase(Locale.ROOT);
                 long budget = JsonLite.getLong(desire, "budget", 0L);
                 boolean auto = JsonLite.getBoolean(desire, "autoFulfill", false);
-                Component pName = Component.translatable("project.tyc2." + pType);
+                Component pName = Component.translatable("project.mnera." + pType);
                 String autoTxt = Component.translatable(
-                        auto ? "gui.tyc2.hub.auto_short.on" : "gui.tyc2.hub.auto_short.off"
+                        auto ? "gui.mnera.hub.auto_short.on" : "gui.mnera.hub.auto_short.off"
                 ).getString();
-                String header = pName.getString() + " (" + budget + " IC) " + autoTxt;
+                String header = pName.getString() + " (" + budget + " UC) " + autoTxt;
                 TyC2Theme.drawFitString(canvas, header, 14, 78, 219, 0.58F, 0xFFFFE066);
                 Map<String, Object> req = JsonLite.asObject(desire.get("required"));
                 Map<String, Object> del = JsonLite.asObject(desire.get("delivered"));
@@ -911,7 +911,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             } else {
                 TyC2Theme.drawFitString(
                         canvas,
-                        Component.translatable("gui.tyc2.expansion.none").getString(),
+                        Component.translatable("gui.mnera.expansion.none").getString(),
                         14, 86, 219, 0.60F, TyC2Theme.MUTED_TEXT
                 );
             }
@@ -919,7 +919,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             boolean paused = JsonLite.getBoolean(snap, "expansionPaused", false);
             TyC2Theme.drawFitString(
                     canvas,
-                    Component.translatable(paused ? "gui.tyc2.expansion.pause.on" : "gui.tyc2.expansion.pause.off").getString(),
+                    Component.translatable(paused ? "gui.mnera.expansion.pause.on" : "gui.mnera.expansion.pause.off").getString(),
                     14, 106, 219, 0.56F, paused ? 0xFFFF8866 : 0xFF7BE89A
             );
         } else if (growthSubTab == 1) {
@@ -933,18 +933,18 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             int maxR = JsonLite.getInt(snap, "maxRadius", 64);
             TyC2Theme.drawFitString(
                     canvas,
-                    Component.translatable("gui.tyc2.expansion.radius", minR, maxR).getString(),
+                    Component.translatable("gui.mnera.expansion.radius", minR, maxR).getString(),
                     14, 84, 219, 0.60F, 0xFFAEC8E0
             );
 
             List<Object> stations = JsonLite.asArray(snap.get("lc2Stations"));
             String lc2Summary = (stations == null || stations.isEmpty())
-                    ? Component.translatable("gui.tyc2.terminal.no_lc2").getString()
+                    ? Component.translatable("gui.mnera.terminal.no_lc2").getString()
                     : Lc2SoftBridge.formatStationLabel(stations.get(0).toString())
                             + (stations.size() > 1 ? " (+" + (stations.size() - 1) + ")" : "");
             TyC2Theme.drawFitString(
                     canvas,
-                    Component.translatable("gui.tyc2.terminal.lc2_nearby", lc2Summary).getString(),
+                    Component.translatable("gui.mnera.terminal.lc2_nearby", lc2Summary).getString(),
                     14, 94, 219, 0.58F, 0xFF64E8FF
             );
 
@@ -952,7 +952,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             if (!canManage) {
                 TyC2Theme.drawFitString(
                         canvas,
-                        Component.translatable("status.tyc2.hub.not_owner").getString(),
+                        Component.translatable("status.mnera.hub.not_owner").getString(),
                         14, 104, 219, 0.56F, 0xFFFF8866
                 );
             }
@@ -982,14 +982,14 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             boolean unlocked = aidLarge
                     ? JsonLite.getBoolean(spec, "largeUnlocked", false)
                     : JsonLite.getBoolean(spec, "smallUnlocked", true);
-            String costLine = Component.translatable("gui.tyc2.aid.cost", cost).getString();
+            String costLine = Component.translatable("gui.mnera.aid.cost", cost).getString();
             TyC2Theme.drawFitString(canvas, costLine, 10, 79, 102, 0.56F, unlocked ? TyC2Theme.GOLD_TEXT : 0xFFFF7766);
         }
 
         double gatherMult = JsonLite.getDouble(snap, "gatherSpeedMult", 1.0);
         int unemployed = JsonLite.getInt(snap, "unemployedCount", 0);
         String rateLine = Component.translatable(
-                "gui.tyc2.aid.gather_rate",
+                "gui.mnera.aid.gather_rate",
                 String.format(Locale.ROOT, "%.2f", gatherMult),
                 unemployed
         ).getString();
@@ -999,19 +999,19 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         int qtyPct = JsonLite.getInt(snap, "qtyBonusPct", 0);
         int thresholdPct = JsonLite.getInt(snap, "lowUnempThresholdPct", 25);
         String bonusLine = bonusActive
-                ? Component.translatable("gui.tyc2.aid.bonus_active", qtyPct).getString()
-                : Component.translatable("gui.tyc2.aid.bonus_inactive", thresholdPct).getString();
+                ? Component.translatable("gui.mnera.aid.bonus_active", qtyPct).getString()
+                : Component.translatable("gui.mnera.aid.bonus_inactive", thresholdPct).getString();
         TyC2Theme.drawFitString(canvas, bonusLine, 10, 88, 152, 0.52F, bonusActive ? TyC2Theme.MINT_TEXT : 0xFF9BB4CC);
 
         List<Map<String, Object>> queue = aidProjects(snap);
         int maxQueue = Math.max(1, JsonLite.getInt(snap, "maxAidQueue", 3));
-        String qHeader = Component.translatable("gui.tyc2.aid.queue_header", queue.size(), maxQueue).getString();
+        String qHeader = Component.translatable("gui.mnera.aid.queue_header", queue.size(), maxQueue).getString();
         TyC2Theme.drawRightFitString(canvas, qHeader, 236, 88, 72, 0.56F, TyC2Theme.GOLD_TEXT);
 
         if (queue.isEmpty()) {
             TyC2Theme.drawCenteredFitString(
                     canvas,
-                    Component.translatable("gui.tyc2.aid.queue_empty").getString(),
+                    Component.translatable("gui.mnera.aid.queue_empty").getString(),
                     14, 100, 218, 28, 0.65F, TyC2Theme.MUTED_TEXT
             );
             return;
@@ -1059,7 +1059,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                 TyC2Theme.drawBevelButtonBox(
                         canvas, 192, ry + 1, 43, 9,
                         TyC2Theme.ButtonStyle.HUB_DANGER, true, hoverCancel,
-                        Component.translatable("gui.tyc2.aid.cancel_btn").getString()
+                        Component.translatable("gui.mnera.aid.cancel_btn").getString()
                 );
             }
         }
@@ -1075,11 +1075,11 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         boolean cl = JsonLite.getBoolean(snap, "chunkLoaderActive", false);
 
         String[] rows = {
-                Component.translatable("gui.tyc2.hub.status.bank", TyC2Theme.formatCompactNumber(bankBal)).getString(),
-                Component.translatable("gui.tyc2.hub.status.inbound", inUsed).getString(),
-                Component.translatable("gui.tyc2.hub.status.outbound", outUsed).getString(),
-                Component.translatable("gui.tyc2.hub.status.cpi", String.format(Locale.ROOT, "%.2f", cpi)).getString(),
-                Component.translatable(cl ? "gui.tyc2.hub.status.cl_on" : "gui.tyc2.hub.status.cl_off").getString()
+                Component.translatable("gui.mnera.hub.status.bank", TyC2Theme.formatCompactNumber(bankBal)).getString(),
+                Component.translatable("gui.mnera.hub.status.inbound", inUsed).getString(),
+                Component.translatable("gui.mnera.hub.status.outbound", outUsed).getString(),
+                Component.translatable("gui.mnera.hub.status.cpi", String.format(Locale.ROOT, "%.2f", cpi)).getString(),
+                Component.translatable(cl ? "gui.mnera.hub.status.cl_on" : "gui.mnera.hub.status.cl_off").getString()
         };
         int[] colors = {
                 0xFFFFE270,
@@ -1199,7 +1199,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                 if (!villageSells && pmx >= 168 && pmx < 182 && pmy >= rowY + 3 && pmy < rowY + 17) {
                     boolean auto = JsonLite.getBoolean(o, "autoFulfill", false);
                     canvas.drawTooltip(List.of(Component.translatable(
-                            auto ? "gui.tyc2.hub.auto_fulfill.on" : "gui.tyc2.hub.auto_fulfill.off"
+                            auto ? "gui.mnera.hub.auto_fulfill.on" : "gui.mnera.hub.auto_fulfill.off"
                     )), mouseX, mouseY);
                     return;
                 }
@@ -1214,7 +1214,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                         tip.add(Component.literal(ench).withStyle(ChatFormatting.AQUA));
                     }
                     if (!villageSells && !optTag.isBlank()) {
-                        tip.add(Component.translatable("gui.tyc2.order.tooltip.accepts_tag", optTag)
+                        tip.add(Component.translatable("gui.mnera.order.tooltip.accepts_tag", optTag)
                                 .withStyle(ChatFormatting.GOLD));
                     }
                     canvas.drawTooltip(tip, mouseX, mouseY);
@@ -1246,7 +1246,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                                 if (!metaHint.isBlank()) {
                                     tip.add(Component.literal(metaHint).withStyle(ChatFormatting.AQUA));
                                 }
-                                tip.add(Component.translatable("gui.tyc2.hub.slot_tooltip", count));
+                                tip.add(Component.translatable("gui.mnera.hub.slot_tooltip", count));
                                 canvas.drawTooltip(tip, mouseX, mouseY);
                             }
                         }
@@ -1271,7 +1271,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                         Component nameComp = st.isEmpty() ? Component.literal(cell.itemId()) : st.getHoverName();
                         canvas.drawTooltip(List.of(
                                 nameComp,
-                                Component.translatable("gui.tyc2.hub.order_progress", have, need)
+                                Component.translatable("gui.mnera.hub.order_progress", have, need)
                         ), mouseX, mouseY);
                         return;
                     }
@@ -1286,7 +1286,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
                     && pmx >= 186 && pmx < 236 && pmy >= 63 && pmy < 77) {
                 int aidMax = JsonLite.getInt(spec, "aidMax", WorkplaceCatalog.MAX_AID_BUILDS_PER_PROFESSION);
                 canvas.drawTooltip(
-                        List.of(Component.translatable("status.tyc2.aid.profession_limit", aidMax)
+                        List.of(Component.translatable("status.mnera.aid.profession_limit", aidMax)
                                 .withStyle(ChatFormatting.RED)),
                         mouseX, mouseY
                 );
@@ -1310,9 +1310,9 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         if (pmx >= bannerBiomeX && pmx < bannerBiomeX + bannerBiomeW && pmy >= 22 && pmy < 34) {
             String biomeKey = TyC2Theme.normalizeBiomeKey(JsonLite.getString(snap, "biome", "plains"));
             canvas.drawTooltip(List.of(
-                    Component.translatable("gui.tyc2.hub.biome_tooltip", Component.translatable("biome.tyc2." + biomeKey))
+                    Component.translatable("gui.mnera.hub.biome_tooltip", Component.translatable("biome.mnera." + biomeKey))
                             .withStyle(ChatFormatting.GOLD),
-                    Component.translatable("gui.tyc2.economy.biome_specialty").withStyle(ChatFormatting.GREEN)
+                    Component.translatable("gui.mnera.economy.biome_specialty").withStyle(ChatFormatting.GREEN)
             ), mouseX, mouseY);
             return;
         }
@@ -1323,11 +1323,11 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             long refreshRem = liveRefreshRemaining(snap);
             List<Component> lines = new ArrayList<>();
             lines.add(Component.translatable(
-                    "gui.tyc2.hub.refresh_tooltip", TyC2Theme.formatRestockCountdown(refreshRem)
+                    "gui.mnera.hub.refresh_tooltip", TyC2Theme.formatRestockCountdown(refreshRem)
             ).withStyle(ChatFormatting.GOLD));
             if (JsonLite.getBoolean(snap, "bonusActive", false)) {
                 lines.add(Component.translatable(
-                        "gui.tyc2.aid.bonus_active",
+                        "gui.mnera.aid.bonus_active",
                         JsonLite.getInt(snap, "qtyBonusPct", 0)
                 ).withStyle(ChatFormatting.GREEN));
             }
@@ -1345,12 +1345,12 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             int qtyPct = JsonLite.getInt(snap, "qtyBonusPct", 0);
             int thresholdPct = JsonLite.getInt(snap, "lowUnempThresholdPct", 25);
             List<Component> lines = new ArrayList<>();
-            lines.add(Component.translatable("gui.tyc2.hub.unemployment", unempPct, unempCount, workforce));
+            lines.add(Component.translatable("gui.mnera.hub.unemployment", unempPct, unempCount, workforce));
             if (bonusActive) {
-                lines.add(Component.translatable("gui.tyc2.aid.bonus_active", qtyPct)
+                lines.add(Component.translatable("gui.mnera.aid.bonus_active", qtyPct)
                         .withStyle(ChatFormatting.GREEN));
             } else {
-                lines.add(Component.translatable("gui.tyc2.aid.bonus_inactive", thresholdPct)
+                lines.add(Component.translatable("gui.mnera.aid.bonus_inactive", thresholdPct)
                         .withStyle(ChatFormatting.GRAY));
             }
             canvas.drawTooltip(lines, mouseX, mouseY);
@@ -1361,8 +1361,8 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         String bannerSeason = JsonLite.getString(snap, "season", "NONE");
         if (TyC2Theme.hubSeasonU(bannerSeason) >= 0 && pmx >= 192 && pmx < 204 && pmy >= 27 && pmy < 39) {
             canvas.drawTooltip(List.of(Component.translatable(
-                    "gui.tyc2.hub.season_tooltip",
-                    Component.translatable("season.tyc2." + bannerSeason.toLowerCase(Locale.ROOT))
+                    "gui.mnera.hub.season_tooltip",
+                    Component.translatable("season.mnera." + bannerSeason.toLowerCase(Locale.ROOT))
             ).withStyle(ChatFormatting.AQUA)), mouseX, mouseY);
             return;
         }
@@ -1372,9 +1372,9 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             double cpi = JsonLite.getDouble(snap, "cpi", 1.0);
             String infl = JsonLite.getString(snap, "inflationState", "STABLE").toLowerCase(Locale.ROOT);
             canvas.drawTooltip(List.of(
-                    Component.translatable("gui.tyc2.economy.cpi", String.format(Locale.ROOT, "%.2f", cpi))
+                    Component.translatable("gui.mnera.economy.cpi", String.format(Locale.ROOT, "%.2f", cpi))
                             .withStyle(ChatFormatting.GOLD),
-                    Component.translatable("gui.tyc2.economy." + infl)
+                    Component.translatable("gui.mnera.economy." + infl)
             ), mouseX, mouseY);
             return;
         }
@@ -1383,7 +1383,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         if (pmx >= 220 && pmx < 236 && pmy >= 25 && pmy < 41) {
             boolean cl = JsonLite.getBoolean(snap, "chunkLoaderActive", false);
             canvas.drawTooltip(List.of(Component.translatable(
-                    cl ? "gui.tyc2.hub.chunk_loader.active" : "gui.tyc2.hub.chunk_loader.inactive"
+                    cl ? "gui.mnera.hub.chunk_loader.active" : "gui.mnera.hub.chunk_loader.inactive"
             )), mouseX, mouseY);
         }
     }
@@ -1413,22 +1413,22 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
     private Component orderFilterComponent() {
         return switch (orderFilter) {
-            case 1 -> Component.translatable("gui.tyc2.hub.filter.sell");
-            case 2 -> Component.translatable("gui.tyc2.hub.filter.buy");
-            default -> Component.translatable("gui.tyc2.hub.filter.all");
+            case 1 -> Component.translatable("gui.mnera.hub.filter.sell");
+            case 2 -> Component.translatable("gui.mnera.hub.filter.buy");
+            default -> Component.translatable("gui.mnera.hub.filter.all");
         };
     }
 
     private Component payModeShortComponent() {
-        return Component.translatable(cashMode ? "gui.tyc2.hub.cash_short" : "gui.tyc2.hub.bank_short");
+        return Component.translatable(cashMode ? "gui.mnera.hub.cash_short" : "gui.mnera.hub.bank_short");
     }
 
     private Component qtyPresetComponent() {
         int val = QTY_PRESETS[qtyPresetIdx];
         if (val >= 9999) {
-            return Component.translatable("gui.tyc2.hub.qty_preset", Component.translatable("gui.tyc2.hub.qty_all"));
+            return Component.translatable("gui.mnera.hub.qty_preset", Component.translatable("gui.mnera.hub.qty_all"));
         }
-        return Component.translatable("gui.tyc2.hub.qty_preset", val);
+        return Component.translatable("gui.mnera.hub.qty_preset", val);
     }
 
     private static List<Double> extractCpiHistory(Map<String, Object> snap) {
@@ -1535,7 +1535,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
 
     static String localizedProfessionName(String archetypeName, String professionId, String fallback) {
         if (archetypeName != null && !archetypeName.isBlank() && !"GENERIC".equalsIgnoreCase(archetypeName)) {
-            return Component.translatable("profession.tyc2." + archetypeName.toLowerCase(Locale.ROOT)).getString();
+            return Component.translatable("profession.mnera." + archetypeName.toLowerCase(Locale.ROOT)).getString();
         }
         if (professionId != null && !professionId.isBlank()) {
             int colon = professionId.indexOf(':');
@@ -1556,20 +1556,20 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
         if (fallback != null && !fallback.isBlank()) {
             return fallback;
         }
-        return Component.translatable("profession.tyc2.generic").getString();
+        return Component.translatable("profession.mnera.generic").getString();
     }
 
     static String aidStatusText(String status, int pct) {
         if ("BUILDING".equals(status)) {
-            return Component.translatable("gui.tyc2.aid.status.building", pct).getString();
+            return Component.translatable("gui.mnera.aid.status.building", pct).getString();
         }
         if ("WAITING_SITE".equals(status)) {
-            return Component.translatable("gui.tyc2.aid.status.waiting_site").getString();
+            return Component.translatable("gui.mnera.aid.status.waiting_site").getString();
         }
         if ("NO_SITE".equals(status)) {
-            return Component.translatable("gui.tyc2.aid.status.no_site").getString();
+            return Component.translatable("gui.mnera.aid.status.no_site").getString();
         }
-        return Component.translatable("gui.tyc2.aid.status.collecting", pct).getString();
+        return Component.translatable("gui.mnera.aid.status.collecting", pct).getString();
     }
 
     static List<Component> buildAidMaterialsTooltip(Map<String, Object> proj) {
@@ -1577,7 +1577,7 @@ public final class CooperationHubScreen extends TyC2ScreenBase<CooperationHubMen
             return List.of();
         }
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.translatable("gui.tyc2.aid.materials_tooltip").withStyle(ChatFormatting.GOLD));
+        lines.add(Component.translatable("gui.mnera.aid.materials_tooltip").withStyle(ChatFormatting.GOLD));
         Map<String, Object> req = JsonLite.asObject(proj.get("requiredMaterials"));
         Map<String, Object> gathered = JsonLite.asObject(proj.get("gatheredMaterials"));
         if (req != null) {

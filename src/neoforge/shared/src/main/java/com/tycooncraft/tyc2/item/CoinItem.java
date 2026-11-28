@@ -29,11 +29,11 @@ public final class CoinItem extends TyC2TooltipItem {
     @Override
     protected void addDynamicTooltips(ItemStack stack, Consumer<Component> adder) {
         adder.accept(Component.translatable(
-                "tooltip.tyc2.coin.value",
+                "tooltip.mnera.coin.value",
                 denomination.value()
         ).withStyle(ChatFormatting.GOLD));
         if (denomination == CurrencyDenomination.X1 && Ic2SoftBridge.isIc2Loaded()) {
-            adder.accept(Component.translatable("tooltip.tyc2.coin.ic2_compat")
+            adder.accept(Component.translatable("tooltip.mnera.coin.ic2_compat")
                     .withStyle(ChatFormatting.GRAY));
         }
     }

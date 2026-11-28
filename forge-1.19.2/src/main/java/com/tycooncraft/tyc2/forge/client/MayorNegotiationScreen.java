@@ -42,13 +42,13 @@ public class MayorNegotiationScreen extends AbstractContainerScreen<MayorNegotia
         // Action bar (8, 118, 204x26)
         signBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
                 leftPos + 36, topPos + 123, 114, 16,
-                Component.translatable("gui.tyc2.mayor.sign"),
+                Component.translatable("gui.mnera.mayor.sign"),
                 btn -> TyC2ForgeNetwork.sendToServer(new C2SMayorNegotiatePacket(menu.getVillageId(), true))
         ).setHighlighted(true).setAccentColor(0xFF2E8B57));
 
         addRenderableWidget(new TyC2UiWidgets.CompactButton(
                 leftPos + 156, topPos + 123, 50, 16,
-                Component.translatable("gui.tyc2.cancel"),
+                Component.translatable("gui.mnera.cancel"),
                 btn -> onClose()
         ));
 
@@ -100,13 +100,13 @@ public class MayorNegotiationScreen extends AbstractContainerScreen<MayorNegotia
 
         if (sync != null) {
             // Mayor banner (8,14,204x34); crown + gold vertical divider at x=35 -> text starts at x=39 (169px wide)
-            String mayorTitle = Component.translatable("mayor.tyc2.name_format", sync.villageName).getString();
+            String mayorTitle = Component.translatable("mayor.mnera.name_format", sync.villageName).getString();
             font.draw(poseStack, font.plainSubstrByWidth(mayorTitle, 169), 39, 17, 0xFFE066);
 
             poseStack.pushPose();
             poseStack.translate(39.0F, 28.0F, 0.0F);
             poseStack.scale(0.80F, 0.80F, 1.0F);
-            List<FormattedCharSequence> greetLines = font.split(Component.translatable("gui.tyc2.mayor.greeting"), 210);
+            List<FormattedCharSequence> greetLines = font.split(Component.translatable("gui.mnera.mayor.greeting"), 210);
             for (int i = 0; i < Math.min(2, greetLines.size()); i++) {
                 font.draw(poseStack, greetLines.get(i), 0, i * 10, 0xD0DCEB);
             }
@@ -114,34 +114,34 @@ public class MayorNegotiationScreen extends AbstractContainerScreen<MayorNegotia
 
             // Left half of Contract Box (12..89, 77px wide): Village Profile
             font.draw(poseStack, font.plainSubstrByWidth(
-                    Component.translatable("gui.tyc2.mayor.village_info").getString(), 77
+                    Component.translatable("gui.mnera.mayor.village_info").getString(), 77
             ), 12, 56, 0x3A2D18);
             font.draw(poseStack, font.plainSubstrByWidth(sync.villageName, 77), 12, 69, 0x202020);
             font.draw(poseStack, font.plainSubstrByWidth(
-                    Component.translatable("biome.tyc2." + sync.biomeStyleId).getString(), 77
+                    Component.translatable("biome.mnera." + sync.biomeStyleId).getString(), 77
             ), 12, 82, 0x444444);
             font.draw(poseStack, font.plainSubstrByWidth(
-                    Component.translatable("gui.tyc2.hub.population", sync.population).getString(), 77
+                    Component.translatable("gui.mnera.hub.population", sync.population).getString(), 77
             ), 12, 95, 0x1F6E35);
 
             // Right half of Contract Box (95..208): 4 Requirements with high-contrast ink on parchment (100% localized)
             long totalIc = sync.cashIc + sync.bankIc;
             drawReqLine(poseStack, 57, sync.currencyMet(),
-                    Component.translatable("gui.tyc2.mayor.req_currency", TyC2UiWidgets.compactIc(totalIc) + "/" + sync.reqIc).getString());
+                    Component.translatable("gui.mnera.mayor.req_currency", TyC2UiWidgets.compactIc(totalIc) + "/" + sync.reqIc).getString());
             drawReqLine(poseStack, 71, sync.logsMet(),
-                    Component.translatable("gui.tyc2.mayor.req_logs", sync.haveLogs + "/" + sync.reqLogs).getString());
+                    Component.translatable("gui.mnera.mayor.req_logs", sync.haveLogs + "/" + sync.reqLogs).getString());
             drawReqLine(poseStack, 85, sync.ironMet(),
-                    Component.translatable("gui.tyc2.mayor.req_iron", sync.haveIron + "/" + sync.reqIron).getString());
+                    Component.translatable("gui.mnera.mayor.req_iron", sync.haveIron + "/" + sync.reqIron).getString());
             drawReqLine(poseStack, 99, sync.foodMet(),
-                    Component.translatable("gui.tyc2.mayor.req_food", sync.haveFood + "/" + sync.reqFood).getString());
+                    Component.translatable("gui.mnera.mayor.req_food", sync.haveFood + "/" + sync.reqFood).getString());
 
             // Benefits LCD (8,148,204x36) — 0.65F fit-scale so all 3 localized lines fit with zero clipping
             TyC2UiWidgets.drawFittedString(poseStack, font,
-                    Component.translatable("gui.tyc2.mayor.benefits.line1").getString(), 12, 152, 196, 0.58F, 0x8BE8B0);
+                    Component.translatable("gui.mnera.mayor.benefits.line1").getString(), 12, 152, 196, 0.58F, 0x8BE8B0);
             TyC2UiWidgets.drawFittedString(poseStack, font,
-                    Component.translatable("gui.tyc2.mayor.benefits.line2").getString(), 12, 162, 196, 0.58F, 0x8BE8B0);
+                    Component.translatable("gui.mnera.mayor.benefits.line2").getString(), 12, 162, 196, 0.58F, 0x8BE8B0);
             TyC2UiWidgets.drawFittedString(poseStack, font,
-                    Component.translatable("gui.tyc2.mayor.benefits.line3").getString(), 12, 172, 196, 0.58F, 0x8BE8B0);
+                    Component.translatable("gui.mnera.mayor.benefits.line3").getString(), 12, 172, 196, 0.58F, 0x8BE8B0);
         }
     }
 

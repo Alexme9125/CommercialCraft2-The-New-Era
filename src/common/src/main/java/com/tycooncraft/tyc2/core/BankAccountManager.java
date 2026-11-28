@@ -441,7 +441,7 @@ public final class BankAccountManager {
             throw new IllegalArgumentException("Company name must not be blank");
         }
         if (!canJoinAnotherCompany(ownerUuid)) {
-            throw new IllegalStateException("status.tyc2.atm.company_limit");
+            throw new IllegalStateException("status.mnera.atm.company_limit");
         }
         String trimmedName = companyName.trim();
         if (trimmedName.length() > MAX_COMPANY_NAME_LENGTH) {
@@ -470,13 +470,13 @@ public final class BankAccountManager {
     public BankResult addCompanyMember(UUID actorUuid, String companyId, UUID targetUuid, String targetName) {
         CompanyAccount company = companyAccounts.get(companyId);
         if (company == null) {
-            return BankResult.fail("status.tyc2.atm.invalid_recipient", null, 0L);
+            return BankResult.fail("status.mnera.atm.invalid_recipient", null, 0L);
         }
         if (!company.ownerUuid.equals(actorUuid)) {
-            return BankResult.fail("status.tyc2.hub.not_owner", AccountRef.company(companyId), company.balance);
+            return BankResult.fail("status.mnera.hub.not_owner", AccountRef.company(companyId), company.balance);
         }
         if (!company.isMember(targetUuid) && !canJoinAnotherCompany(targetUuid)) {
-            return BankResult.fail("status.tyc2.atm.company_limit", AccountRef.company(companyId), company.balance);
+            return BankResult.fail("status.mnera.atm.company_limit", AccountRef.company(companyId), company.balance);
         }
         getOrCreatePersonal(targetUuid, targetName);
         company.memberUuids.add(targetUuid);
@@ -493,20 +493,20 @@ public final class BankAccountManager {
      */
     public BankResult joinCompanyByInviteCode(UUID playerUuid, String displayName, String inviteCode) {
         if (inviteCode == null || inviteCode.isBlank()) {
-            return BankResult.fail("status.tyc2.atm.invalid_invite", null, 0L);
+            return BankResult.fail("status.mnera.atm.invalid_invite", null, 0L);
         }
         String normalized = inviteCode.trim().toUpperCase(Locale.ROOT);
         for (CompanyAccount company : companyAccounts.values()) {
             if (company.inviteCode.equalsIgnoreCase(normalized)) {
                 if (!company.isMember(playerUuid) && !canJoinAnotherCompany(playerUuid)) {
-                    return BankResult.fail("status.tyc2.atm.company_limit", AccountRef.company(company.companyId), company.balance);
+                    return BankResult.fail("status.mnera.atm.company_limit", AccountRef.company(company.companyId), company.balance);
                 }
                 getOrCreatePersonal(playerUuid, displayName);
                 company.memberUuids.add(playerUuid);
                 return BankResult.ok(AccountRef.company(company.companyId), company.balance);
             }
         }
-        return BankResult.fail("status.tyc2.atm.invalid_invite", null, 0L);
+        return BankResult.fail("status.mnera.atm.invalid_invite", null, 0L);
     }
 
     /**
@@ -540,10 +540,10 @@ public final class BankAccountManager {
     public BankResult leaveCompany(UUID playerUuid, String companyId, long timestamp) {
         CompanyAccount company = companyAccounts.get(companyId);
         if (company == null) {
-            return BankResult.fail("status.tyc2.atm.invalid_recipient", null, 0L);
+            return BankResult.fail("status.mnera.atm.invalid_recipient", null, 0L);
         }
         if (!company.isMember(playerUuid)) {
-            return BankResult.fail("status.tyc2.hub.not_owner", AccountRef.company(companyId), company.balance);
+            return BankResult.fail("status.mnera.hub.not_owner", AccountRef.company(companyId), company.balance);
         }
         company.memberUuids.remove(playerUuid);
         PersonalAccount personal = getOrCreatePersonal(playerUuid, null);
@@ -591,10 +591,10 @@ public final class BankAccountManager {
         }
         CompanyAccount company = companyAccounts.get(companyId);
         if (company == null) {
-            return BankResult.fail("status.tyc2.atm.invalid_recipient", AccountRef.personal(playerUuid), personal.balance);
+            return BankResult.fail("status.mnera.atm.invalid_recipient", AccountRef.personal(playerUuid), personal.balance);
         }
         if (!company.isMember(playerUuid)) {
-            return BankResult.fail("status.tyc2.hub.not_owner", AccountRef.personal(playerUuid), personal.balance);
+            return BankResult.fail("status.mnera.hub.not_owner", AccountRef.personal(playerUuid), personal.balance);
         }
         personal.activeCompanyId = companyId;
         return BankResult.ok(AccountRef.company(companyId), company.balance);
@@ -732,7 +732,7 @@ public final class BankAccountManager {
         Objects.requireNonNull(denomination, "denomination must not be null");
         if (count <= 0) {
             AccountRef ref = resolveSettlementAccount(playerUuid);
-            return BankResult.fail("status.tyc2.atm.invalid_amount", ref, getBalance(ref));
+            return BankResult.fail("status.mnera.atm.invalid_amount", ref, getBalance(ref));
         }
         long amount = Math.multiplyExact(denomination.value(), count);
         return withdraw(playerUuid, amount, timestamp, memo);
@@ -778,7 +778,7 @@ public final class BankAccountManager {
     ) {
         if (!companyAccounts.containsKey(targetCompanyId)) {
             AccountRef from = resolveSettlementAccount(senderUuid);
-            return BankResult.fail("status.tyc2.atm.invalid_recipient", from, getBalance(from));
+            return BankResult.fail("status.mnera.atm.invalid_recipient", from, getBalance(from));
         }
         return transfer(resolveSettlementAccount(senderUuid), AccountRef.company(targetCompanyId), amount, timestamp, memo);
     }
@@ -795,23 +795,23 @@ public final class BankAccountManager {
      */
     public BankResult transfer(AccountRef from, AccountRef to, long amount, long timestamp, String memo) {
         if (from == null || to == null) {
-            return BankResult.fail("status.tyc2.atm.invalid_recipient", from, 0L);
+            return BankResult.fail("status.mnera.atm.invalid_recipient", from, 0L);
         }
         if (from.equals(to)) {
-            return BankResult.fail("status.tyc2.atm.invalid_recipient", from, getBalance(from));
+            return BankResult.fail("status.mnera.atm.invalid_recipient", from, getBalance(from));
         }
         if (amount <= 0L) {
-            return BankResult.fail("status.tyc2.atm.invalid_amount", from, getBalance(from));
+            return BankResult.fail("status.mnera.atm.invalid_amount", from, getBalance(from));
         }
         if (!accountExists(from) || !accountExists(to)) {
-            return BankResult.fail("status.tyc2.atm.invalid_recipient", from, getBalance(from));
+            return BankResult.fail("status.mnera.atm.invalid_recipient", from, getBalance(from));
         }
         long sourceBal = getBalance(from);
         if (sourceBal < amount) {
-            return BankResult.fail("status.tyc2.atm.insufficient_balance", from, sourceBal);
+            return BankResult.fail("status.mnera.atm.insufficient_balance", from, sourceBal);
         }
         if (Long.MAX_VALUE - getBalance(to) < amount) {
-            return BankResult.fail("status.tyc2.atm.invalid_amount", from, sourceBal);
+            return BankResult.fail("status.mnera.atm.invalid_amount", from, sourceBal);
         }
 
         String fromLabel = describeAccount(from);
@@ -844,10 +844,10 @@ public final class BankAccountManager {
             String memo
     ) {
         if (ref == null || !accountExists(ref)) {
-            return BankResult.fail("status.tyc2.atm.invalid_recipient", ref, 0L);
+            return BankResult.fail("status.mnera.atm.invalid_recipient", ref, 0L);
         }
         if (amount <= 0L) {
-            return BankResult.fail("status.tyc2.atm.invalid_amount", ref, getBalance(ref));
+            return BankResult.fail("status.mnera.atm.invalid_amount", ref, getBalance(ref));
         }
         if (ref.scope() == AccountScope.PERSONAL) {
             PersonalAccount acc = personalAccounts.get(UUID.fromString(ref.accountId()));
@@ -881,15 +881,15 @@ public final class BankAccountManager {
             String memo
     ) {
         if (ref == null || !accountExists(ref)) {
-            return BankResult.fail("status.tyc2.atm.invalid_recipient", ref, 0L);
+            return BankResult.fail("status.mnera.atm.invalid_recipient", ref, 0L);
         }
         if (amount <= 0L) {
-            return BankResult.fail("status.tyc2.atm.invalid_amount", ref, getBalance(ref));
+            return BankResult.fail("status.mnera.atm.invalid_amount", ref, getBalance(ref));
         }
         if (ref.scope() == AccountScope.PERSONAL) {
             PersonalAccount acc = personalAccounts.get(UUID.fromString(ref.accountId()));
             if (acc.balance < amount) {
-                return BankResult.fail("status.tyc2.atm.insufficient_balance", ref, acc.balance);
+                return BankResult.fail("status.mnera.atm.insufficient_balance", ref, acc.balance);
             }
             acc.balance -= amount;
             acc.appendLog(new BankTransactionLog(timestamp, type, -amount, acc.balance, counterparty, memo));
@@ -897,7 +897,7 @@ public final class BankAccountManager {
         }
         CompanyAccount company = companyAccounts.get(ref.accountId());
         if (company.balance < amount) {
-            return BankResult.fail("status.tyc2.atm.insufficient_balance", ref, company.balance);
+            return BankResult.fail("status.mnera.atm.insufficient_balance", ref, company.balance);
         }
         company.balance -= amount;
         company.appendLog(new BankTransactionLog(timestamp, type, -amount, company.balance, counterparty, memo));

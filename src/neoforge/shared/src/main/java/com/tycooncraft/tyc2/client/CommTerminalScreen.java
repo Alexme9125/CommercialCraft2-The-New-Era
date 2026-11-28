@@ -112,14 +112,14 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         // Buttons 0, 1: Left rail scroll buttons (indices strictly preserved for live QA!)
         addStyledButton(
                 leftPos + 10, topPos + 186, 28, 12,
-                Component.translatable("gui.tyc2.prev"),
+                Component.translatable("gui.mnera.prev"),
                 TyC2Theme.ButtonStyle.PDA_ACTION,
                 b -> railPage = Math.max(0, railPage - 1)
         );
 
         addStyledButton(
                 leftPos + 42, topPos + 186, 28, 12,
-                Component.translatable("gui.tyc2.next"),
+                Component.translatable("gui.mnera.next"),
                 TyC2Theme.ButtonStyle.PDA_ACTION,
                 b -> {
                     List<Object> list = JsonLite.asArray(menu.snapshot().get("boundVillages"));
@@ -131,10 +131,10 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         // Buttons 2, 3, 4, 5: Right panel sub-tabs (Orders, Stock, CPI, Growth) at y=43
         // Indices 2..5 stay visible & active at all times for live QA button index compatibility!
         String[] tabKeys = {
-                "gui.tyc2.terminal.tab.orders",
-                "gui.tyc2.terminal.tab.stock",
-                "gui.tyc2.terminal.tab.cpi",
-                "gui.tyc2.terminal.tab.growth"
+                "gui.mnera.terminal.tab.orders",
+                "gui.mnera.terminal.tab.stock",
+                "gui.mnera.terminal.tab.cpi",
+                "gui.mnera.terminal.tab.growth"
         };
         int[] tabX = {78, 118, 158, 198};
         int[] tabW = {39, 39, 39, 40};
@@ -154,7 +154,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         // Button 6: Compact Unbind button at top-right of tactical header (zero overlap!)
         addStyledButton(
                 leftPos + 205, topPos + 23, 32, 9,
-                Component.translatable("gui.tyc2.terminal.unbind"),
+                Component.translatable("gui.mnera.terminal.unbind"),
                 TyC2Theme.ButtonStyle.PDA_DANGER,
                 b -> {
                     String sel = JsonLite.getString(menu.snapshot(), "selectedId", "");
@@ -190,14 +190,14 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             // Order pagination footer (y=185, h=12)
             addStyledButton(
                     leftPos + 206, topPos + 185, 15, 12,
-                    Component.translatable("gui.tyc2.prev"),
+                    Component.translatable("gui.mnera.prev"),
                     TyC2Theme.ButtonStyle.PDA_ACTION,
                     b -> orderPage = Math.max(0, orderPage - 1)
             );
 
             addStyledButton(
                     leftPos + 223, topPos + 185, 15, 12,
-                    Component.translatable("gui.tyc2.next"),
+                    Component.translatable("gui.mnera.next"),
                     TyC2Theme.ButtonStyle.PDA_ACTION,
                     b -> {
                         Map<String, Object> village = JsonLite.asObject(menu.snapshot().get("selectedVillage"));
@@ -208,12 +208,12 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         } else if (subTab == 1) {
             stockZoneBtn = addStyledButton(
                     leftPos + 79, topPos + 57, 64, 12,
-                    Component.translatable(stockOutbound ? "gui.tyc2.hub.zone.outbound" : "gui.tyc2.hub.zone.inbound"),
+                    Component.translatable(stockOutbound ? "gui.mnera.hub.zone.outbound" : "gui.mnera.hub.zone.inbound"),
                     stockOutbound ? TyC2Theme.ButtonStyle.PDA_BUY : TyC2Theme.ButtonStyle.PDA_PRIMARY,
                     b -> {
                         stockOutbound = !stockOutbound;
                         b.setMessage(Component.translatable(
-                                stockOutbound ? "gui.tyc2.hub.zone.outbound" : "gui.tyc2.hub.zone.inbound"
+                                stockOutbound ? "gui.mnera.hub.zone.outbound" : "gui.mnera.hub.zone.inbound"
                         ));
                         stockZoneBtn.setStyle(stockOutbound ? TyC2Theme.ButtonStyle.PDA_BUY : TyC2Theme.ButtonStyle.PDA_PRIMARY);
                     }
@@ -222,7 +222,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             // Sub-toggle inside Growth: Expansion (0) vs Aid Construction (1)
             addStyledButton(
                     leftPos + 78, topPos + 56, 79, 12,
-                    Component.translatable("gui.tyc2.hub.tab.expansion"),
+                    Component.translatable("gui.mnera.hub.tab.expansion"),
                     TyC2Theme.ButtonStyle.PDA_SUBTAB,
                     b -> {
                         growthMode = 0;
@@ -232,7 +232,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
 
             addStyledButton(
                     leftPos + 159, topPos + 56, 79, 12,
-                    Component.translatable("gui.tyc2.hub.tab.aid"),
+                    Component.translatable("gui.mnera.hub.tab.aid"),
                     TyC2Theme.ButtonStyle.PDA_SUBTAB,
                     b -> {
                         growthMode = 1;
@@ -245,7 +245,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                 addStyledButton(
                         leftPos + 78, topPos + 92, 160, 14,
                         Component.translatable(
-                                "gui.tyc2.terminal.upgrade_short",
+                                "gui.mnera.terminal.upgrade_short",
                                 TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU
                         ),
                         TyC2Theme.ButtonStyle.PDA_PRIMARY,
@@ -255,7 +255,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                 addStyledButton(
                         leftPos + 78, topPos + 140, 68, 13,
                         Component.translatable(
-                                "gui.tyc2.terminal.deliver_short",
+                                "gui.mnera.terminal.deliver_short",
                                 TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU
                         ),
                         TyC2Theme.ButtonStyle.PDA_PRIMARY,
@@ -264,21 +264,21 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
 
                 remoteAutoBtn = addStyledButton(
                         leftPos + 148, topPos + 140, 44, 13,
-                        Component.translatable("gui.tyc2.hub.auto_short.off"),
+                        Component.translatable("gui.mnera.hub.auto_short.off"),
                         TyC2Theme.ButtonStyle.PDA_ACTION,
                         b -> sendAction("TOGGLE_EXPANSION_AUTO", Map.of())
                 );
 
                 remotePauseBtn = addStyledButton(
                         leftPos + 194, topPos + 140, 44, 13,
-                        Component.translatable("gui.tyc2.hub.pause_btn"),
+                        Component.translatable("gui.mnera.hub.pause_btn"),
                         TyC2Theme.ButtonStyle.PDA_ACTION,
                         b -> sendAction("TOGGLE_PAUSE_EXPANSION", Map.of())
                 );
             } else {
                 addStyledButton(
                         leftPos + 78, topPos + 89, 13, 14,
-                        Component.translatable("gui.tyc2.prev"),
+                        Component.translatable("gui.mnera.prev"),
                         TyC2Theme.ButtonStyle.PDA_ACTION,
                         b -> {
                             Map<String, Object> v = JsonLite.asObject(menu.snapshot().get("selectedVillage"));
@@ -291,7 +291,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
 
                 addStyledButton(
                         leftPos + 225, topPos + 89, 13, 14,
-                        Component.translatable("gui.tyc2.next"),
+                        Component.translatable("gui.mnera.next"),
                         TyC2Theme.ButtonStyle.PDA_ACTION,
                         b -> {
                             Map<String, Object> v = JsonLite.asObject(menu.snapshot().get("selectedVillage"));
@@ -304,7 +304,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
 
                 remoteAidSizeBtn = addStyledButton(
                         leftPos + 78, topPos + 105, 79, 14,
-                        Component.translatable(aidLarge ? "gui.tyc2.aid.size.large" : "gui.tyc2.aid.size.small"),
+                        Component.translatable(aidLarge ? "gui.mnera.aid.size.large" : "gui.mnera.aid.size.small"),
                         TyC2Theme.ButtonStyle.PDA_ACTION,
                         b -> aidLarge = !aidLarge
                 );
@@ -312,7 +312,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                 remoteAidStartBtn = addStyledButton(
                         leftPos + 159, topPos + 105, 79, 14,
                         Component.translatable(
-                                "gui.tyc2.aid.start_cost_btn",
+                                "gui.mnera.aid.start_cost_btn",
                                 TriModePowerMath.TERMINAL_COST_UPGRADE_OR_EXPANSION_EU
                         ),
                         TyC2Theme.ButtonStyle.PDA_PRIMARY,
@@ -358,7 +358,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         if (village == null) {
             TyC2Theme.drawCenteredFitString(
                     canvas,
-                    Component.translatable("gui.tyc2.terminal.no_villages").getString(),
+                    Component.translatable("gui.mnera.terminal.no_villages").getString(),
                     82, 76, 152, 48, 0.62F, TyC2Theme.MUTED_TEXT
             );
             return;
@@ -385,7 +385,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         long refreshRem = liveRefreshRemaining(village);
 
         // Line 1: LvX VillageName (80..202) — clear of Unbind button at (205, 23, 32x9)
-        String titleLine = Component.translatable("gui.tyc2.terminal.level_prefix", level, vName).getString();
+        String titleLine = Component.translatable("gui.mnera.terminal.level_prefix", level, vName).getString();
         TyC2Theme.drawFitString(canvas, titleLine, 80, 23, 122, 0.62F, TyC2Theme.GOLD_TEXT);
 
         // Line 2: Funds + Biome 10x10 + optional Season 12x12 (hidden when NONE) + Calendar 12x12 + countdown
@@ -395,7 +395,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         int calX = hasSeason ? 162 : 155;
 
         String fundsLine = Component.translatable(
-                "gui.tyc2.hub.village_funds", TyC2Theme.formatCompactNumber(vFunds)
+                "gui.mnera.hub.village_funds", TyC2Theme.formatCompactNumber(vFunds)
         ).getString();
         TyC2Theme.drawFitString(canvas, fundsLine, 80, 32, biomeX - 83, 0.52F, TyC2Theme.CYAN_TEXT);
 
@@ -418,14 +418,14 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             Map<String, Object> desire = village == null ? null : JsonLite.asObject(village.get("expansionDesire"));
             boolean auto = desire != null && JsonLite.getBoolean(desire, "autoFulfill", false);
             remoteAutoBtn.setMessage(Component.translatable(
-                    auto ? "gui.tyc2.hub.auto_short.on" : "gui.tyc2.hub.auto_short.off"
+                    auto ? "gui.mnera.hub.auto_short.on" : "gui.mnera.hub.auto_short.off"
             ));
             remoteAutoBtn.setSelected(auto);
         }
         if (remotePauseBtn != null) {
             boolean paused = village != null && JsonLite.getBoolean(village, "expansionPaused", false);
             remotePauseBtn.setMessage(Component.translatable(
-                    paused ? "gui.tyc2.hub.resume_btn" : "gui.tyc2.hub.pause_btn"
+                    paused ? "gui.mnera.hub.resume_btn" : "gui.mnera.hub.pause_btn"
             ));
             remotePauseBtn.setStyle(paused ? TyC2Theme.ButtonStyle.PDA_DANGER : TyC2Theme.ButtonStyle.PDA_ACTION);
         }
@@ -436,11 +436,11 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             boolean smallUnlocked = spec == null || JsonLite.getBoolean(spec, "smallUnlocked", true);
             if (remoteAidSizeBtn != null) {
                 if (!aidLarge) {
-                    remoteAidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.small"));
+                    remoteAidSizeBtn.setMessage(Component.translatable("gui.mnera.aid.size.small"));
                 } else if (largeUnlocked) {
-                    remoteAidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.large"));
+                    remoteAidSizeBtn.setMessage(Component.translatable("gui.mnera.aid.size.large"));
                 } else {
-                    remoteAidSizeBtn.setMessage(Component.translatable("gui.tyc2.aid.size.large_locked", minLvLarge));
+                    remoteAidSizeBtn.setMessage(Component.translatable("gui.mnera.aid.size.large_locked", minLvLarge));
                 }
             }
             if (remoteAidStartBtn != null) {
@@ -513,7 +513,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         // Right-aligned player active bank balance on toolbar line (166..238, y=59)
         long bankBal = JsonLite.getLong(snap, "activeBalance", 0L);
         String balText = Component.translatable(
-                "gui.tyc2.hub.status.bank", TyC2Theme.formatCompactNumber(bankBal)
+                "gui.mnera.hub.status.bank", TyC2Theme.formatCompactNumber(bankBal)
         ).getString();
         TyC2Theme.drawRightFitString(canvas, balText, 237, 59, 70, 0.56F, TyC2Theme.GOLD_TEXT);
 
@@ -526,7 +526,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         // Footer bar: EU cost (80..158) + page indicator (160..202)
         TyC2Theme.drawFitString(
                 canvas,
-                Component.translatable("gui.tyc2.terminal.cost_trade_short", TriModePowerMath.TERMINAL_COST_TRADE_EU).getString(),
+                Component.translatable("gui.mnera.terminal.cost_trade_short", TriModePowerMath.TERMINAL_COST_TRADE_EU).getString(),
                 80, 187, 78, 0.58F, 0xFF72B4D8
         );
         TyC2Theme.drawCenteredFitString(
@@ -536,7 +536,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         if (orders.isEmpty()) {
             TyC2Theme.drawCenteredFitString(
                     canvas,
-                    Component.translatable("gui.tyc2.hub.no_orders").getString(),
+                    Component.translatable("gui.mnera.hub.no_orders").getString(),
                     82, 92, 152, 48, 0.65F, TyC2Theme.MUTED_TEXT
             );
             return;
@@ -578,7 +578,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                 canvas.fill(184, rowY + 4, 200, rowY + 19, autoBg);
                 canvas.outline(184, rowY + 4, 16, 15, autoBorder);
                 String tinyAuto = Component.translatable(
-                        auto ? "gui.tyc2.hub.btn.auto_tiny.on" : "gui.tyc2.hub.btn.auto_tiny.off"
+                        auto ? "gui.mnera.hub.btn.auto_tiny.on" : "gui.mnera.hub.btn.auto_tiny.off"
                 ).getString();
                 TyC2Theme.drawCenteredFitString(
                         canvas, tinyAuto, 184, rowY + 4, 16, 15, 0.50F,
@@ -596,7 +596,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                     canvas.blit(GUI_TEX, gx + 1, rowY + 3, TyC2Theme.PDA_TAG_SEASON_U, TyC2Theme.PDA_TAG_V, 8, 8);
                     orderTagTips.add(new TagTipRect(
                             gx, rowY + 2, 10, 10,
-                            sells ? "gui.tyc2.order.tooltip.season_sell" : "gui.tyc2.order.tooltip.season_buy"
+                            sells ? "gui.mnera.order.tooltip.season_sell" : "gui.mnera.order.tooltip.season_buy"
                     ));
                     tagRight = gx - 2;
                 }
@@ -609,7 +609,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                     canvas.blit(GUI_TEX, gx + 1, rowY + 3, TyC2Theme.PDA_TAG_BIOME_U, TyC2Theme.PDA_TAG_V, 8, 8);
                     orderTagTips.add(new TagTipRect(
                             gx, rowY + 2, 10, 10,
-                            sells ? "gui.tyc2.order.tooltip.biome_sell" : "gui.tyc2.order.tooltip.biome_buy"
+                            sells ? "gui.mnera.order.tooltip.biome_sell" : "gui.mnera.order.tooltip.biome_buy"
                     ));
                     tagRight = gx - 2;
                 }
@@ -623,8 +623,8 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             );
 
             // Line 2: Progress on left + Unit Price right-aligned
-            String progStr = Component.translatable("gui.tyc2.hub.order_progress", doneQty, total).getString();
-            String priceStr = price + " IC";
+            String progStr = Component.translatable("gui.mnera.hub.order_progress", doneQty, total).getString();
+            String priceStr = price + " UC";
             int priceW = Math.min(44, Math.max(28, (contentRight - 100) / 2));
             TyC2Theme.drawFitString(
                     canvas, progStr, 100, rowY + 14, Math.max(26, contentRight - 100 - priceW - 2), 0.54F,
@@ -647,8 +647,8 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             // Remote Buy/Deliver CTA (202, rowY+4, 34x15)
             boolean hoverBtn = !done && pmx >= 202 && pmx < 236 && pmy >= rowY + 4 && pmy < rowY + 19;
             String actLbl = done
-                    ? Component.translatable("gui.tyc2.confirm").getString()
-                    : Component.translatable(sells ? "gui.tyc2.hub.buy" : "gui.tyc2.hub.deliver").getString();
+                    ? Component.translatable("gui.mnera.confirm").getString()
+                    : Component.translatable(sells ? "gui.mnera.hub.buy" : "gui.mnera.hub.deliver").getString();
             TyC2Theme.drawBevelButtonBox(
                     canvas, 202, rowY + 4, 34, 15,
                     sells ? TyC2Theme.ButtonStyle.PDA_PRIMARY : TyC2Theme.ButtonStyle.PDA_BUY,
@@ -662,7 +662,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         int outUsed = JsonLite.getInt(village, "outboundUsed", 0);
         TyC2Theme.drawRightFitString(
                 canvas,
-                Component.translatable("gui.tyc2.terminal.stock_compact", inUsed, outUsed).getString(),
+                Component.translatable("gui.mnera.terminal.stock_compact", inUsed, outUsed).getString(),
                 237, 59, 90, 0.58F, 0xFF9BE8FF
         );
 
@@ -672,7 +672,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         if (summary == null || summary.isEmpty()) {
             TyC2Theme.drawCenteredFitString(
                     canvas,
-                    Component.translatable("gui.tyc2.hub.zone.used", 0).getString(),
+                    Component.translatable("gui.mnera.hub.zone.used", 0).getString(),
                     82, 92, 152, 48, 0.65F, TyC2Theme.MUTED_TEXT
             );
             return;
@@ -719,37 +719,37 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         canvas.outline(78, 57, 160, 52, 0xFF1E4463);
 
         int cpiColor = TyC2Theme.inflationColor(infl);
-        String inflText = Component.translatable("gui.tyc2.economy." + infl.toLowerCase(Locale.ROOT)).getString();
-        String cpiLine = Component.translatable("gui.tyc2.economy.cpi", String.format(Locale.ROOT, "%.2f", cpi)).getString()
+        String inflText = Component.translatable("gui.mnera.economy." + infl.toLowerCase(Locale.ROOT)).getString();
+        String cpiLine = Component.translatable("gui.mnera.economy.cpi", String.format(Locale.ROOT, "%.2f", cpi)).getString()
                 + " (" + inflText + ")";
         TyC2Theme.drawFitString(canvas, cpiLine, 82, 59, 152, 0.58F, cpiColor);
         canvas.fill(80, 68, 236, 69, 0xFF142D42);
 
         TyC2Theme.drawFitString(
                 canvas,
-                Component.translatable("gui.tyc2.economy.money_short", TyC2Theme.formatCompactNumber(money)).getString(),
+                Component.translatable("gui.mnera.economy.money_short", TyC2Theme.formatCompactNumber(money)).getString(),
                 82, 70, 152, 0.60F, 0xFFE2EFFA
         );
         TyC2Theme.drawFitString(
                 canvas,
-                Component.translatable("gui.tyc2.economy.goods_short", TyC2Theme.formatCompactNumber(goods)).getString(),
+                Component.translatable("gui.mnera.economy.goods_short", TyC2Theme.formatCompactNumber(goods)).getString(),
                 82, 80, 152, 0.60F, 0xFFE2EFFA
         );
-        String envStrip = Component.translatable("biome.tyc2." + biomeKey).getString()
-                + " · " + Component.translatable("season.tyc2." + season.toLowerCase(Locale.ROOT)).getString()
+        String envStrip = Component.translatable("biome.mnera." + biomeKey).getString()
+                + " · " + Component.translatable("season.mnera." + season.toLowerCase(Locale.ROOT)).getString()
                 + " · " + String.format(Locale.ROOT, "%.2fx", liq);
         TyC2Theme.drawFitString(canvas, envStrip, 82, 90, 152, 0.56F, 0xFF9BE8FF);
-        TyC2Theme.drawFitString(canvas, Component.translatable("tier.tyc2." + tier).getString(), 82, 100, 152, 0.54F, 0xFFB8D4F0);
+        TyC2Theme.drawFitString(canvas, Component.translatable("tier.mnera." + tier).getString(), 82, 100, 152, 0.54F, 0xFFB8D4F0);
 
         // Chart title + restock countdown
         TyC2Theme.drawFitString(
                 canvas,
-                Component.translatable("gui.tyc2.economy.cpi_chart").getString(),
+                Component.translatable("gui.mnera.economy.cpi_chart").getString(),
                 80, 112, 80, 0.62F, 0xFFA8D4EC
         );
         TyC2Theme.drawRightFitString(
                 canvas,
-                Component.translatable("gui.tyc2.hub.refresh_label", TyC2Theme.formatRestockCountdown(refreshRem)).getString(),
+                Component.translatable("gui.mnera.hub.refresh_label", TyC2Theme.formatRestockCountdown(refreshRem)).getString(),
                 237, 112, 76, 0.56F, 0xFFFFDF7A
         );
 
@@ -783,16 +783,16 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         int workforce = JsonLite.getInt(village, "workforceCount", 0);
         boolean bonusActive = JsonLite.getBoolean(village, "bonusActive", false);
 
-        String topLine = Component.translatable("gui.tyc2.hub.level", level, Component.translatable("level.tyc2." + level)).getString();
+        String topLine = Component.translatable("gui.mnera.hub.level", level, Component.translatable("level.mnera." + level)).getString();
         if (workforce > 0) {
-            topLine += " | " + Component.translatable("gui.tyc2.hub.unemployment", unempPct, unempCount, workforce).getString();
+            topLine += " | " + Component.translatable("gui.mnera.hub.unemployment", unempPct, unempCount, workforce).getString();
         }
         TyC2Theme.drawFitString(canvas, topLine, 80, 71, 156, 0.54F, bonusActive ? TyC2Theme.MINT_TEXT : TyC2Theme.GOLD_TEXT);
 
         String reqStr = level >= 10
-                ? Component.translatable("gui.tyc2.hub.max_level").getString()
+                ? Component.translatable("gui.mnera.hub.max_level").getString()
                 : Component.translatable(
-                        "gui.tyc2.hub.upgrade_req",
+                        "gui.mnera.hub.upgrade_req",
                         pop + "/" + reqPop,
                         TyC2Theme.formatCompactNumber(vol) + "/" + TyC2Theme.formatCompactNumber(reqVol),
                         TyC2Theme.formatCompactNumber(bal) + "/" + TyC2Theme.formatCompactNumber(reqBal)
@@ -810,8 +810,8 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             int pct = Math.max(0, Math.min(100, JsonLite.getInt(build, "progressPct", 0)));
             TyC2Theme.drawFitString(
                     canvas,
-                    Component.translatable("gui.tyc2.expansion.building",
-                            Component.translatable("project.tyc2." + pType), pct).getString(),
+                    Component.translatable("gui.mnera.expansion.building",
+                            Component.translatable("project.mnera." + pType), pct).getString(),
                     81, 111, 154, 0.56F, 0xFF64E8FF
             );
             canvas.fill(81, 123, 235, 132, 0xFF07101A);
@@ -825,7 +825,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             long budget = JsonLite.getLong(desire, "budget", 0L);
             TyC2Theme.drawFitString(
                     canvas,
-                    Component.translatable("project.tyc2." + pType).getString() + " (" + budget + " IC)",
+                    Component.translatable("project.mnera." + pType).getString() + " (" + budget + " UC)",
                     81, 110, 154, 0.56F, 0xFFFFE066
             );
             Map<String, Object> req = JsonLite.asObject(desire.get("required"));
@@ -872,7 +872,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         } else {
             TyC2Theme.drawCenteredFitString(
                     canvas,
-                    Component.translatable("gui.tyc2.expansion.none").getString(),
+                    Component.translatable("gui.mnera.expansion.none").getString(),
                     81, 110, 154, 24, 0.60F, TyC2Theme.MUTED_TEXT
             );
         }
@@ -886,8 +886,8 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             TyC2Theme.drawFitString(
                     canvas,
                     Component.translatable(
-                            "gui.tyc2.terminal.lc2_nearby",
-                            Component.translatable("gui.tyc2.terminal.no_lc2")
+                            "gui.mnera.terminal.lc2_nearby",
+                            Component.translatable("gui.mnera.terminal.no_lc2")
                     ).getString(),
                     82, 160, 152, 0.56F, 0xFF7B95AD
             );
@@ -895,7 +895,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             TyC2Theme.drawFitString(
                     canvas,
                     Component.translatable(
-                            "gui.tyc2.terminal.lc2_nearby",
+                            "gui.mnera.terminal.lc2_nearby",
                             Lc2SoftBridge.formatStationLabel(lc2.get(0).toString())
                     ).getString(),
                     82, 160, 152, 0.56F, 0xFF64E8FF
@@ -922,12 +922,12 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
 
         TyC2Theme.drawFitString(
                 canvas,
-                Component.translatable("gui.tyc2.hub.unemployment", unempPct, unempCount, workforce).getString(),
+                Component.translatable("gui.mnera.hub.unemployment", unempPct, unempCount, workforce).getString(),
                 80, 70, 156, 0.56F, bonusActive ? TyC2Theme.MINT_TEXT : 0xFFE0ECF8
         );
         String bonusLine = bonusActive
-                ? Component.translatable("gui.tyc2.aid.bonus_active", qtyPct).getString()
-                : Component.translatable("gui.tyc2.aid.bonus_inactive", thresholdPct).getString();
+                ? Component.translatable("gui.mnera.aid.bonus_active", qtyPct).getString()
+                : Component.translatable("gui.mnera.aid.bonus_inactive", thresholdPct).getString();
         TyC2Theme.drawFitString(canvas, bonusLine, 80, 79, 156, 0.50F, bonusActive ? 0xFF56EC8B : TyC2Theme.MUTED_TEXT);
 
         // Profession picker display (92..224, 89..103)
@@ -955,7 +955,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                     : JsonLite.getBoolean(spec, "smallUnlocked", true);
             TyC2Theme.drawFitString(
                     canvas,
-                    Component.translatable("gui.tyc2.aid.cost", cost).getString(),
+                    Component.translatable("gui.mnera.aid.cost", cost).getString(),
                     80, 122, 156, 0.56F, unlocked ? TyC2Theme.GOLD_TEXT : 0xFFFF7766
             );
         }
@@ -965,19 +965,19 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
         int maxQueue = Math.max(1, JsonLite.getInt(village, "maxAidQueue", 3));
         TyC2Theme.drawFitString(
                 canvas,
-                Component.translatable("gui.tyc2.aid.gather_rate", String.format(Locale.ROOT, "%.2f", gatherMult), unempCount).getString(),
+                Component.translatable("gui.mnera.aid.gather_rate", String.format(Locale.ROOT, "%.2f", gatherMult), unempCount).getString(),
                 80, 131, 98, 0.50F, TyC2Theme.CYAN_TEXT
         );
         TyC2Theme.drawRightFitString(
                 canvas,
-                Component.translatable("gui.tyc2.aid.queue_header", queue.size(), maxQueue).getString(),
+                Component.translatable("gui.mnera.aid.queue_header", queue.size(), maxQueue).getString(),
                 236, 131, 56, 0.52F, TyC2Theme.GOLD_TEXT
         );
 
         if (queue.isEmpty()) {
             TyC2Theme.drawCenteredFitString(
                     canvas,
-                    Component.translatable("gui.tyc2.aid.queue_empty").getString(),
+                    Component.translatable("gui.mnera.aid.queue_empty").getString(),
                     82, 148, 152, 36, 0.62F, TyC2Theme.MUTED_TEXT
             );
             return;
@@ -1026,7 +1026,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                 TyC2Theme.drawBevelButtonBox(
                         canvas, 193, ry + 2, 43, 12,
                         TyC2Theme.ButtonStyle.PDA_DANGER, true, hoverCancel,
-                        Component.translatable("gui.tyc2.aid.cancel_btn").getString()
+                        Component.translatable("gui.mnera.aid.cancel_btn").getString()
                 );
             }
         }
@@ -1116,7 +1116,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             int eu = JsonLite.getInt(snap, "energyEu", 0);
             int maxEu = JsonLite.getInt(snap, "maxEu", TriModePowerMath.TERMINAL_MAX_CAPACITY_EU);
             canvas.drawTooltip(
-                    List.of(Component.translatable("gui.tyc2.terminal.battery", eu, maxEu)),
+                    List.of(Component.translatable("gui.mnera.terminal.battery", eu, maxEu)),
                     mouseX, mouseY
             );
             return;
@@ -1133,17 +1133,17 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             if (pmx >= biomeX && pmx < biomeX + 10 && pmy >= 29 && pmy < 41) {
                 String biomeKey = TyC2Theme.normalizeBiomeKey(JsonLite.getString(village, "biome", "plains"));
                 canvas.drawTooltip(List.of(
-                        Component.translatable("gui.tyc2.hub.biome_tooltip", Component.translatable("biome.tyc2." + biomeKey))
+                        Component.translatable("gui.mnera.hub.biome_tooltip", Component.translatable("biome.mnera." + biomeKey))
                                 .withStyle(ChatFormatting.GOLD),
-                        Component.translatable("gui.tyc2.economy.biome_specialty").withStyle(ChatFormatting.GREEN)
+                        Component.translatable("gui.mnera.economy.biome_specialty").withStyle(ChatFormatting.GREEN)
                 ), mouseX, mouseY);
                 return;
             }
             // 3. Tactical header Season tooltip (only when active)
             if (hasSeason && pmx >= 148 && pmx < 160 && pmy >= 29 && pmy < 41) {
                 canvas.drawTooltip(List.of(Component.translatable(
-                        "gui.tyc2.hub.season_tooltip",
-                        Component.translatable("season.tyc2." + seasonRaw.toLowerCase(Locale.ROOT))
+                        "gui.mnera.hub.season_tooltip",
+                        Component.translatable("season.mnera." + seasonRaw.toLowerCase(Locale.ROOT))
                 ).withStyle(ChatFormatting.AQUA)), mouseX, mouseY);
                 return;
             }
@@ -1151,7 +1151,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
             if (pmx >= calX && pmx < 238 && pmy >= 29 && pmy < 41) {
                 long refreshRem = liveRefreshRemaining(village);
                 canvas.drawTooltip(List.of(Component.translatable(
-                        "gui.tyc2.hub.refresh_tooltip", TyC2Theme.formatRestockCountdown(refreshRem)
+                        "gui.mnera.hub.refresh_tooltip", TyC2Theme.formatRestockCountdown(refreshRem)
                 ).withStyle(ChatFormatting.GOLD)), mouseX, mouseY);
                 return;
             }
@@ -1174,7 +1174,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                 if (!sells && pmx >= 184 && pmx < 200 && pmy >= rowY + 4 && pmy < rowY + 19) {
                     boolean auto = JsonLite.getBoolean(o, "autoFulfill", false);
                     canvas.drawTooltip(List.of(Component.translatable(
-                            auto ? "gui.tyc2.hub.auto_fulfill.on" : "gui.tyc2.hub.auto_fulfill.off"
+                            auto ? "gui.mnera.hub.auto_fulfill.on" : "gui.mnera.hub.auto_fulfill.off"
                     )), mouseX, mouseY);
                     return;
                 }
@@ -1189,7 +1189,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                         tip.add(Component.literal(ench).withStyle(ChatFormatting.AQUA));
                     }
                     if (!sells && !optTag.isBlank()) {
-                        tip.add(Component.translatable("gui.tyc2.order.tooltip.accepts_tag", optTag)
+                        tip.add(Component.translatable("gui.mnera.order.tooltip.accepts_tag", optTag)
                                 .withStyle(ChatFormatting.GOLD));
                     }
                     canvas.drawTooltip(tip, mouseX, mouseY);
@@ -1205,7 +1205,7 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
                     && pmx >= 159 && pmx < 238 && pmy >= 105 && pmy < 119) {
                 int aidMax = JsonLite.getInt(spec, "aidMax", WorkplaceCatalog.MAX_AID_BUILDS_PER_PROFESSION);
                 canvas.drawTooltip(
-                        List.of(Component.translatable("status.tyc2.aid.profession_limit", aidMax)
+                        List.of(Component.translatable("status.mnera.aid.profession_limit", aidMax)
                                 .withStyle(ChatFormatting.RED)),
                         mouseX, mouseY
                 );
@@ -1254,18 +1254,18 @@ public final class CommTerminalScreen extends TyC2ScreenBase<CommTerminalMenu> {
 
     private Component orderFilterComponent() {
         return switch (orderFilter) {
-            case 1 -> Component.translatable("gui.tyc2.hub.filter.sell");
-            case 2 -> Component.translatable("gui.tyc2.hub.filter.buy");
-            default -> Component.translatable("gui.tyc2.hub.filter.all");
+            case 1 -> Component.translatable("gui.mnera.hub.filter.sell");
+            case 2 -> Component.translatable("gui.mnera.hub.filter.buy");
+            default -> Component.translatable("gui.mnera.hub.filter.all");
         };
     }
 
     private Component qtyPresetComponent() {
         int val = QTY_PRESETS[qtyPresetIdx];
         if (val >= 9999) {
-            return Component.translatable("gui.tyc2.hub.qty_preset", Component.translatable("gui.tyc2.hub.qty_all"));
+            return Component.translatable("gui.mnera.hub.qty_preset", Component.translatable("gui.mnera.hub.qty_all"));
         }
-        return Component.translatable("gui.tyc2.hub.qty_preset", val);
+        return Component.translatable("gui.mnera.hub.qty_preset", val);
     }
 
     private Map<String, Object> selectedWorkplace(Map<String, Object> village) {

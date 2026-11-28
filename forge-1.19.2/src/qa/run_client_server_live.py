@@ -28,7 +28,7 @@ ERROR_PATTERNS = [
     re.compile(r"Missing texture.*tyc2", re.IGNORECASE),
     re.compile(r"Unable to load model.*tyc2", re.IGNORECASE),
     re.compile(r"Missing model.*tyc2", re.IGNORECASE),
-    re.compile(r"Using missing texture, unable to load tyc2:", re.IGNORECASE),
+    re.compile(r"Using missing texture, unable to load mnera:", re.IGNORECASE),
     re.compile(r"FileNotFoundException.*tyc2", re.IGNORECASE),
     re.compile(
         r"java\.lang\.(NoSuchMethodError|NoSuchFieldError|NoClassDefFoundError|ClassNotFoundException|VerifyError|IncompatibleClassChangeError|AbstractMethodError)",

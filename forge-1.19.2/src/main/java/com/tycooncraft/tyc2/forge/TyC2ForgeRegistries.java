@@ -133,34 +133,34 @@ public final class TyC2ForgeRegistries {
             ITEMS.register("primitive_mint_machine", () -> new TyC2BlockItem(
                     PRIMITIVE_MINT_MACHINE_BLOCK.get(),
                     tabProps(),
-                    "tooltip.tyc2.primitive_mint_machine.line1",
-                    "tooltip.tyc2.primitive_mint_machine.line2",
-                    "tooltip.tyc2.primitive_mint_machine.line3"
+                    "tooltip.mnera.primitive_mint_machine.line1",
+                    "tooltip.mnera.primitive_mint_machine.line2",
+                    "tooltip.mnera.primitive_mint_machine.line3"
             ));
 
     public static final RegistryObject<Item> MINT_MACHINE_ITEM =
             ITEMS.register("mint_machine", () -> new TyC2BlockItem(
                     MINT_MACHINE_BLOCK.get(),
                     tabProps(),
-                    "tooltip.tyc2.mint_machine.line1",
-                    "tooltip.tyc2.mint_machine.line2",
-                    "tooltip.tyc2.mint_machine.line3"
+                    "tooltip.mnera.mint_machine.line1",
+                    "tooltip.mnera.mint_machine.line2",
+                    "tooltip.mnera.mint_machine.line3"
             ));
 
     public static final RegistryObject<Item> ATM_MACHINE_ITEM =
             ITEMS.register("atm_machine", () -> new TyC2BlockItem(
                     ATM_MACHINE_BLOCK.get(),
                     tabProps(),
-                    "tooltip.tyc2.atm_machine.line1",
-                    "tooltip.tyc2.atm_machine.line2"
+                    "tooltip.mnera.atm_machine.line1",
+                    "tooltip.mnera.atm_machine.line2"
             ));
 
     public static final RegistryObject<Item> COOPERATION_HUB_ITEM =
             ITEMS.register("cooperation_hub", () -> new TyC2BlockItem(
                     COOPERATION_HUB_BLOCK.get(),
                     tabProps().stacksTo(1),
-                    "tooltip.tyc2.cooperation_hub.line1",
-                    "tooltip.tyc2.cooperation_hub.line2"
+                    "tooltip.mnera.cooperation_hub.line1",
+                    "tooltip.mnera.cooperation_hub.line2"
             ));
 
     public static final RegistryObject<Item> COIN_1 = registerCoin(CurrencyDenomination.X1);

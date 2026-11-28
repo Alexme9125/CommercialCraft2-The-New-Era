@@ -16,8 +16,8 @@ import net.minecraft.world.level.block.Block;
  */
 public class TyC2BlockItem extends BlockItem {
 
-    public static final String TAG_BOUND_VILLAGE_ID = "tyc2_bound_village_id";
-    public static final String TAG_BOUND_VILLAGE_NAME = "tyc2_bound_village_name";
+    public static final String TAG_BOUND_VILLAGE_ID = "mnera_bound_village_id";
+    public static final String TAG_BOUND_VILLAGE_NAME = "mnera_bound_village_name";
 
     private final String[] tooltipKeys;
 
@@ -31,7 +31,7 @@ public class TyC2BlockItem extends BlockItem {
         CompoundTag tag = stack.getTag();
         if (tag != null && tag.contains(TAG_BOUND_VILLAGE_NAME)) {
             tooltip.add(Component.translatable(
-                    "tooltip.tyc2.cooperation_hub.bound",
+                    "tooltip.mnera.cooperation_hub.bound",
                     tag.getString(TAG_BOUND_VILLAGE_NAME)
             ).withStyle(ChatFormatting.AQUA));
         }

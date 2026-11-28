@@ -110,18 +110,18 @@ final class CommonTagCompatTest {
         MintRecipeRegistry registry = MintRecipeRegistry.createDefault();
 
         // Check recipe ingredient specs were migrated to common tags
-        MintRecipe emeraldRec = registry.getById("tyc2:mint_gold_emerald_100").orElseThrow();
+        MintRecipe emeraldRec = registry.getById("mnera:mint_gold_emerald_100").orElseThrow();
         assertEquals("#gems/emerald", emeraldRec.ingredients().get(1).spec());
 
-        MintRecipe diamondRec = registry.getById("tyc2:mint_diamond_gold_200").orElseThrow();
+        MintRecipe diamondRec = registry.getById("mnera:mint_diamond_gold_200").orElseThrow();
         assertEquals("#gems/diamond", diamondRec.ingredients().get(0).spec());
 
-        MintRecipe iridiumRec = registry.getById("tyc2:mint_iridium_alloy_1000").orElseThrow();
+        MintRecipe iridiumRec = registry.getById("mnera:mint_iridium_alloy_1000").orElseThrow();
         assertEquals("#ingots/iridium", iridiumRec.ingredients().get(0).spec());
-        assertEquals("ic2:iridium", iridiumRec.ingredients().get(0).representativeItemId());
+        assertEquals("mhera:iridium", iridiumRec.ingredients().get(0).representativeItemId());
 
         // Built-in fallback matches ic2:iridium and ecc2:iridium_ingot even without live TagMatcher
-        assertTrue(registry.findMatch("ecc2:iridium_ingot", 1, "ic2:alloy", 1, null, mod -> true, false).isPresent());
+        assertTrue(registry.findMatch("ecera:iridium_ingot", 1, "mhera:alloy", 1, null, mod -> true, false).isPresent());
 
         // Third-party modded iridium and modded gems match via TagMatcher
         MintIngredient.TagMatcher thirdPartyMatcher = (item, tag) ->
@@ -129,7 +129,7 @@ final class CommonTagCompatTest {
                         || ("modgem:super_diamond".equals(item) && "c:gems/diamond".equals(tag))
                         || ("modgem:super_emerald".equals(item) && "forge:gems/emerald".equals(tag));
 
-        assertTrue(registry.findMatch("techreborn:iridium_ingot", 1, "ic2:alloy", 1,
+        assertTrue(registry.findMatch("techreborn:iridium_ingot", 1, "mhera:alloy", 1,
                 thirdPartyMatcher, mod -> true, false).isPresent());
         assertTrue(registry.findMatch("modgem:super_diamond", 1, "minecraft:gold_ingot", 2,
                 thirdPartyMatcher, mod -> false, false).isPresent());
@@ -208,7 +208,7 @@ final class CommonTagCompatTest {
 
         // Backward-compatible 12-arg and 13-arg VillageTradeOrder constructors default optionalTag to ""
         VillageTradeOrder legacy12 = new VillageTradeOrder(
-                "ord_12", OrderSide.VILLAGE_BUYS, "minecraft:iron_ingot", "tyc2:iron_ingot", "",
+                "ord_12", OrderSide.VILLAGE_BUYS, "minecraft:iron_ingot", "mnera:iron_ingot", "",
                 10, 0, 20L, 1L, 1000L, false, false);
         assertEquals("", legacy12.optionalTag());
     }
@@ -278,15 +278,15 @@ final class CommonTagCompatTest {
         MacroEconomyEngine engine = new MacroEconomyEngine();
         engine.setMintRecipeRegistry(MintRecipeRegistry.createDefault(), oreMatcher);
 
-        long ic2RawTinFloor = engine.computeMintingArbitrageFloor("ic2:raw_tin");
+        long ic2RawTinFloor = engine.computeMintingArbitrageFloor("mhera:raw_tin");
         long mekRawTinFloor = engine.computeMintingArbitrageFloor("mekanism:raw_tin");
         assertEquals(ic2RawTinFloor, mekRawTinFloor,
-                "Modded #raw_materials/tin must receive the same anti-arbitrage floor as ic2:raw_tin");
+                "Modded #raw_materials/tin must receive the same anti-arbitrage floor as mhera:raw_tin");
         assertTrue(mekRawTinFloor >= 6L, "Expected positive tin raw-material floor");
 
         long trIridiumFloor = engine.computeMintingArbitrageFloor("techreborn:iridium_ingot");
         assertEquals(1_100L, trIridiumFloor,
-                "Modded #ingots/iridium must receive the same 1,100 IC anti-arbitrage floor as ic2:iridium");
+                "Modded #ingots/iridium must receive the same 1,100 UC anti-arbitrage floor as mhera:iridium");
 
         // 3. IndustrialTier common-tag milestones in IC2 and Vanilla modes
         MintIngredient.TagMatcher tierMatcher = (item, tag) ->
@@ -317,7 +317,7 @@ final class CommonTagCompatTest {
                 "minecraft:iron_ingot", "minecraft:gold_ingot", "minecraft:copper_ingot",
                 "minecraft:redstone", "minecraft:glass_pane", "minecraft:chest",
                 "minecraft:iron_block", "minecraft:redstone_block", "minecraft:diamond",
-                "minecraft:stone_bricks", "ic2:iron_plate", "ic2:circuit"
+                "minecraft:stone_bricks", "mhera:iron_plate", "mhera:circuit"
         );
 
         for (String target : targets) {
@@ -349,15 +349,15 @@ final class CommonTagCompatTest {
             Map<String, Object> relocMap = JsonLite.parseObject(Files.readString(relocTag, StandardCharsets.UTF_8));
             List<Object> relocValues = JsonLite.asArray(relocMap.get("values"));
             assertNotNull(relocValues);
-            assertTrue(relocValues.contains("tyc2:mint_machine"));
-            assertTrue(relocValues.contains("tyc2:primitive_mint_machine"));
-            assertTrue(relocValues.contains("tyc2:atm_machine"));
-            assertTrue(relocValues.contains("tyc2:cooperation_hub"));
+            assertTrue(relocValues.contains("mnera:mint_machine"));
+            assertTrue(relocValues.contains("mnera:primitive_mint_machine"));
+            assertTrue(relocValues.contains("mnera:atm_machine"));
+            assertTrue(relocValues.contains("mnera:cooperation_hub"));
 
             Map<String, Object> coinsMap = JsonLite.parseObject(Files.readString(coinsTag, StandardCharsets.UTF_8));
             List<Object> coinValues = JsonLite.asArray(coinsMap.get("values"));
             assertNotNull(coinValues);
-            assertEquals(10, coinValues.size(), target + ": expected 9 tyc2 coins + 1 optional ic2:coin");
+            assertEquals(10, coinValues.size(), target + ": expected 9 tyc2 coins + 1 optional mhera:coin");
 
             // 2. Zero forbidden paths/namespaces
             if (isForge) {
@@ -370,9 +370,9 @@ final class CommonTagCompatTest {
 
             // 3. Validate all 5 shaped recipes
             String wrongNs = isForge ? "c:" : "forge:";
-            for (String recipeName : List.of("primitive_mint_machine", "mint_machine_ic2",
+            for (String recipeName : List.of("primitive_mint_machine", "mint_machine_mhera",
                     "mint_machine_standalone", "atm_machine", "comm_terminal")) {
-                Path recipePath = outDir.resolve("data/tyc2/" + recipeDir + "/" + recipeName + ".json");
+                Path recipePath = outDir.resolve("data/mnera/" + recipeDir + "/" + recipeName + ".json");
                 assertTrue(Files.isRegularFile(recipePath), target + ": missing recipe " + recipeName);
                 Map<String, Object> rec = JsonLite.parseObject(Files.readString(recipePath, StandardCharsets.UTF_8));
                 Map<String, Object> keys = JsonLite.asObject(rec.get("key"));
@@ -397,13 +397,13 @@ final class CommonTagCompatTest {
 
             // 4. Validate Forge 1.19.2 uses forge:* while NeoForge 1.21+/26.x uses c:* across recipes
             String primText = Files.readString(
-                    outDir.resolve("data/tyc2/" + recipeDir + "/primitive_mint_machine.json"), StandardCharsets.UTF_8);
+                    outDir.resolve("data/mnera/" + recipeDir + "/primitive_mint_machine.json"), StandardCharsets.UTF_8);
             String atmText = Files.readString(
-                    outDir.resolve("data/tyc2/" + recipeDir + "/atm_machine.json"), StandardCharsets.UTF_8);
+                    outDir.resolve("data/mnera/" + recipeDir + "/atm_machine.json"), StandardCharsets.UTF_8);
             String ic2Text = Files.readString(
-                    outDir.resolve("data/tyc2/" + recipeDir + "/mint_machine_ic2.json"), StandardCharsets.UTF_8);
+                    outDir.resolve("data/mnera/" + recipeDir + "/mint_machine_mhera.json"), StandardCharsets.UTF_8);
             String stdText = Files.readString(
-                    outDir.resolve("data/tyc2/" + recipeDir + "/mint_machine_standalone.json"), StandardCharsets.UTF_8);
+                    outDir.resolve("data/mnera/" + recipeDir + "/mint_machine_standalone.json"), StandardCharsets.UTF_8);
             if (isForge) {
                 assertTrue(primText.contains("\"forge:ingots/iron\""), "forge-1.19.2 must use forge:ingots/iron");
                 assertTrue(primText.contains("\"minecraft:stone_bricks\""), "forge-1.19.2 must use minecraft:stone_bricks");

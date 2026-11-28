@@ -13,9 +13,9 @@ class CurrencyAndPowerTest {
     @Test
     void currencyDenominationsAndIc2Unification() {
         assertEquals(9, CurrencyDenomination.values().length);
-        assertEquals("ic2:coin", CurrencyDenomination.X1.canonicalItemId(true));
-        assertEquals("tyc2:coin_1", CurrencyDenomination.X1.canonicalItemId(false));
-        assertEquals("ic2:coin", CurrencyDenomination.X1.ic2CompatId());
+        assertEquals("mhera:coin", CurrencyDenomination.X1.canonicalItemId(true));
+        assertEquals("mnera:coin_1", CurrencyDenomination.X1.canonicalItemId(false));
+        assertEquals("mhera:coin", CurrencyDenomination.X1.ic2CompatId());
 
         for (CurrencyDenomination denom : CurrencyDenomination.values()) {
             if (denom != CurrencyDenomination.X1) {
@@ -28,10 +28,10 @@ class CurrencyAndPowerTest {
         }
 
         // Mutual acceptance of ic2:coin and tyc2:coin_1 as 1x legal tender
-        assertEquals(Optional.of(CurrencyDenomination.X1), CurrencyDenomination.valueOfItemId("ic2:coin"));
-        assertEquals(Optional.of(CurrencyDenomination.X1), CurrencyDenomination.valueOfItemId("tyc2:coin_1"));
-        assertTrue(CurrencyDenomination.isLegalTender("ic2:coin"));
-        assertTrue(CurrencyDenomination.isLegalTender("tyc2:coin_1000"));
+        assertEquals(Optional.of(CurrencyDenomination.X1), CurrencyDenomination.valueOfItemId("mhera:coin"));
+        assertEquals(Optional.of(CurrencyDenomination.X1), CurrencyDenomination.valueOfItemId("mnera:coin_1"));
+        assertTrue(CurrencyDenomination.isLegalTender("mhera:coin"));
+        assertTrue(CurrencyDenomination.isLegalTender("mnera:coin_1000"));
         assertFalse(CurrencyDenomination.isLegalTender("minecraft:emerald"));
     }
 
@@ -118,9 +118,9 @@ class CurrencyAndPowerTest {
         assertFalse(TriModePowerMath.mintAcceptsSolidFuel());
 
         MintRecipeRegistry registry = MintRecipeRegistry.createDefault();
-        MintRecipe copper = registry.getById("tyc2:mint_copper_1").orElseThrow();
-        MintRecipe iron = registry.getById("tyc2:mint_iron_5").orElseThrow();
-        MintRecipe emerald100 = registry.getById("tyc2:mint_gold_emerald_100").orElseThrow();
+        MintRecipe copper = registry.getById("mnera:mint_copper_1").orElseThrow();
+        MintRecipe iron = registry.getById("mnera:mint_iron_5").orElseThrow();
+        MintRecipe emerald100 = registry.getById("mnera:mint_gold_emerald_100").orElseThrow();
         assertEquals(90, TriModePowerMath.primitiveMintDurationTicks(copper));     // 60 * 1.5
         assertEquals(120, TriModePowerMath.primitiveMintDurationTicks(iron));      // 80 * 1.5
         assertEquals(210, TriModePowerMath.primitiveMintDurationTicks(emerald100)); // 140 * 1.5
@@ -134,7 +134,7 @@ class CurrencyAndPowerTest {
         assertEquals(300, TriModePowerMath.primitiveBurnTicks("minecraft:oak_planks"));
         assertEquals(300, TriModePowerMath.primitiveBurnTicks("minecraft:spruce_log"));
         assertEquals(300, TriModePowerMath.primitiveBurnTicks("minecraft:birch_wood"));
-        assertEquals(300, TriModePowerMath.primitiveBurnTicks("ic2:rubber_wood"));
+        assertEquals(300, TriModePowerMath.primitiveBurnTicks("mhera:rubber_wood"));
         assertEquals(100, TriModePowerMath.primitiveBurnTicks("minecraft:stick"));
         assertEquals(0, TriModePowerMath.primitiveBurnTicks("minecraft:crimson_planks"));
         assertEquals(0, TriModePowerMath.primitiveBurnTicks("minecraft:redstone"));

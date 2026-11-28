@@ -1,5 +1,5 @@
 {
-  "tyc2:telemetry": {
+  "mnera:telemetry": {
     "entrypoints": {
       "common": "com.tycooncraft.tyc2.compat.TyC2WthitCommonPlugin",
       "client": "com.tycooncraft.tyc2.compat.TyC2WthitClientPlugin"

@@ -113,9 +113,9 @@ public final class C2SAtmActionPacket {
                     name = name.substring(0, BankAccountManager.MAX_COMPANY_NAME_LENGTH).trim();
                 }
                 if (name.isEmpty()) {
-                    feedback = Component.translatable("status.tyc2.atm.invalid_amount");
+                    feedback = Component.translatable("status.mnera.atm.invalid_amount");
                 } else if (!bank.canJoinAnotherCompany(player.getUUID())) {
-                    feedback = Component.translatable("status.tyc2.atm.company_limit");
+                    feedback = Component.translatable("status.mnera.atm.company_limit");
                 } else {
                     try {
                         BankAccountManager.CompanyAccount co = bank.createCompany(
@@ -124,10 +124,10 @@ public final class C2SAtmActionPacket {
                         bank.setActiveCompany(player.getUUID(), co.companyId());
                         data.setDirty();
                         feedback = Component.translatable(
-                                "status.tyc2.atm.company_created", co.name(), co.inviteCode()
+                                "status.mnera.atm.company_created", co.name(), co.inviteCode()
                         );
                     } catch (IllegalStateException ex) {
-                        feedback = Component.translatable("status.tyc2.atm.company_limit");
+                        feedback = Component.translatable("status.mnera.atm.company_limit");
                     }
                 }
             }
@@ -140,7 +140,7 @@ public final class C2SAtmActionPacket {
                     data.setDirty();
                     String coName = bank.getCompany(res.accountRef().accountId())
                             .map(BankAccountManager.CompanyAccount::name).orElse("");
-                    feedback = Component.translatable("status.tyc2.atm.company_joined", coName);
+                    feedback = Component.translatable("status.mnera.atm.company_joined", coName);
                 } else {
                     feedback = Component.translatable(res.errorKey());
                 }
@@ -154,7 +154,7 @@ public final class C2SAtmActionPacket {
                 if (res.success()) {
                     data.syncMacroAccountTotals();
                     data.setDirty();
-                    feedback = Component.translatable("status.tyc2.atm.company_left", coName);
+                    feedback = Component.translatable("status.mnera.atm.company_left", coName);
                 } else {
                     feedback = Component.translatable(res.errorKey());
                 }
@@ -184,7 +184,7 @@ public final class C2SAtmActionPacket {
                 String recipient = pkt.textA.trim();
                 long amt = pkt.amount;
                 if (recipient.isEmpty() || amt <= 0L) {
-                    feedback = Component.translatable("status.tyc2.atm.invalid_amount");
+                    feedback = Component.translatable("status.mnera.atm.invalid_amount");
                 } else {
                     BankAccountManager.BankResult res = null;
                     // 1. Try company ID or exact company name
@@ -213,10 +213,10 @@ public final class C2SAtmActionPacket {
                         }
                     }
                     if (res == null) {
-                        feedback = Component.translatable("status.tyc2.atm.invalid_recipient");
+                        feedback = Component.translatable("status.mnera.atm.invalid_recipient");
                     } else if (res.success()) {
                         data.setDirty();
-                        feedback = Component.translatable("status.tyc2.atm.transferred", amt, recipient);
+                        feedback = Component.translatable("status.mnera.atm.transferred", amt, recipient);
                     } else {
                         feedback = Component.translatable(res.errorKey());
                     }

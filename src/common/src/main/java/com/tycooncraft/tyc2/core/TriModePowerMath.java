@@ -77,20 +77,20 @@ public final class TriModePowerMath {
     private static final Map<String, Integer> VANILLA_FUEL_TABLE;
     private static final Map<String, Integer> PRIMITIVE_BURN_TABLE;
     private static final Set<String> MINT_UPGRADE_IDS = Set.of(
-            "ic2:overclocker_upgrade",
-            "ic2:transformer_upgrade",
-            "ic2:energy_storage_upgrade",
-            "ic2:ejector_upgrade",
-            "ic2:advanced_ejector_upgrade",
-            "ic2:pulling_upgrade",
-            "ic2:advanced_pulling_upgrade"
+            "mhera:overclocker_upgrade",
+            "mhera:transformer_upgrade",
+            "mhera:energy_storage_upgrade",
+            "mhera:ejector_upgrade",
+            "mhera:advanced_ejector_upgrade",
+            "mhera:pulling_upgrade",
+            "mhera:advanced_pulling_upgrade"
     );
     private static final Set<String> HUB_UPGRADE_IDS = Set.of(
-            "lc2:chunk_loading_upgrade",
-            "ic2:ejector_upgrade",
-            "ic2:advanced_ejector_upgrade",
-            "ic2:pulling_upgrade",
-            "ic2:advanced_pulling_upgrade"
+            "trera:chunk_loading_upgrade",
+            "mhera:ejector_upgrade",
+            "mhera:advanced_ejector_upgrade",
+            "mhera:pulling_upgrade",
+            "mhera:advanced_pulling_upgrade"
     );
 
     static {

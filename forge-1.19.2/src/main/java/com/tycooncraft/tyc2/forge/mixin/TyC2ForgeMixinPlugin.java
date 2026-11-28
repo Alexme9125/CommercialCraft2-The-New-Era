@@ -23,7 +23,7 @@ public final class TyC2ForgeMixinPlugin implements IMixinConfigPlugin {
     private boolean detectIc2Present() {
         try {
             if (FMLLoader.getLoadingModList() != null
-                    && FMLLoader.getLoadingModList().getModFileById("ic2") != null) {
+                    && FMLLoader.getLoadingModList().getModFileById("mhera") != null) {
                 return true;
             }
         } catch (Throwable ignored) {

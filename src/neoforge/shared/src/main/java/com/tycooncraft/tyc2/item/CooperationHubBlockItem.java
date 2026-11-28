@@ -26,8 +26,8 @@ public final class CooperationHubBlockItem extends TyC2TooltipBlockItem {
                 block,
                 properties.stacksTo(1),
                 List.of(
-                        "tooltip.tyc2.cooperation_hub.line1",
-                        "tooltip.tyc2.cooperation_hub.line2"
+                        "tooltip.mnera.cooperation_hub.line1",
+                        "tooltip.mnera.cooperation_hub.line2"
                 )
         );
     }
@@ -73,7 +73,7 @@ public final class CooperationHubBlockItem extends TyC2TooltipBlockItem {
         if (bound.isPresent()) {
             String name = getBoundVillageName(stack);
             String label = name.isBlank() ? bound.get().toString().substring(0, 8) : name;
-            adder.accept(Component.translatable("tooltip.tyc2.cooperation_hub.bound", label)
+            adder.accept(Component.translatable("tooltip.mnera.cooperation_hub.bound", label)
                     .withStyle(ChatFormatting.GOLD));
         }
     }

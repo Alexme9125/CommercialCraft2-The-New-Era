@@ -181,7 +181,7 @@ public final class TyC2WorldManager {
                     if (player != null) {
                         TyC2Native.sendActionBar(
                                 player,
-                                Component.translatable("status.tyc2.hub.protected").withStyle(ChatFormatting.RED)
+                                Component.translatable("status.mnera.hub.protected").withStyle(ChatFormatting.RED)
                         );
                     }
                     return true;
@@ -735,7 +735,7 @@ public final class TyC2WorldManager {
                         targetLevel,
                         v,
                         Component.translatable(
-                                "status.tyc2.aid.building",
+                                "status.mnera.aid.building",
                                 v.getVillageName(),
                                 workplaceDisplayComponent(building)
                         ).withStyle(ChatFormatting.AQUA)
@@ -747,7 +747,7 @@ public final class TyC2WorldManager {
                         targetLevel,
                         v,
                         Component.translatable(
-                                "status.tyc2.aid.no_site_waiting",
+                                "status.mnera.aid.no_site_waiting",
                                 v.getVillageName(),
                                 workplaceDisplayComponent(proj)
                         ).withStyle(ChatFormatting.YELLOW)
@@ -900,7 +900,7 @@ public final class TyC2WorldManager {
                 wpTitle = workplaceDisplayComponent(aidProj);
             } else {
                 wpTitle = Component.translatable(
-                        "project.tyc2." + job.getProjectType().name().toLowerCase(Locale.ROOT)
+                        "project.mnera." + job.getProjectType().name().toLowerCase(Locale.ROOT)
                 );
             }
             if (level.hasChunkAt(hub)) {
@@ -909,7 +909,7 @@ public final class TyC2WorldManager {
             notifyVillageOwnerOrNearby(
                     level,
                     v,
-                    Component.translatable("status.tyc2.aid.completed", v.getVillageName(), wpTitle)
+                    Component.translatable("status.mnera.aid.completed", v.getVillageName(), wpTitle)
                             .withStyle(ChatFormatting.GREEN)
             );
             data.setDirty();
@@ -921,10 +921,10 @@ public final class TyC2WorldManager {
             ServerPlayer owner = level.getServer().getPlayerList().getPlayer(v.getOwnerPlayerUuid());
             if (owner != null) {
                 Component projectTitle = Component.translatable(
-                        "project.tyc2." + job.getProjectType().name().toLowerCase(Locale.ROOT)
+                        "project.mnera." + job.getProjectType().name().toLowerCase(Locale.ROOT)
                 );
                 owner.sendSystemMessage(Component.translatable(
-                        "status.tyc2.expansion.completed", v.getVillageName(), projectTitle
+                        "status.mnera.expansion.completed", v.getVillageName(), projectTitle
                 ).withStyle(ChatFormatting.GREEN));
             }
         }
@@ -1114,15 +1114,15 @@ public final class TyC2WorldManager {
             }
         }
         if (outcome.action() == MayorElectionRules.Action.ELECTED_NEW_MAYOR) {
-            notifyVillageOwnerOrNearby(level, v, Component.translatable("mayor.tyc2.elected", v.getVillageName())
+            notifyVillageOwnerOrNearby(level, v, Component.translatable("mayor.mnera.elected", v.getVillageName())
                     .withStyle(ChatFormatting.GOLD));
             data.setDirty();
         } else if (outcome.action() == MayorElectionRules.Action.RESUMED_AND_ELECTED) {
-            notifyVillageOwnerOrNearby(level, v, Component.translatable("mayor.tyc2.resumed", v.getVillageName())
+            notifyVillageOwnerOrNearby(level, v, Component.translatable("mayor.mnera.resumed", v.getVillageName())
                     .withStyle(ChatFormatting.GREEN));
             data.setDirty();
         } else if (outcome.action() == MayorElectionRules.Action.PAUSED_DEPOPULATED && !wasPaused) {
-            notifyVillageOwnerOrNearby(level, v, Component.translatable("mayor.tyc2.paused_depopulated", v.getVillageName())
+            notifyVillageOwnerOrNearby(level, v, Component.translatable("mayor.mnera.paused_depopulated", v.getVillageName())
                     .withStyle(ChatFormatting.RED));
             data.setDirty();
         }
@@ -1132,7 +1132,7 @@ public final class TyC2WorldManager {
         villager.getPersistentData().putBoolean(TyC2Constants.TAG_MAYOR, true);
         villager.getPersistentData().putString(TyC2Constants.TAG_MAYOR_VILLAGE_ID, v.getVillageId().toString());
         villager.setCustomName(
-                Component.translatable("mayor.tyc2.name_format", v.getVillageName()).withStyle(ChatFormatting.GOLD)
+                Component.translatable("mayor.mnera.name_format", v.getVillageName()).withStyle(ChatFormatting.GOLD)
         );
         villager.setCustomNameVisible(true);
         villager.setGlowingTag(true);
@@ -1195,7 +1195,7 @@ public final class TyC2WorldManager {
             event.setCancellationResult(InteractionResult.SUCCESS);
             if (isMayor) {
                 player.sendSystemMessage(Component.translatable(
-                        "mayor.tyc2.partnered_status",
+                        "mayor.mnera.partnered_status",
                         village.getVillageName(),
                         village.getLevel(),
                         village.getVillageBalance(),
@@ -1204,7 +1204,7 @@ public final class TyC2WorldManager {
             } else {
                 TyC2Native.sendActionBar(
                         player,
-                        Component.translatable("mayor.tyc2.villager_redirect").withStyle(ChatFormatting.YELLOW)
+                        Component.translatable("mayor.mnera.villager_redirect").withStyle(ChatFormatting.YELLOW)
                 );
             }
             return;
@@ -1220,7 +1220,7 @@ public final class TyC2WorldManager {
             player.openMenu(
                     new SimpleMenuProvider(
                             (syncId, inv, p) -> new MayorNegotiationMenu(syncId, inv, villageId, hubPos, mayorUuid),
-                            Component.translatable("container.tyc2.mayor_negotiation")
+                            Component.translatable("container.mnera.mayor_negotiation")
                     ),
                     buf -> {
                         buf.writeUUID(villageId);
@@ -1296,7 +1296,7 @@ public final class TyC2WorldManager {
         notifyVillageOwnerOrNearby(
                 level,
                 village,
-                Component.translatable("mayor.tyc2.died", village.getVillageName()).withStyle(ChatFormatting.RED)
+                Component.translatable("mayor.mnera.died", village.getVillageName()).withStyle(ChatFormatting.RED)
         );
         MayorElectionRules.ElectionOutcome outcome = MayorElectionRules.onMayorDeathAndReelect(
                 village.getMayorState(),
@@ -1316,7 +1316,7 @@ public final class TyC2WorldManager {
                 notifyVillageOwnerOrNearby(
                         level,
                         village,
-                        Component.translatable("mayor.tyc2.elected", village.getVillageName())
+                        Component.translatable("mayor.mnera.elected", village.getVillageName())
                                 .withStyle(ChatFormatting.GOLD)
                 );
             }
@@ -1432,7 +1432,7 @@ public final class TyC2WorldManager {
                 TyC2Native.sendActionBar(
                         feedbackPlayer,
                         Component.translatable(
-                                "status.tyc2.expansion.low_funds",
+                                "status.mnera.expansion.low_funds",
                                 desire.constructionBudgetCost(),
                                 v.getVillageBalance()
                         ).withStyle(ChatFormatting.RED)
@@ -1449,7 +1449,7 @@ public final class TyC2WorldManager {
             if (feedbackPlayer != null) {
                 TyC2Native.sendActionBar(
                         feedbackPlayer,
-                        Component.translatable("status.tyc2.expansion.no_site").withStyle(ChatFormatting.RED)
+                        Component.translatable("status.mnera.expansion.no_site").withStyle(ChatFormatting.RED)
                 );
             }
             return false;
@@ -1462,12 +1462,12 @@ public final class TyC2WorldManager {
         data.setDirty();
 
         Component projectTitle = Component.translatable(
-                "project.tyc2." + desire.projectType().name().toLowerCase(Locale.ROOT)
+                "project.mnera." + desire.projectType().name().toLowerCase(Locale.ROOT)
         );
         notifyVillageOwnerOrNearby(
                 targetLevel,
                 v,
-                Component.translatable("status.tyc2.expansion.started", v.getVillageName(), projectTitle)
+                Component.translatable("status.mnera.expansion.started", v.getVillageName(), projectTitle)
                         .withStyle(ChatFormatting.AQUA)
         );
         return true;
@@ -1551,7 +1551,7 @@ public final class TyC2WorldManager {
                         data.economy().recordCashDepositedToBank(value);
                         data.setDirty();
                         statusComp = Component.translatable(
-                                "status.tyc2.atm.deposited", value, activeAccountLabelComponent(bank, player.getUUID())
+                                "status.mnera.atm.deposited", value, activeAccountLabelComponent(bank, player.getUUID())
                         );
                     }
                 }
@@ -1585,7 +1585,7 @@ public final class TyC2WorldManager {
                         data.economy().recordCashDepositedToBank(total);
                         data.setDirty();
                         statusComp = Component.translatable(
-                                "status.tyc2.atm.deposited", total, activeAccountLabelComponent(bank, player.getUUID())
+                                "status.mnera.atm.deposited", total, activeAccountLabelComponent(bank, player.getUUID())
                         );
                     } else if (res.errorKey() != null) {
                         statusComp = Component.translatable(res.errorKey());
@@ -1595,10 +1595,10 @@ public final class TyC2WorldManager {
             case "WITHDRAW_AMOUNT" -> {
                 long amount = JsonLite.getLong(args, "amount", 0L);
                 if (amount <= 0L) {
-                    statusComp = Component.translatable("status.tyc2.atm.invalid_amount");
+                    statusComp = Component.translatable("status.mnera.atm.invalid_amount");
                 } else if (!CurrencyDenomination.isWithinSingleWithdrawalLimit(amount)) {
                     statusComp = Component.translatable(
-                            "status.tyc2.atm.withdraw_limit", CurrencyDenomination.MAX_SINGLE_WITHDRAWAL_IC
+                            "status.mnera.atm.withdraw_limit", CurrencyDenomination.MAX_SINGLE_WITHDRAWAL_IC
                     );
                 } else {
                     BankAccountManager.BankResult res = bank.withdraw(player.getUUID(), amount, now, "ATM Withdraw");
@@ -1606,7 +1606,7 @@ public final class TyC2WorldManager {
                         dispenseCoins(player, atm, CurrencyDenomination.decompose(amount));
                         data.economy().recordCashWithdrawnFromBank(amount);
                         data.setDirty();
-                        statusComp = Component.translatable("status.tyc2.atm.withdrawn", amount);
+                        statusComp = Component.translatable("status.mnera.atm.withdrawn", amount);
                     } else if (res.errorKey() != null) {
                         statusComp = Component.translatable(res.errorKey());
                     }
@@ -1625,7 +1625,7 @@ public final class TyC2WorldManager {
                         dispenseCoins(player, atm, Map.of(denom.get(), count));
                         data.economy().recordCashWithdrawnFromBank(total);
                         data.setDirty();
-                        statusComp = Component.translatable("status.tyc2.atm.withdrawn", total);
+                        statusComp = Component.translatable("status.mnera.atm.withdrawn", total);
                     } else if (res.errorKey() != null) {
                         statusComp = Component.translatable(res.errorKey());
                     }
@@ -1638,7 +1638,7 @@ public final class TyC2WorldManager {
                 }
                 if (!name.isEmpty()) {
                     if (!bank.canJoinAnotherCompany(player.getUUID())) {
-                        statusComp = Component.translatable("status.tyc2.atm.company_limit");
+                        statusComp = Component.translatable("status.mnera.atm.company_limit");
                     } else {
                         try {
                             BankAccountManager.CompanyAccount co = bank.createCompany(
@@ -1646,9 +1646,9 @@ public final class TyC2WorldManager {
                             );
                             bank.setActiveCompany(player.getUUID(), co.companyId());
                             data.setDirty();
-                            statusComp = Component.translatable("status.tyc2.atm.company_created", co.name(), co.inviteCode());
+                            statusComp = Component.translatable("status.mnera.atm.company_created", co.name(), co.inviteCode());
                         } catch (IllegalStateException ex) {
-                            statusComp = Component.translatable("status.tyc2.atm.company_limit");
+                            statusComp = Component.translatable("status.mnera.atm.company_limit");
                         }
                     }
                 }
@@ -1663,7 +1663,7 @@ public final class TyC2WorldManager {
                     data.setDirty();
                     String coName = bank.getCompany(res.accountRef().accountId())
                             .map(BankAccountManager.CompanyAccount::name).orElse(code);
-                    statusComp = Component.translatable("status.tyc2.atm.company_joined", coName);
+                    statusComp = Component.translatable("status.mnera.atm.company_joined", coName);
                 } else if (res.errorKey() != null) {
                     statusComp = Component.translatable(res.errorKey());
                 }
@@ -1679,7 +1679,7 @@ public final class TyC2WorldManager {
                     BankAccountManager.BankResult res = bank.leaveCompany(player.getUUID(), coId, now);
                     if (res.success()) {
                         data.setDirty();
-                        statusComp = Component.translatable("status.tyc2.atm.company_left", coName);
+                        statusComp = Component.translatable("status.mnera.atm.company_left", coName);
                     } else if (res.errorKey() != null) {
                         statusComp = Component.translatable(res.errorKey());
                     }
@@ -1702,7 +1702,7 @@ public final class TyC2WorldManager {
                 BankAccountManager.BankResult res = executeNamedTransfer(bank, player.getUUID(), recipient, amount, now);
                 if (res.success()) {
                     data.setDirty();
-                    statusComp = Component.translatable("status.tyc2.atm.transferred", amount, recipient);
+                    statusComp = Component.translatable("status.mnera.atm.transferred", amount, recipient);
                 } else if (res.errorKey() != null) {
                     statusComp = Component.translatable(res.errorKey());
                 }
@@ -1725,7 +1725,7 @@ public final class TyC2WorldManager {
             long now
     ) {
         if (recipient == null || recipient.isBlank()) {
-            return new BankAccountManager.BankResult(false, "status.tyc2.atm.invalid_recipient", null, 0L);
+            return new BankAccountManager.BankResult(false, "status.mnera.atm.invalid_recipient", null, 0L);
         }
         // Match company ID or company name first, then player display name
         if (bank.getCompany(recipient).isPresent()) {
@@ -1740,7 +1740,7 @@ public final class TyC2WorldManager {
         if (targetPlayer.isPresent()) {
             return bank.transferToPlayer(senderUuid, targetPlayer.get().playerUuid(), amount, now, "ATM Transfer");
         }
-        return new BankAccountManager.BankResult(false, "status.tyc2.atm.invalid_recipient", null, 0L);
+        return new BankAccountManager.BankResult(false, "status.mnera.atm.invalid_recipient", null, 0L);
     }
 
     private static void dispenseCoins(
@@ -1798,7 +1798,7 @@ public final class TyC2WorldManager {
         boolean useCash = JsonLite.getBoolean(args, "cashMode", false);
 
         if (!"REQUEST_SYNC".equals(action) && !canAccessVillage(player, data, village)) {
-            TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED));
+            TyC2Native.sendActionBar(player, Component.translatable("status.mnera.hub.not_owner").withStyle(ChatFormatting.RED));
             sendHubSync(player, level, pos, hub, args);
             return;
         }
@@ -1819,11 +1819,11 @@ public final class TyC2WorldManager {
         }
         if ("RELOCATE_HUB".equals(action)) {
             if (!canManageVillage(player, data, village)) {
-                TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED));
+                TyC2Native.sendActionBar(player, Component.translatable("status.mnera.hub.not_owner").withStyle(ChatFormatting.RED));
                 return;
             }
             if (!TyC2Native.dimensionId(level).equals(village.getDimensionId())) {
-                TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.wrong_dimension").withStyle(ChatFormatting.RED));
+                TyC2Native.sendActionBar(player, Component.translatable("status.mnera.hub.wrong_dimension").withStyle(ChatFormatting.RED));
                 return;
             }
             if (!level.getBlockState(pos).is(TyC2Registries.COOPERATION_HUB_BLOCK.get())
@@ -1838,12 +1838,12 @@ public final class TyC2WorldManager {
                 player.drop(packed, false);
             }
             player.closeContainer();
-            TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.relocated").withStyle(ChatFormatting.GREEN));
+            TyC2Native.sendActionBar(player, Component.translatable("status.mnera.hub.relocated").withStyle(ChatFormatting.GREEN));
             return;
         }
         if ("TERMINATE_PARTNERSHIP".equals(action)) {
             if (!canManageVillage(player, data, village)) {
-                TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED));
+                TyC2Native.sendActionBar(player, Component.translatable("status.mnera.hub.not_owner").withStyle(ChatFormatting.RED));
                 return;
             }
             String vName = village.getVillageName();
@@ -1886,7 +1886,7 @@ public final class TyC2WorldManager {
                 }
             }
             player.closeContainer();
-            TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.partnership_terminated", vName).withStyle(ChatFormatting.YELLOW));
+            TyC2Native.sendActionBar(player, Component.translatable("status.mnera.hub.partnership_terminated", vName).withStyle(ChatFormatting.YELLOW));
             return;
         }
 
@@ -1945,7 +1945,7 @@ public final class TyC2WorldManager {
             return;
         }
         if (!"REQUEST_SYNC".equals(action) && !canAccessVillage(player, data, villageOpt.get())) {
-            TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED));
+            TyC2Native.sendActionBar(player, Component.translatable("status.mnera.hub.not_owner").withStyle(ChatFormatting.RED));
             sendTerminalSync(player, level, term);
             return;
         }
@@ -1990,24 +1990,24 @@ public final class TyC2WorldManager {
 
                 // Validate Outbound capacity & player funds BEFORE deducting Comm Terminal 50 EU
                 if (!village.getStorage().canFitInOutbound(order.itemId(), actualQty, nbtMeta, maxStack)) {
-                    TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.outbound_full").withStyle(ChatFormatting.RED));
+                    TyC2Native.sendActionBar(player, Component.translatable("status.mnera.hub.outbound_full").withStyle(ChatFormatting.RED));
                     return;
                 }
                 if (useCash && hub != null) {
                     if (!canAffordCash(player, hub, totalCost)) {
-                        TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.atm.insufficient_balance").withStyle(ChatFormatting.RED));
+                        TyC2Native.sendActionBar(player, Component.translatable("status.mnera.atm.insufficient_balance").withStyle(ChatFormatting.RED));
                         return;
                     }
                 } else if (bank.getBalance(activeRef) < totalCost) {
-                    TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.atm.insufficient_balance").withStyle(ChatFormatting.RED));
+                    TyC2Native.sendActionBar(player, Component.translatable("status.mnera.atm.insufficient_balance").withStyle(ChatFormatting.RED));
                     return;
                 }
                 if (isTerminal && !CommTerminalItem.consumeActionEu(terminalStack, player, TriModePowerMath.TerminalAction.REMOTE_TRADE)) {
-                    TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.terminal.low_power").withStyle(ChatFormatting.RED));
+                    TyC2Native.sendActionBar(player, Component.translatable("status.mnera.terminal.low_power").withStyle(ChatFormatting.RED));
                     return;
                 }
                 if (useCash && hub != null && !consumeCashPayment(player, hub, totalCost)) {
-                    TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.atm.insufficient_balance").withStyle(ChatFormatting.RED));
+                    TyC2Native.sendActionBar(player, Component.translatable("status.mnera.atm.insufficient_balance").withStyle(ChatFormatting.RED));
                     return;
                 }
 
@@ -2018,7 +2018,7 @@ public final class TyC2WorldManager {
                     if (useCash && hub != null) {
                         giveChangeCoins(player, totalCost);
                     }
-                    TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.outbound_full").withStyle(ChatFormatting.RED));
+                    TyC2Native.sendActionBar(player, Component.translatable("status.mnera.hub.outbound_full").withStyle(ChatFormatting.RED));
                     return;
                 }
                 if (useCash && hub != null) {
@@ -2032,7 +2032,7 @@ public final class TyC2WorldManager {
                         .orElse(order.unitPrice());
                 data.economy().recordTrade(order.itemId(), res.executedQty(), basePrice, false);
                 data.setDirty();
-                TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.order_fulfilled", res.totalCurrency()).withStyle(ChatFormatting.GREEN));
+                TyC2Native.sendActionBar(player, Component.translatable("status.mnera.hub.order_fulfilled", res.totalCurrency()).withStyle(ChatFormatting.GREEN));
             }
             case "SELL_ORDER" -> {
                 // Player delivers to Village Buy Order -> consumes from Inbound 0..499 (or player inv at Hub), pays player!
@@ -2051,7 +2051,7 @@ public final class TyC2WorldManager {
                     TyC2Native.sendActionBar(
                             player,
                             Component.translatable(
-                                    "status.tyc2.hub.village_low_funds_detail",
+                                    "status.mnera.hub.village_low_funds_detail",
                                     village.getVillageBalance(),
                                     order.unitPrice()
                             ).withStyle(ChatFormatting.RED)
@@ -2076,7 +2076,7 @@ public final class TyC2WorldManager {
                     TyC2Native.sendActionBar(
                             player,
                             Component.translatable(
-                                    isTerminal ? "status.tyc2.terminal.insufficient_goods" : "status.tyc2.hub.insufficient_goods"
+                                    isTerminal ? "status.mnera.terminal.insufficient_goods" : "status.mnera.hub.insufficient_goods"
                             ).withStyle(ChatFormatting.RED)
                     );
                     return;
@@ -2084,7 +2084,7 @@ public final class TyC2WorldManager {
 
                 // 4. Deduct Terminal EU only when settlement is ready to execute
                 if (isTerminal && !CommTerminalItem.consumeActionEu(terminalStack, player, TriModePowerMath.TerminalAction.REMOTE_TRADE)) {
-                    TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.terminal.low_power").withStyle(ChatFormatting.RED));
+                    TyC2Native.sendActionBar(player, Component.translatable("status.mnera.terminal.low_power").withStyle(ChatFormatting.RED));
                     return;
                 }
 
@@ -2096,14 +2096,14 @@ public final class TyC2WorldManager {
                         TyC2Native.sendActionBar(
                                 player,
                                 Component.translatable(
-                                        isTerminal ? "status.tyc2.terminal.insufficient_goods" : "status.tyc2.hub.insufficient_goods"
+                                        isTerminal ? "status.mnera.terminal.insufficient_goods" : "status.mnera.hub.insufficient_goods"
                                 ).withStyle(ChatFormatting.RED)
                         );
                     } else if (res.failureCode() == VillageRecord.TradeFailureCode.INSUFFICIENT_VILLAGE_FUNDS) {
                         TyC2Native.sendActionBar(
                                 player,
                                 Component.translatable(
-                                        "status.tyc2.hub.village_low_funds_detail",
+                                        "status.mnera.hub.village_low_funds_detail",
                                         village.getVillageBalance(),
                                         order.unitPrice()
                                 ).withStyle(ChatFormatting.RED)
@@ -2123,7 +2123,7 @@ public final class TyC2WorldManager {
                         .orElse(order.unitPrice());
                 data.economy().recordTrade(order.itemId(), res.executedQty(), basePrice, true);
                 data.setDirty();
-                TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.order_fulfilled", res.totalCurrency()).withStyle(ChatFormatting.GREEN));
+                TyC2Native.sendActionBar(player, Component.translatable("status.mnera.hub.order_fulfilled", res.totalCurrency()).withStyle(ChatFormatting.GREEN));
             }
             case "TOGGLE_ORDER_AUTO" -> {
                 String orderId = JsonLite.getString(args, "orderId", "");
@@ -2141,7 +2141,7 @@ public final class TyC2WorldManager {
                     TyC2Native.sendActionBar(
                             player,
                             Component.translatable(
-                                    "status.tyc2.expansion.low_funds",
+                                    "status.mnera.expansion.low_funds",
                                     desire.constructionBudgetCost(),
                                     village.getVillageBalance()
                             ).withStyle(ChatFormatting.RED)
@@ -2161,7 +2161,7 @@ public final class TyC2WorldManager {
                         TyC2Native.sendActionBar(
                                 player,
                                 Component.translatable(
-                                        "status.tyc2.expansion.missing_materials",
+                                        "status.mnera.expansion.missing_materials",
                                         buildMissingMaterialsComponent(desire)
                                 ).withStyle(ChatFormatting.RED)
                         );
@@ -2169,7 +2169,7 @@ public final class TyC2WorldManager {
                     }
                 }
                 if (isTerminal && !CommTerminalItem.consumeActionEu(terminalStack, player, TriModePowerMath.TerminalAction.REMOTE_UPGRADE_OR_EXPANSION)) {
-                    TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.terminal.low_power").withStyle(ChatFormatting.RED));
+                    TyC2Native.sendActionBar(player, Component.translatable("status.mnera.terminal.low_power").withStyle(ChatFormatting.RED));
                     return;
                 }
                 if (!isTerminal) {
@@ -2190,13 +2190,13 @@ public final class TyC2WorldManager {
                     if (deliveredAny) {
                         TyC2Native.sendActionBar(
                                 player,
-                                Component.translatable("status.tyc2.expansion.delivered_partial", missingComp)
+                                Component.translatable("status.mnera.expansion.delivered_partial", missingComp)
                                         .withStyle(ChatFormatting.YELLOW)
                         );
                     } else {
                         TyC2Native.sendActionBar(
                                 player,
-                                Component.translatable("status.tyc2.expansion.missing_materials", missingComp)
+                                Component.translatable("status.mnera.expansion.missing_materials", missingComp)
                                         .withStyle(ChatFormatting.RED)
                         );
                     }
@@ -2211,7 +2211,7 @@ public final class TyC2WorldManager {
             }
             case "UPGRADE_VILLAGE" -> {
                 if (isTerminal && !CommTerminalItem.consumeActionEu(terminalStack, player, TriModePowerMath.TerminalAction.REMOTE_UPGRADE_OR_EXPANSION)) {
-                    TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.terminal.low_power").withStyle(ChatFormatting.RED));
+                    TyC2Native.sendActionBar(player, Component.translatable("status.mnera.terminal.low_power").withStyle(ChatFormatting.RED));
                     return;
                 }
                 long sink = village.tryUpgrade(TyC2DataLoader.levelTable());
@@ -2219,10 +2219,10 @@ public final class TyC2WorldManager {
                     data.economy().recordVillageMoneySink(sink);
                     refreshVillageOrders(level, data, village, overworldDayTime(level));
                     data.setDirty();
-                    Component lvlName = Component.translatable("level.tyc2." + village.getLevel());
-                    TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.upgraded", village.getVillageName(), village.getLevel(), lvlName).withStyle(ChatFormatting.GOLD));
+                    Component lvlName = Component.translatable("level.mnera." + village.getLevel());
+                    TyC2Native.sendActionBar(player, Component.translatable("status.mnera.hub.upgraded", village.getVillageName(), village.getLevel(), lvlName).withStyle(ChatFormatting.GOLD));
                 } else {
-                    TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.upgrade_failed").withStyle(ChatFormatting.RED));
+                    TyC2Native.sendActionBar(player, Component.translatable("status.mnera.hub.upgrade_failed").withStyle(ChatFormatting.RED));
                 }
             }
             case "TOGGLE_PAUSE_EXPANSION" -> {
@@ -2231,7 +2231,7 @@ public final class TyC2WorldManager {
             }
             case "RENAME_VILLAGE" -> {
                 if (!canManageVillage(player, data, village)) {
-                    TyC2Native.sendActionBar(player, Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED));
+                    TyC2Native.sendActionBar(player, Component.translatable("status.mnera.hub.not_owner").withStyle(ChatFormatting.RED));
                     return;
                 }
                 String newName = JsonLite.getString(args, "name", "").trim();
@@ -2271,7 +2271,7 @@ public final class TyC2WorldManager {
         if (village.getMayorState().isPausedDueToDepopulation()) {
             TyC2Native.sendActionBar(
                     player,
-                    Component.translatable("gui.tyc2.hub.paused_depopulated").withStyle(ChatFormatting.RED)
+                    Component.translatable("gui.mnera.hub.paused_depopulated").withStyle(ChatFormatting.RED)
             );
             return;
         }
@@ -2279,7 +2279,7 @@ public final class TyC2WorldManager {
         if (village.getAidProjects().size() >= cfg.maxQueuedAidProjects()) {
             TyC2Native.sendActionBar(
                     player,
-                    Component.translatable("status.tyc2.aid.queue_full", cfg.maxQueuedAidProjects())
+                    Component.translatable("status.mnera.aid.queue_full", cfg.maxQueuedAidProjects())
                             .withStyle(ChatFormatting.RED)
             );
             return;
@@ -2292,7 +2292,7 @@ public final class TyC2WorldManager {
                 || !TyC2Native.blockExists(specOpt.get().workstationBlockId())) {
             TyC2Native.sendActionBar(
                     player,
-                    Component.translatable("status.tyc2.aid.unknown_profession", professionId)
+                    Component.translatable("status.mnera.aid.unknown_profession", professionId)
                             .withStyle(ChatFormatting.RED)
             );
             return;
@@ -2304,7 +2304,7 @@ public final class TyC2WorldManager {
         if (!spec.isUnlockedAtLevel(village.getLevel(), size)) {
             TyC2Native.sendActionBar(
                     player,
-                    Component.translatable("status.tyc2.aid.level_locked", spec.minVillageLevel(size))
+                    Component.translatable("status.mnera.aid.level_locked", spec.minVillageLevel(size))
                             .withStyle(ChatFormatting.RED)
             );
             return;
@@ -2313,7 +2313,7 @@ public final class TyC2WorldManager {
             TyC2Native.sendActionBar(
                     player,
                     Component.translatable(
-                            "status.tyc2.aid.profession_limit",
+                            "status.mnera.aid.profession_limit",
                             WorkplaceCatalog.MAX_AID_BUILDS_PER_PROFESSION
                     ).withStyle(ChatFormatting.RED)
             );
@@ -2329,14 +2329,14 @@ public final class TyC2WorldManager {
             if (!canAffordCash(player, hub, costIc)) {
                 TyC2Native.sendActionBar(
                         player,
-                        Component.translatable("status.tyc2.atm.insufficient_balance").withStyle(ChatFormatting.RED)
+                        Component.translatable("status.mnera.atm.insufficient_balance").withStyle(ChatFormatting.RED)
                 );
                 return;
             }
         } else if (bank.getBalance(activeRef) < costIc) {
             TyC2Native.sendActionBar(
                     player,
-                    Component.translatable("status.tyc2.atm.insufficient_balance").withStyle(ChatFormatting.RED)
+                    Component.translatable("status.mnera.atm.insufficient_balance").withStyle(ChatFormatting.RED)
             );
             return;
         }
@@ -2352,7 +2352,7 @@ public final class TyC2WorldManager {
             if (!preview.success()) {
                 TyC2Native.sendActionBar(
                         player,
-                        Component.translatable("status.tyc2.aid.no_site").withStyle(ChatFormatting.RED)
+                        Component.translatable("status.mnera.aid.no_site").withStyle(ChatFormatting.RED)
                 );
                 return;
             }
@@ -2364,7 +2364,7 @@ public final class TyC2WorldManager {
                 terminalStack, player, TriModePowerMath.TerminalAction.REMOTE_UPGRADE_OR_EXPANSION)) {
             TyC2Native.sendActionBar(
                     player,
-                    Component.translatable("status.tyc2.terminal.low_power").withStyle(ChatFormatting.RED)
+                    Component.translatable("status.mnera.terminal.low_power").withStyle(ChatFormatting.RED)
             );
             return;
         }
@@ -2374,7 +2374,7 @@ public final class TyC2WorldManager {
             if (!consumeCashPayment(player, hub, costIc)) {
                 TyC2Native.sendActionBar(
                         player,
-                        Component.translatable("status.tyc2.atm.insufficient_balance").withStyle(ChatFormatting.RED)
+                        Component.translatable("status.mnera.atm.insufficient_balance").withStyle(ChatFormatting.RED)
                 );
                 return;
             }
@@ -2391,7 +2391,7 @@ public final class TyC2WorldManager {
             if (!deb.success()) {
                 TyC2Native.sendActionBar(
                         player,
-                        Component.translatable("status.tyc2.atm.insufficient_balance").withStyle(ChatFormatting.RED)
+                        Component.translatable("status.mnera.atm.insufficient_balance").withStyle(ChatFormatting.RED)
                 );
                 return;
             }
@@ -2424,7 +2424,7 @@ public final class TyC2WorldManager {
         TyC2Native.sendActionBar(
                 player,
                 Component.translatable(
-                        "status.tyc2.aid.started",
+                        "status.mnera.aid.started",
                         village.getVillageName(),
                         workplaceDisplayComponent(spec, size),
                         costIc
@@ -2452,14 +2452,14 @@ public final class TyC2WorldManager {
         if (!isPayer && !canManageVillage(player, data, village)) {
             TyC2Native.sendActionBar(
                     player,
-                    Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED)
+                    Component.translatable("status.mnera.hub.not_owner").withStyle(ChatFormatting.RED)
             );
             return;
         }
         if (!proj.canCancel()) {
             TyC2Native.sendActionBar(
                     player,
-                    Component.translatable("status.tyc2.aid.cannot_cancel").withStyle(ChatFormatting.RED)
+                    Component.translatable("status.mnera.aid.cannot_cancel").withStyle(ChatFormatting.RED)
             );
             return;
         }
@@ -2493,7 +2493,7 @@ public final class TyC2WorldManager {
         TyC2Native.sendActionBar(
                 player,
                 Component.translatable(
-                        "status.tyc2.aid.cancelled",
+                        "status.mnera.aid.cancelled",
                         workplaceDisplayComponent(proj),
                         refundIc
                 ).withStyle(ChatFormatting.YELLOW)
@@ -2533,7 +2533,7 @@ public final class TyC2WorldManager {
         }
         TyC2Config cfg = TyC2DataLoader.config();
         if (village.getAidProjects().size() >= cfg.maxQueuedAidProjects()) {
-            return Optional.of(Component.translatable("status.tyc2.aid.queue_full", cfg.maxQueuedAidProjects()));
+            return Optional.of(Component.translatable("status.mnera.aid.queue_full", cfg.maxQueuedAidProjects()));
         }
         WorkplaceCatalog catalog = TyC2DataLoader.workplaceCatalog();
         String norm = professionArg == null ? "" : professionArg.trim().toLowerCase(Locale.ROOT);
@@ -2544,7 +2544,7 @@ public final class TyC2WorldManager {
         if (specOpt.isEmpty()
                 || !specOpt.get().enabled()
                 || !TyC2Native.blockExists(specOpt.get().workstationBlockId())) {
-            return Optional.of(Component.translatable("status.tyc2.aid.unknown_profession", professionArg));
+            return Optional.of(Component.translatable("status.mnera.aid.unknown_profession", professionArg));
         }
         WorkplaceSpec spec = specOpt.get();
         TycoonSavedData data = getData(level);
@@ -2556,7 +2556,7 @@ public final class TyC2WorldManager {
             StructureBlueprint bp = WorkplaceArchitectureCatalog.getBlueprint(spec, size, village.getBiomeStyle());
             ExpansionPlanner.PlanResult preview = PLANNER.planBlueprint(village, bp, probe, "aid_cmd_preview", true);
             if (!preview.success()) {
-                return Optional.of(Component.translatable("status.tyc2.aid.no_site"));
+                return Optional.of(Component.translatable("status.mnera.aid.no_site"));
             }
             reservedZone = preview.reservedZone();
         }
@@ -2604,7 +2604,7 @@ public final class TyC2WorldManager {
                         ? Component.literal(displayNameFallback)
                         : Component.translatable(WorkplaceArchetype.GENERIC.langKey()));
         Component sizeComp = Component.translatable(
-                size == WorkplaceSize.LARGE ? "gui.tyc2.aid.size.large" : "gui.tyc2.aid.size.small"
+                size == WorkplaceSize.LARGE ? "gui.mnera.aid.size.large" : "gui.mnera.aid.size.small"
         );
         return profComp.append(" ").append(sizeComp);
     }
@@ -2613,18 +2613,18 @@ public final class TyC2WorldManager {
     public static Component aidStatusComponent(VillageRecord v, AidConstructionProject proj) {
         return switch (proj.status()) {
             case COLLECTING -> Component.translatable(
-                    "gui.tyc2.aid.status.collecting",
+                    "gui.mnera.aid.status.collecting",
                     (int) Math.round(proj.completionRatio() * 100.0)
             );
-            case WAITING_SITE -> Component.translatable("gui.tyc2.aid.status.waiting_site");
-            case NO_SITE -> Component.translatable("gui.tyc2.aid.status.no_site");
+            case WAITING_SITE -> Component.translatable("gui.mnera.aid.status.waiting_site");
+            case NO_SITE -> Component.translatable("gui.mnera.aid.status.no_site");
             case BUILDING -> {
                 int pct = v.getConstructionQueue().stream()
                         .filter(j -> proj.plannedJobId().equals(j.getJobId()))
                         .findFirst()
                         .map(j -> (int) Math.round(j.getProgressRatio() * 100.0))
                         .orElse(0);
-                yield Component.translatable("gui.tyc2.aid.status.building", pct);
+                yield Component.translatable("gui.mnera.aid.status.building", pct);
             }
         };
     }
@@ -2683,7 +2683,7 @@ public final class TyC2WorldManager {
         long resignCooldown = village.remainingResignCooldownTicks(overworldGameTime, refreshTicks);
         if (resignCooldown > 0L) {
             Component cooldownMsg = Component.translatable(
-                    "status.tyc2.negotiation.resign_cooldown",
+                    "status.mnera.negotiation.resign_cooldown",
                     formatRemainingMcTime(resignCooldown)
             ).withStyle(ChatFormatting.RED);
             TyC2Native.sendActionBar(player, cooldownMsg);
@@ -2696,7 +2696,7 @@ public final class TyC2WorldManager {
         if (!check.allMet()) {
             TyC2Native.sendActionBar(
                     player,
-                    Component.translatable("status.tyc2.negotiation.missing_requirements").withStyle(ChatFormatting.RED)
+                    Component.translatable("status.mnera.negotiation.missing_requirements").withStyle(ChatFormatting.RED)
             );
             sendMayorSync(player, level, village);
             return;
@@ -2758,7 +2758,7 @@ public final class TyC2WorldManager {
         endAllNegotiationsForPlayer(player);
         player.closeContainer();
         player.sendSystemMessage(
-                Component.translatable("status.tyc2.hub.partnership_signed", village.getVillageName())
+                Component.translatable("status.mnera.hub.partnership_signed", village.getVillageName())
                         .withStyle(ChatFormatting.GREEN)
         );
     }
@@ -3407,12 +3407,12 @@ public final class TyC2WorldManager {
         long days = clamped / SupplyCycleClock.TICKS_PER_DAY;
         long hours = (clamped % SupplyCycleClock.TICKS_PER_DAY) / 1_000L;
         if (days > 0L && hours > 0L) {
-            return Component.translatable("gui.tyc2.hub.refresh_days_hours", days, hours);
+            return Component.translatable("gui.mnera.hub.refresh_days_hours", days, hours);
         }
         if (days > 0L) {
-            return Component.translatable("gui.tyc2.hub.refresh_days", days);
+            return Component.translatable("gui.mnera.hub.refresh_days", days);
         }
-        return Component.translatable("gui.tyc2.hub.refresh_hours", Math.max(1L, hours));
+        return Component.translatable("gui.mnera.hub.refresh_hours", Math.max(1L, hours));
     }
 
     private static long countCoinsInInventory(Player player) {
@@ -3644,7 +3644,7 @@ public final class TyC2WorldManager {
 
     private static Component activeAccountLabelComponent(BankAccountManager bank, UUID playerUuid) {
         String label = activeAccountLabel(bank, playerUuid);
-        return label.isEmpty() ? Component.translatable("gui.tyc2.account.personal") : Component.literal(label);
+        return label.isEmpty() ? Component.translatable("gui.mnera.account.personal") : Component.literal(label);
     }
 
     private static ItemStack findHeldTerminal(Player player) {

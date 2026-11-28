@@ -92,7 +92,7 @@ public final class C2STerminalActionPacket {
             if (authOpt.isPresent() && !TycoonForgeWorldManager.canAccessVillage(player, authData, authOpt.get())) {
                 TyC2ForgeNetwork.sendToPlayer(
                         player,
-                        S2CTerminalSyncPacket.buildFor(player, term, Component.translatable("status.tyc2.hub.not_owner"))
+                        S2CTerminalSyncPacket.buildFor(player, term, Component.translatable("status.mnera.hub.not_owner"))
                 );
                 ctx.setPacketHandled(true);
                 return;

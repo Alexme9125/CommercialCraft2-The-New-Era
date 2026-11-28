@@ -145,7 +145,7 @@ public final class TradeGood {
         return optionalTag;
     }
 
-    /** @return optional required mod ID (e.g. {@code "ic2"}), or {@code null} */
+    /** @return optional required mod ID (e.g. {@code "mhera"}), or {@code null} */
     public String requiredModId() {
         return requiredModId;
     }
@@ -582,7 +582,7 @@ public final class TradeGood {
 
     @Override
     public String toString() {
-        return "TradeGood{" + id + " (" + itemId + "), base=" + basePrice + " IC, Lv " + minLevel + ".." + maxLevel + "}";
+        return "TradeGood{" + id + " (" + itemId + "), base=" + basePrice + " UC, Lv " + minLevel + ".." + maxLevel + "}";
     }
 
     /**

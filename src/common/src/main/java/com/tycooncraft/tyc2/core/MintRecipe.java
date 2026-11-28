@@ -40,7 +40,7 @@ public final class MintRecipe {
      * from the default rule (true only for pure-Vanilla {@code 1x..100x} recipes
      * without mod gates or modded metal/alloy tags).
      *
-     * @param id unique recipe ID (e.g. {@code "tyc2:mint_iron_5"})
+     * @param id unique recipe ID (e.g. {@code "mnera:mint_iron_5"})
      * @param ingredients 1 or 2 input ingredients
      * @param outputDenomination minted coin denomination
      * @param outputCount minted coin quantity (>= 1)
@@ -72,7 +72,7 @@ public final class MintRecipe {
     /**
      * Constructs an immutable minting recipe with an explicit {@code primitiveAllowed} flag.
      *
-     * @param id unique recipe ID (e.g. {@code "tyc2:mint_iron_5"})
+     * @param id unique recipe ID (e.g. {@code "mnera:mint_iron_5"})
      * @param ingredients 1 or 2 input ingredients
      * @param outputDenomination minted coin denomination
      * @param outputCount minted coin quantity (>= 1)

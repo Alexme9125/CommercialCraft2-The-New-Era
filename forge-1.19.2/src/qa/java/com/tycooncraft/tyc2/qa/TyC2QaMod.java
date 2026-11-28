@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 @Mod(TyC2QaMod.MOD_ID)
 public final class TyC2QaMod {
 
-    public static final String MOD_ID = "tyc2_qa";
+    public static final String MOD_ID = "mnera_qa";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     private static final DeferredRegister<Item> QA_ITEMS =

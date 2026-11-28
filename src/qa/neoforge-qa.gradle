@@ -3,20 +3,20 @@ import java.nio.file.Files
 import java.time.Duration
 
 def qaRoot = rootProject.layout.projectDirectory.dir('src/qa/neoforge')
-def ic2VersionProp = rootProject.property('ic2_version')
-def ic2DepJar = rootProject.file(".ic2-deps/ic2-neoforge-${minecraftVersion}-${ic2VersionProp}.jar")
-def lc2Candidates = [
-        providers.gradleProperty('lc2Jar').orNull ? file(providers.gradleProperty('lc2Jar').get()) : null,
-        rootProject.file(".ic2-deps/lc2-neoforge-${minecraftVersion}-1.1.0.jar"),
-        rootProject.file("../LC2/src/neoforge/${minecraftVersion}/build/libs/lc2-neoforge-${minecraftVersion}-1.1.0.jar")
+def mheraVersionProp = rootProject.property('mhera_version')
+def mheraDepJar = rootProject.file(".mhera-deps/mhera-neoforge-${minecraftVersion}-${mheraVersionProp}.jar")
+def treraCandidates = [
+        providers.gradleProperty('treraJar').orNull ? file(providers.gradleProperty('treraJar').get()) : null,
+        rootProject.file(".mhera-deps/trera-neoforge-${minecraftVersion}-2.0.0.jar"),
+        rootProject.file("../LC2/src/neoforge/${minecraftVersion}/build/libs/trera-neoforge-${minecraftVersion}-2.0.0.jar")
 ].findAll { it != null }
-def lc2DepJar = lc2Candidates.find { it.isFile() } ?: lc2Candidates.last()
+def treraDepJar = treraCandidates.find { it.isFile() } ?: treraCandidates.last()
 
-if (!ic2DepJar.isFile()) {
-    throw new GradleException("Missing IC2 dependency JAR for QA: ${ic2DepJar}")
+if (!mheraDepJar.isFile()) {
+    throw new GradleException("Missing MHERA dependency JAR for QA: ${mheraDepJar}")
 }
-if (!lc2DepJar.isFile()) {
-    throw new GradleException("Missing LC2 dependency JAR for QA: ${lc2DepJar}")
+if (!treraDepJar.isFile()) {
+    throw new GradleException("Missing TRERA dependency JAR for QA: ${treraDepJar}")
 }
 
 sourceSets {
@@ -36,7 +36,7 @@ neoForge.addModdingDependenciesTo(sourceSets.qa)
 dependencies {
     qaCompileOnly sourceSets.main.output
     qaCompileOnly project(':common')
-    qaCompileOnly files(ic2DepJar)
+    qaCompileOnly files(mheraDepJar)
 }
 
 tasks.named('processQaResources') {
@@ -47,7 +47,7 @@ tasks.named('processQaResources') {
     }
 }
 
-def qaMod = neoForge.mods.create('tyc2_qa') {
+def qaMod = neoForge.mods.create('mnera_qa') {
     sourceSet sourceSets.qa
 }
 
@@ -76,7 +76,7 @@ def scanLatestLogForErrors = { File runDir, String profile, String phaseName ->
                 || line.contains('MixinTransformerError')
                 || line.contains('MixinPrepareError')
                 || line.contains('Critical injection failure')
-                || (lower.contains('mixin') && lower.contains('tyc2') && (lower.contains('error') || lower.contains('failed')))
+                || (lower.contains('mixin') && (lower.contains('mnera') || lower.contains('tyc2')) && (lower.contains('error') || lower.contains('failed')))
         boolean isClassLoadingError = line.contains('NoClassDefFoundError')
                 || line.contains('ClassNotFoundException')
                 || line.contains('NoSuchMethodError')
@@ -85,25 +85,25 @@ def scanLatestLogForErrors = { File runDir, String profile, String phaseName ->
                 || line.contains('IncompatibleClassChangeError')
         boolean isTyc2Error = (line.contains('/ERROR]') || line.contains('Exception') || line.contains('AssertionError'))
                 && (line.contains('com.tycooncraft.tyc2')
-                    || line.contains('tyc2:')
-                    || line.contains('tyc2.mixins.json')
-                    || (lower.contains('failed to load mod') && lower.contains('tyc2'))
-                    || (lower.contains('error loading recipe') && lower.contains('tyc2'))
-                    || (lower.contains('failed to parse tyc2')))
+                    || line.contains('mnera:')
+                    || line.contains('mnera.mixins.json')
+                    || (lower.contains('failed to load mod') && (lower.contains('mnera') || lower.contains('tyc2')))
+                    || (lower.contains('error loading recipe') && (lower.contains('mnera') || lower.contains('tyc2')))
+                    || (lower.contains('failed to parse mnera')))
         if (isMixinError || isClassLoadingError || isTyc2Error) {
             badLines << "L${idx + 1}: ${line}"
         }
     }
     if (!badLines.isEmpty()) {
         throw new GradleException(
-                "TyC2/Mixin/ClassLoad errors detected in ${logFile} during QA ${profile}/${phaseName}:\n"
+                "MNERA/Mixin/ClassLoad errors detected in ${logFile} during QA ${profile}/${phaseName}:\n"
                         + badLines.take(25).join('\n')
         )
     }
 }
 
 ['standalone', 'enhanced'].each { profile ->
-    def runDir = layout.buildDirectory.dir("run/tyc2-qa-${profile}")
+    def runDir = layout.buildDirectory.dir("run/mnera-qa-${profile}")
     ['write', 'read'].each { phase ->
         def runName = "qa${profile.capitalize()}${phase.capitalize()}"
         neoForge.runs.create(runName) {
@@ -116,9 +116,9 @@ def scanLatestLogForErrors = { File runDir, String profile, String phaseName ->
             systemProperty 'tyc2.qa.profile', profile
             systemProperty 'tyc2.qa.phase', phase
             systemProperty 'tyc2.qa.mcVersion', minecraftVersion
-            systemProperty 'tyc2.qa.expectedTyc2Jar', "tyc2-neoforge-${minecraftVersion}-${project.version}.jar"
-            systemProperty 'tyc2.qa.expectedIc2Jar', ic2DepJar.name
-            systemProperty 'tyc2.qa.expectedLc2Jar', lc2DepJar.name
+            systemProperty 'tyc2.qa.expectedTyc2Jar', "mnera-neoforge-${minecraftVersion}-${project.version}.jar"
+            systemProperty 'tyc2.qa.expectedIc2Jar', mheraDepJar.name
+            systemProperty 'tyc2.qa.expectedLc2Jar', treraDepJar.name
         }
 
         tasks.named("run${runName.capitalize()}", JavaExec) {
@@ -139,8 +139,8 @@ def scanLatestLogForErrors = { File runDir, String profile, String phaseName ->
                     copy {
                         from tyc2Artifact
                         if (profile == 'enhanced') {
-                            from ic2DepJar
-                            from lc2DepJar
+                            from mheraDepJar
+                            from treraDepJar
                         }
                         into modsDir
                     }
@@ -169,10 +169,10 @@ generator-settings={"layers":[{"block":"minecraft:bedrock","height":1},{"block":
                         throw new GradleException("Standalone QA mods/ must contain ONLY TyC2 JAR, found: ${extraJars}")
                     }
                 } else {
-                    def installedIc2 = new File(dir, "mods/${ic2DepJar.name}")
-                    def installedLc2 = new File(dir, "mods/${lc2DepJar.name}")
+                    def installedIc2 = new File(dir, "mods/${mheraDepJar.name}")
+                    def installedLc2 = new File(dir, "mods/${treraDepJar.name}")
                     if (!installedIc2.isFile() || !installedLc2.isFile()) {
-                        throw new GradleException("Enhanced QA missing IC2/LC2 JARs in ${dir}/mods")
+                        throw new GradleException("Enhanced QA missing MHERA/TRERA JARs in ${dir}/mods")
                     }
                 }
             }
@@ -274,8 +274,8 @@ tasks.register('prepareClientServerPlay') {
         }
         launch.minecraftVersion = minecraftVersion
         launch.tyc2Jar = productionTyc2Jar.get().asFile.absolutePath
-        launch.ic2Jar = ic2DepJar.absolutePath
-        launch.lc2Jar = lc2DepJar.absolutePath
+        launch.ic2Jar = mheraDepJar.absolutePath
+        launch.lc2Jar = treraDepJar.absolutePath
         def outFile = manifest.get().asFile
         outFile.parentFile.mkdirs()
         outFile.setText(JsonOutput.prettyPrint(JsonOutput.toJson(launch)) + '\n', 'UTF-8')

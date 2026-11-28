@@ -152,8 +152,8 @@ final class AuditFixesRegressionTest {
 
         // Minting arbitrage floor: bronze & steel are buy-only; netherite_scrap & ic2:alloy have sell floors
         GoodsCatalog catalog = GoodsCatalog.createDefault();
-        TradeGood bronze = catalog.findByItemId("ic2:bronze_ingot").orElseThrow();
-        TradeGood steel = catalog.findByItemId("ic2:steel_ingot").orElseThrow();
+        TradeGood bronze = catalog.findByItemId("mhera:bronze_ingot").orElseThrow();
+        TradeGood steel = catalog.findByItemId("mhera:steel_ingot").orElseThrow();
         assertFalse(bronze.isSellableByVillage(), "IC2 bronze ingot must not be sold by villages (mint arbitrage)");
         assertTrue(bronze.isBuyableByVillage());
         assertFalse(steel.isSellableByVillage(), "IC2 steel ingot must not be sold by villages (mint arbitrage)");
@@ -163,36 +163,36 @@ final class AuditFixesRegressionTest {
         // without IEEE-754 rounding errors (+1 IC) or distorting secondary co-ingredients!
         MacroEconomyEngine deflated = new MacroEconomyEngine(cfg);
         deflated.recordTrade("minecraft:wheat", 100_000, 100L, true);
-        assertEquals(110L, deflated.computeMintingArbitrageFloor("ic2:alloy"),
-                "ic2:alloy must stay at 110 IC (not polluted to 1,100 IC by iridium+alloy)");
+        assertEquals(110L, deflated.computeMintingArbitrageFloor("mhera:alloy"),
+                "mhera:alloy must stay at 110 UC (not polluted to 1,100 UC by iridium+alloy)");
         assertEquals(550L, deflated.computeMintingArbitrageFloor("minecraft:netherite_scrap"));
         assertEquals(550L, deflated.computeMintingArbitrageFloor("minecraft:ancient_debris"));
-        assertEquals(1_100L, deflated.computeMintingArbitrageFloor("ic2:iridium"));
-        assertEquals(1_100L, deflated.computeMintingArbitrageFloor("ecc2:iridium_ingot"));
+        assertEquals(1_100L, deflated.computeMintingArbitrageFloor("mhera:iridium"));
+        assertEquals(1_100L, deflated.computeMintingArbitrageFloor("ecera:iridium_ingot"));
         assertEquals(1_100L, deflated.computeMintingArbitrageFloor("minecraft:netherite_ingot"));
-        assertEquals(123L, deflated.computeMintingArbitrageFloor("ic2:iridium_shard"));
+        assertEquals(123L, deflated.computeMintingArbitrageFloor("mhera:iridium_shard"));
         assertEquals(220L, deflated.computeMintingArbitrageFloor("minecraft:diamond"),
-                "diamond must stay at 220 IC (not polluted to 1,100 IC by netherite+diamond)");
+                "diamond must stay at 220 UC (not polluted to 1,100 UC by netherite+diamond)");
         assertEquals(110L, deflated.computeMintingArbitrageFloor("minecraft:emerald"));
         assertEquals(55L, deflated.computeMintingArbitrageFloor("minecraft:gold_ingot"),
-                "gold_ingot must be exact integer ceil(50*11/10)=55 IC (not 56 or 275)");
-        assertEquals(55L, deflated.computeMintingArbitrageFloor("ic2:refined_iron_ingot"),
-                "refined_iron_ingot must be exact integer ceil(50*11/10)=55 IC (not 56)");
+                "gold_ingot must be exact integer ceil(50*11/10)=55 UC (not 56 or 275)");
+        assertEquals(55L, deflated.computeMintingArbitrageFloor("mhera:refined_iron_ingot"),
+                "refined_iron_ingot must be exact integer ceil(50*11/10)=55 UC (not 56)");
         assertEquals(6L, deflated.computeMintingArbitrageFloor("minecraft:iron_ingot"),
-                "iron_ingot must be 6 IC (summed 2x iron pair & not polluted by gold+iron)");
+                "iron_ingot must be 6 UC (summed 2x iron pair & not polluted by gold+iron)");
 
         TradeGood scrap = catalog.findByItemId("minecraft:netherite_scrap").orElseThrow();
         TradeGood debris = catalog.findByItemId("minecraft:ancient_debris").orElseThrow();
-        TradeGood alloy = catalog.findByItemId("ic2:alloy").orElseThrow();
-        TradeGood iridiumShard = catalog.findByItemId("ic2:iridium_shard").orElseThrow();
-        TradeGood refinedIron = TradeGood.builder("test:refined_iron", "ic2:refined_iron_ingot", GoodsCategory.METAL, 15L)
+        TradeGood alloy = catalog.findByItemId("mhera:alloy").orElseThrow();
+        TradeGood iridiumShard = catalog.findByItemId("mhera:iridium_shard").orElseThrow();
+        TradeGood refinedIron = TradeGood.builder("test:refined_iron", "mhera:refined_iron_ingot", GoodsCategory.METAL, 15L)
                 .levelRange(1, 10).sellable(true).buyable(false).build();
         assertEquals(550L, deflated.quotePrice(scrap, 10, 0L, "plains", Season.NONE, false).finalUnitPrice());
         assertEquals(550L, deflated.quotePrice(debris, 10, 0L, "plains", Season.NONE, false).finalUnitPrice());
         assertEquals(110L, deflated.quotePrice(alloy, 10, 0L, "plains", Season.NONE, false).finalUnitPrice());
         assertEquals(55L, deflated.quotePrice(refinedIron, 10, 0L, "plains", Season.NONE, false).finalUnitPrice());
         assertTrue(deflated.quotePrice(iridiumShard, 10, 0L, "plains", Season.NONE, false).finalUnitPrice() >= 123L,
-                "ic2:iridium_shard 1/9 precursor floor must be >= 123 IC");
+                "mhera:iridium_shard 1/9 precursor floor must be >= 123 UC");
 
         // Dynamic datapack 1-ing and 2-ing mint recipe floors without hardcoded item IDs
         MintRecipeRegistry customMintReg = MintRecipeRegistry.createDefault();
@@ -220,11 +220,11 @@ final class AuditFixesRegressionTest {
         TradeGood orichalcum = TradeGood.builder("custom:orichalcum", "custom:orichalcum_ingot", GoodsCategory.METAL, 50L)
                 .levelRange(1, 10).sellable(true).buyable(false).build();
         assertEquals(275L, deflated.quotePrice(mythril, 10, 0L, "plains", Season.NONE, false).finalUnitPrice(),
-                "Dynamic 1-ing gross mint floor: ceil((500 * 11) / (2 * 10)) = 275 IC");
+                "Dynamic 1-ing gross mint floor: ceil((500 * 11) / (2 * 10)) = 275 UC");
         assertEquals(550L, deflated.quotePrice(orichalcum, 10, 0L, "plains", Season.NONE, false).finalUnitPrice(),
-                "Dynamic 2-ing primary rare ingredient gets gross mint floor 550 IC");
+                "Dynamic 2-ing primary rare ingredient gets gross mint floor 550 UC");
         assertEquals(6L, deflated.computeMintingArbitrageFloor("minecraft:iron_ingot"),
-                "Cheap iron co-ingredient in custom dual recipe must not be inflated to 550 IC");
+                "Cheap iron co-ingredient in custom dual recipe must not be inflated to 550 UC");
     }
 
     @Test

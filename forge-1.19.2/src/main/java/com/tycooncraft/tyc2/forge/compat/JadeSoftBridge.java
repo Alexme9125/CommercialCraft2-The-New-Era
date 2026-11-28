@@ -54,21 +54,21 @@ public final class JadeSoftBridge {
         }
         BlockEntity be = level.getBlockEntity(pos);
         if (be instanceof PrimitiveMintMachineBlockEntity prim) {
-            lines.add(Component.translatable("hud.tyc2.primitive_mint.scope"));
-            lines.add(Component.translatable("hud.tyc2.primitive_mint.fuel", Math.max(0, prim.getBurnTicksRemaining() / 20)));
-            lines.add(Component.translatable("hud.tyc2.primitive_mint.progress", prim.getProgressPercent()));
+            lines.add(Component.translatable("hud.mnera.primitive_mint.scope"));
+            lines.add(Component.translatable("hud.mnera.primitive_mint.fuel", Math.max(0, prim.getBurnTicksRemaining() / 20)));
+            lines.add(Component.translatable("hud.mnera.primitive_mint.progress", prim.getProgressPercent()));
             if (prim.isBlockedByIndustrialTier()) {
-                lines.add(Component.translatable("gui.tyc2.primitive_mint.requires_industrial"));
+                lines.add(Component.translatable("gui.mnera.primitive_mint.requires_industrial"));
             }
         } else if (be instanceof MintMachineBlockEntity mint) {
             int eu = (int) Math.round(mint.getStoredEu());
             int max = mint.getMaxCapacityEu();
-            lines.add(Component.translatable("hud.tyc2.mint.power", eu, max, (long) eu * TriModePowerMath.EU_TO_FE_RATIO));
-            lines.add(Component.translatable("hud.tyc2.mint.progress", mint.getProgressPercent()));
+            lines.add(Component.translatable("hud.mnera.mint.power", eu, max, (long) eu * TriModePowerMath.EU_TO_FE_RATIO));
+            lines.add(Component.translatable("hud.mnera.mint.progress", mint.getProgressPercent()));
         } else if (be instanceof AtmMachineBlockEntity atm) {
             int eu = (int) Math.round(atm.getStoredEu());
-            lines.add(Component.translatable("hud.tyc2.atm.ready"));
-            lines.add(Component.translatable("hud.tyc2.atm.power", eu, TriModePowerMath.ATM_BASE_CAPACITY_EU));
+            lines.add(Component.translatable("hud.mnera.atm.ready"));
+            lines.add(Component.translatable("hud.mnera.atm.power", eu, TriModePowerMath.ATM_BASE_CAPACITY_EU));
         } else if (be instanceof CooperationHubBlockEntity hub && level instanceof ServerLevel sl) {
             UUID vid = hub.resolveVillageId();
             TycoonForgeSavedData data = TycoonForgeSavedData.get(sl);
@@ -81,16 +81,16 @@ public final class JadeSoftBridge {
                         .filter(o -> o.side() == OrderSide.VILLAGE_BUYS && !o.isCompleted()).count();
                 MacroEconomyEngine econ = data.economy();
                 String regimeKey = switch (econ.getInflationState()) {
-                    case DEFLATION -> "gui.tyc2.economy.deflation";
-                    case STABLE -> "gui.tyc2.economy.stable";
-                    default -> "gui.tyc2.economy.inflation";
+                    case DEFLATION -> "gui.mnera.economy.deflation";
+                    case STABLE -> "gui.mnera.economy.stable";
+                    default -> "gui.mnera.economy.inflation";
                 };
-                lines.add(Component.translatable("hud.tyc2.hub.village", v.getVillageName()));
-                lines.add(Component.translatable("hud.tyc2.hub.level_pop", v.getLevel(), v.getPopulation()));
-                lines.add(Component.translatable("hud.tyc2.hub.funds", v.getVillageBalance()));
-                lines.add(Component.translatable("hud.tyc2.hub.orders", sellCount, buyCount));
+                lines.add(Component.translatable("hud.mnera.hub.village", v.getVillageName()));
+                lines.add(Component.translatable("hud.mnera.hub.level_pop", v.getLevel(), v.getPopulation()));
+                lines.add(Component.translatable("hud.mnera.hub.funds", v.getVillageBalance()));
+                lines.add(Component.translatable("hud.mnera.hub.orders", sellCount, buyCount));
                 lines.add(Component.translatable(
-                        "hud.tyc2.hub.cpi",
+                        "hud.mnera.hub.cpi",
                         String.format(Locale.ROOT, "%.2f", econ.computeCpi()),
                         Component.translatable(regimeKey)
                 ));
@@ -100,11 +100,11 @@ public final class JadeSoftBridge {
                 VillageEmploymentStats emp = v.getEmploymentStats();
                 int unempPct = emp.workforceCount() <= 0 ? 0 : (int) Math.round(emp.unemploymentRate() * 100.0);
                 lines.add(Component.translatable(
-                        "hud.tyc2.hub.unemployment", unempPct, emp.unemployedCount(), emp.workforceCount()
+                        "hud.mnera.hub.unemployment", unempPct, emp.unemployedCount(), emp.workforceCount()
                 ));
                 if (emp.isLowUnemploymentBonusActive(cfg)) {
                     int qtyPct = (int) Math.round((emp.tradeQuantityMultiplier(cfg) - 1.0) * 100.0);
-                    lines.add(Component.translatable("hud.tyc2.hub.employment_bonus", qtyPct));
+                    lines.add(Component.translatable("hud.mnera.hub.employment_bonus", qtyPct));
                 }
                 if (!v.getAidProjects().isEmpty()) {
                     AidConstructionProject headAid = v.getAidProjects().get(0);
@@ -119,7 +119,7 @@ public final class JadeSoftBridge {
                             headAid.professionId(), headAid.archetype(), headAid.displayNameFallback(), headAid.size()
                     );
                     Component statusComp = TyC2VillagerHelpers.aidStatusComponent(headAid.status(), progPct);
-                    lines.add(Component.translatable("hud.tyc2.hub.aid_active", wpName, statusComp));
+                    lines.add(Component.translatable("hud.mnera.hub.aid_active", wpName, statusComp));
                 }
             }
         }
@@ -141,15 +141,15 @@ public final class JadeSoftBridge {
             UUID vid = UUID.fromString(pdata.getString(TycoonForgeWorldManager.TAG_VILLAGE_ID));
             TycoonForgeSavedData.get(sl).getVillage(vid).ifPresent(v -> {
                 if (v.isPartnered()) {
-                    lines.add(Component.translatable("hud.tyc2.mayor.partnered", v.getLevel()));
-                    lines.add(Component.translatable("hud.tyc2.hub.funds", v.getVillageBalance()));
+                    lines.add(Component.translatable("hud.mnera.mayor.partnered", v.getLevel()));
+                    lines.add(Component.translatable("hud.mnera.hub.funds", v.getVillageBalance()));
                 } else {
-                    lines.add(Component.translatable("hud.tyc2.mayor.unpartnered"));
+                    lines.add(Component.translatable("hud.mnera.mayor.unpartnered"));
                 }
                 VillageEmploymentStats emp = v.getEmploymentStats();
                 int unempPct = emp.workforceCount() <= 0 ? 0 : (int) Math.round(emp.unemploymentRate() * 100.0);
                 lines.add(Component.translatable(
-                        "hud.tyc2.mayor.unemployment", unempPct, emp.unemployedCount(), emp.workforceCount()
+                        "hud.mnera.mayor.unemployment", unempPct, emp.unemployedCount(), emp.workforceCount()
                 ));
             });
         } catch (IllegalArgumentException ignored) {

@@ -2,69 +2,69 @@ ${loaderMetadata}
 license="GPL-3.0-only"
 
 [[mods]]
-modId="tyc2"
+modId="mnera"
 version="${version}"
-displayName="TycoonCraft²: The New Era"
-displayURL="https://github.com/Alexme9125/TycoonCraft2-The-New-Era"
-description="Industrial economy, currency minting, banking, dynamic village trade hubs, inflation/deflation simulation, and automated village expansion. Enhanced by IndustrialCraft², EcoCraft², and LogisticsCraft²."
+displayName="Monetera"
+displayURL="https://github.com/Alexme9125/Monetera"
+description="Industrial economy, Universal Currency minting, banking, dynamic village trade hubs, inflation/deflation simulation, and automated village expansion. Enhanced by Machinera, Ecolera, and Transitera."
 
-[[dependencies.tyc2]]
+[[dependencies.mnera]]
 modId="neoforge"
 type="required"
 versionRange="[${neoForgeVersion},)"
 ordering="NONE"
 side="BOTH"
 
-[[dependencies.tyc2]]
+[[dependencies.mnera]]
 modId="minecraft"
 type="required"
 versionRange="[${minecraftVersion}]"
 ordering="NONE"
 side="BOTH"
 
-[[dependencies.tyc2]]
-modId="ic2"
+[[dependencies.mnera]]
+modId="mhera"
 type="optional"
-versionRange="[1.0.11,)"
+versionRange="[2.0.0,)"
 ordering="AFTER"
 side="BOTH"
 
-[[dependencies.tyc2]]
-modId="ecc2"
+[[dependencies.mnera]]
+modId="ecera"
 type="optional"
 versionRange="[0,)"
 ordering="AFTER"
 side="BOTH"
 
-[[dependencies.tyc2]]
-modId="lc2"
+[[dependencies.mnera]]
+modId="trera"
 type="optional"
-versionRange="[1.0.0,)"
+versionRange="[2.0.0,)"
 ordering="AFTER"
 side="BOTH"
 
-[[dependencies.tyc2]]
+[[dependencies.mnera]]
 modId="sereneseasons"
 type="optional"
 versionRange="[0,)"
 ordering="AFTER"
 side="BOTH"
 
-[[dependencies.tyc2]]
+[[dependencies.mnera]]
 modId="eclipticseasons"
 type="optional"
 versionRange="[0,)"
 ordering="AFTER"
 side="BOTH"
 
-[[dependencies.tyc2]]
+[[dependencies.mnera]]
 modId="farmersdelight"
 type="optional"
 versionRange="[0,)"
 ordering="AFTER"
 side="BOTH"
 
-[[dependencies.tyc2]]
+[[dependencies.mnera]]
 modId="kaleidoscope_cookery"
 type="optional"
 versionRange="[0,)"
@@ -72,4 +72,4 @@ ordering="AFTER"
 side="BOTH"
 
 [[mixins]]
-config="tyc2.mixins.json"
+config="mnera.mixins.json"
