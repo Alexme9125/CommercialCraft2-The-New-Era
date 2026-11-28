@@ -6,7 +6,7 @@
 
 经贸纪元（`mnera`）是一个面向 Minecraft 的商业经营与宏观经济模组。模组把金属铸币与银行、村庄大宗贸易、宏观物价波动以及村庄自动扩建串成一条完整的经营线，在纯原版环境中就能独立游玩，不需要任何前置模组。
 
-如果存档里同时安装了 [机电纪元（`mhera`）](https://github.com/spectrum527/Machinera) 或 [航运纪元（`trera`）](https://github.com/spectrum527/Transitera)，联动功能会自动启用：工业铸币机接入 EU 电网并支持 MHERA 升级，`1x` 货币自动统一为 `mhera:coin`，村庄贸易池加入合金、铱碎片和 MHERA 农林特产，合作枢纽也兼容 TRERA 的区块加载升级与自动货运。
+如果存档里同时安装了 [机电纪元（`mhera`）](https://github.com/spectrum527/Machinera) 或 [物流纪元（`trera`）](https://github.com/spectrum527/Transitera)，联动功能会自动启用：工业铸币机接入 EU 电网并支持 MHERA 升级，`1x` 货币自动统一为 `mhera:coin`，村庄贸易池加入合金、铱碎片和 MHERA 农林特产，合作枢纽也兼容 TRERA 的区块加载升级与自动货运。
 
 ## 下载与安装
 
@@ -25,7 +25,7 @@
 
 所有联动模组都按需安装，未安装时自动跳过，不会影响启动。
 
-- **工业与物流**：[机电纪元（`mhera` v2.0.0+）](https://github.com/spectrum527/Machinera)、[绿能纪元（`ecera`）](https://github.com/Alexme9125/Ecolera)、[航运纪元（`trera` v2.0.0+）](https://github.com/spectrum527/Transitera)
+- **工业与物流**：[机电纪元（`mhera` v2.0.0+）](https://github.com/spectrum527/Machinera)、[环保纪元（`ecera`）](https://github.com/Alexme9125/Ecolera)、[物流纪元（`trera` v2.0.0+）](https://github.com/spectrum527/Transitera)
 - **季节与农业**：静谧四季（Serene Seasons）、节气（Ecliptic Seasons）、农夫乐事（Farmer's Delight）、森罗物语：厨房（Kaleidoscope Cookery）
 - **界面与配方查询**：The One Probe、Jade、WTHIT、JEI、EMI
 
