@@ -1,8 +1,8 @@
-<h1><img src="assets/brand/icon.jpg" width="56" height="56" align="absmiddle" alt=""> Monetera (<code>tyc2</code>)</h1>
+<h1><img src="assets/brand/icon.jpg" width="56" height="56" align="absmiddle" alt=""> Monetera (经贸纪元)</h1>
 
 [简体中文](README.md) · **English**
 
-![Monetera project cover](assets/brand/cover.jpg)
+![Monetera (经贸纪元) project cover](assets/brand/cover.jpg)
 
 Monetera (`mnera`) is a Minecraft mod built around currency minting, personal and company banking, village trade hubs, dynamic macro prices, and automated village expansion. It runs standalone in plain Vanilla Minecraft with no required dependencies.
 
