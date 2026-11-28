@@ -55,13 +55,13 @@ public final class MintMachineScreen extends TyC2ScreenBase<MintMachineMenu> {
         int statusColor;
         if (prog > 0) {
             int pct = Math.min(100, (prog * 100) / Math.max(1, total));
-            statusStr = Component.translatable("gui.tyc2.mint.minting", pct).getString();
+            statusStr = Component.translatable("gui.mnera.mint.minting", pct).getString();
             statusColor = 0xFF2B6CB0;
         } else if (storedEu <= 0 && !discharging) {
-            statusStr = Component.translatable("gui.tyc2.mint.no_power").getString();
+            statusStr = Component.translatable("gui.mnera.mint.no_power").getString();
             statusColor = 0xFFC53030;
         } else {
-            statusStr = Component.translatable("gui.tyc2.mint.idle").getString();
+            statusStr = Component.translatable("gui.mnera.mint.idle").getString();
             statusColor = 0xFF4A5568;
         }
         int statusW = canvas.textWidth(statusStr);
@@ -85,15 +85,15 @@ public final class MintMachineScreen extends TyC2ScreenBase<MintMachineMenu> {
             long fe = TriModePowerMath.euToFe(eu);
             canvas.drawTooltip(
                     List.of(
-                            Component.translatable("gui.tyc2.energy.eu_fe", eu, maxEu, fe),
-                            Component.translatable("gui.tyc2.energy.tier", menu.powerTier(), menu.maxInputEuPerTick())
+                            Component.translatable("gui.mnera.energy.eu_fe", eu, maxEu, fe),
+                            Component.translatable("gui.mnera.energy.tier", menu.powerTier(), menu.maxInputEuPerTick())
                     ),
                     mouseX,
                     mouseY
             );
         } else if (px >= 59 && px < 73 && py >= 57 && py < 71) {
             canvas.drawTooltip(
-                    List.of(Component.translatable("gui.tyc2.slot.battery_discharge")),
+                    List.of(Component.translatable("gui.mnera.slot.battery_discharge")),
                     mouseX,
                     mouseY
             );

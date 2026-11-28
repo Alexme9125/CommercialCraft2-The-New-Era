@@ -111,7 +111,7 @@ final class TyC2LiveServerRunner {
     }
 
     private String shotName(String suffix) {
-        return "tyc2_1192_" + profile + "_" + lang + "_" + suffix;
+        return "mnera_1192_" + profile + "_" + lang + "_" + suffix;
     }
 
     static void onClientAck(TyC2LiveNetwork.C2SLiveAck ack) {
@@ -320,7 +320,7 @@ final class TyC2LiveServerRunner {
                             ack.summary() + " | block=" + level.getBlockState(bellHubPos));
                     // Install LC2 chunk_loading_upgrade in Hub in Enhanced mode so badge renders in Hub GUI!
                     if (enhanced && level.getBlockEntity(bellHubPos) instanceof CooperationHubBlockEntity hubBe) {
-                        Item upg = TyC2Ids.getItem("lc2:chunk_loading_upgrade");
+                        Item upg = TyC2Ids.getItem("trera:chunk_loading_upgrade");
                         if (upg != null) {
                             hubBe.upgradeContainer.setItem(0, new ItemStack(upg, 1));
                         }
@@ -364,9 +364,9 @@ final class TyC2LiveServerRunner {
                 if (waitingStepId < 0) {
                     if (level.getBlockEntity(primMintPos) instanceof PrimitiveMintMachineBlockEntity prim) {
                         prim.setItem(PrimitiveMintMachineBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
-                        if (enhanced && TyC2Ids.itemExists("ic2:alloy") && TyC2Ids.itemExists("ic2:iridium_ore")) {
-                            prim.setItem(PrimitiveMintMachineBlockEntity.SLOT_INPUT_0, new ItemStack(TyC2Ids.getItem("ic2:iridium_ore"), 1));
-                            prim.setItem(PrimitiveMintMachineBlockEntity.SLOT_INPUT_1, new ItemStack(TyC2Ids.getItem("ic2:alloy"), 1));
+                        if (enhanced && TyC2Ids.itemExists("mhera:alloy") && TyC2Ids.itemExists("mhera:iridium_ore")) {
+                            prim.setItem(PrimitiveMintMachineBlockEntity.SLOT_INPUT_0, new ItemStack(TyC2Ids.getItem("mhera:iridium_ore"), 1));
+                            prim.setItem(PrimitiveMintMachineBlockEntity.SLOT_INPUT_1, new ItemStack(TyC2Ids.getItem("mhera:alloy"), 1));
                         } else {
                             prim.setItem(PrimitiveMintMachineBlockEntity.SLOT_INPUT_0, new ItemStack(Items.NETHERITE_INGOT, 1));
                             prim.setItem(PrimitiveMintMachineBlockEntity.SLOT_INPUT_1, new ItemStack(Items.DIAMOND, 1));
@@ -554,8 +554,8 @@ final class TyC2LiveServerRunner {
 
         if (enhanced) {
             qa.check("live.enhanced_mods_loaded",
-                    ModList.get().isLoaded("ic2") && ModList.get().isLoaded("lc2"),
-                    "ic2=" + ModList.get().isLoaded("ic2") + ", lc2=" + ModList.get().isLoaded("lc2"));
+                    ModList.get().isLoaded("mhera") && ModList.get().isLoaded("trera"),
+                    "ic2=" + ModList.get().isLoaded("mhera") + ", lc2=" + ModList.get().isLoaded("trera"));
             TyC2QaIc2Checks.setupGeneratorCableAndMachines(
                     level, ic2GenPos, ic2CablePos, mintPos, new BlockPos(-5, surfaceY, -3),
                     new BlockPos(-5, surfaceY, -4), qa
@@ -568,13 +568,13 @@ final class TyC2LiveServerRunner {
                     Block.UPDATE_ALL
             );
             // Place an LC2 Cargo Station nearby so Hub & Comm Terminal display nearby LC2 stations!
-            Block lc2Cargo = TyC2Ids.parseBlockState("lc2:cargo_station").getBlock();
+            Block lc2Cargo = TyC2Ids.parseBlockState("trera:cargo_station").getBlock();
             if (lc2Cargo != Blocks.AIR) {
                 level.setBlock(new BlockPos(4, surfaceY, -2), lc2Cargo.defaultBlockState(), Block.UPDATE_ALL);
             }
         } else {
             qa.check("live.standalone_no_ic2_lc2",
-                    !ModList.get().isLoaded("ic2") && !ModList.get().isLoaded("lc2"),
+                    !ModList.get().isLoaded("mhera") && !ModList.get().isLoaded("trera"),
                     "standalone pure vanilla");
             if (level.getBlockEntity(mintPos) instanceof MintMachineBlockEntity mint) {
                 mint.setStoredEu(8000.0);

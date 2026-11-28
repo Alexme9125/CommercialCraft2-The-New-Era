@@ -5,7 +5,7 @@ plugins {
 
 group = 'com.tycooncraft.tyc2'
 version = project.property('mod_version')
-base.archivesName = "tyc2-forge-${minecraft_version}"
+base.archivesName = "mnera-forge-${minecraft_version}"
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
@@ -19,7 +19,7 @@ repositories {
         }
     }
     flatDir {
-        dirs '../.ic2-deps'
+        dirs '../.mhera-deps'
     }
 }
 
@@ -36,7 +36,7 @@ minecraft {
             workingDirectory layout.buildDirectory.dir("run/$name").get().asFile
             property 'forge.logging.console.level', 'info'
             mods {
-                tyc2 {
+                mnera {
                     source sourceSets.main
                 }
             }
@@ -48,7 +48,7 @@ minecraft {
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    compileOnly fg.deobf("com.industrialage.ia2:ic2-forge-1.19.2:${ic2_version}")
+    compileOnly fg.deobf("com.industrialage.ia2:mhera-forge-1.19.2:${mhera_version}")
     compileOnly(fg.deobf("maven.modrinth:wthit:FuMynGus")) { transitive = false }
     compileOnly(fg.deobf("maven.modrinth:emi:lvh62wOB")) { transitive = false }
 }
@@ -62,19 +62,19 @@ tasks.withType(AbstractArchiveTask).configureEach {
     reproducibleFileOrder = true
 }
 
-def generatedTyc2Resources = layout.buildDirectory.dir('generated/tyc2-resources')
-def generateTyc2Resources = tasks.register('generateTyc2Resources', Exec) {
+def generatedMneraResources = layout.buildDirectory.dir('generated/mnera-resources')
+def generateMneraResources = tasks.register('generateMneraResources', Exec) {
     def generator = file('../src/datagen/generate_resources.py')
     onlyIf { generator.isFile() }
     inputs.files(fileTree('../src/datagen') { include '*.py', '*.json', '*.tsv' })
-    inputs.files(fileTree('../assets/tyc2/lang') { include '*.json' })
-    outputs.dir(generatedTyc2Resources)
+    inputs.files(fileTree('../assets/mnera/lang') { include '*.json' })
+    outputs.dir(generatedMneraResources)
     commandLine 'python3', generator, '--target', 'forge-1.19.2',
-            '--output', generatedTyc2Resources.get().asFile
+            '--output', generatedMneraResources.get().asFile
 }
 
 tasks.named('processResources') {
-    dependsOn generateTyc2Resources
+    dependsOn generateMneraResources
     filteringCharset = 'UTF-8'
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     includeEmptyDirs = false
@@ -83,24 +83,24 @@ tasks.named('processResources') {
             version: project.version,
             minecraftVersion: minecraft_version,
             forgeVersion: forge_version,
-            ic2Version: ic2_version
+            mheraVersion: mhera_version
     )
     filesMatching('META-INF/mods.toml') {
         expand version: project.version,
                 minecraftVersion: minecraft_version,
                 forgeVersion: forge_version,
-                ic2Version: ic2_version
+                mheraVersion: mhera_version
     }
     from(file('../assets')) {
         into 'assets'
         exclude '**/*.md', '**/*.csv', '**/.git*', '**/.DS_Store', '**/preview/**', '**/brand/**'
     }
-    from(generatedTyc2Resources) { exclude '.tyc2-generated-output' }
+    from(generatedMneraResources) { exclude '.mnera-generated-output' }
 }
 
 tasks.named('jar') {
     manifest {
-        attributes 'MixinConfigs': 'tyc2.mixins.json'
+        attributes 'MixinConfigs': 'mnera.mixins.json'
     }
     from file('../LICENSE')
     finalizedBy 'reobfJar'

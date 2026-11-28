@@ -29,7 +29,7 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * Isolated IndustrialCraft² ({@code ic2}) runtime adapter for Forge 1.19.2.
  *
- * <p>NEVER classloaded unless {@code ModList.get().isLoaded("ic2")} is {@code true}
+ * <p>NEVER classloaded unless {@code ModList.get().isLoaded("mhera")} is {@code true}
  * (strictly gated behind {@link com.tycooncraft.tyc2.forge.compat.Ic2Bridge}).
  */
 public final class Ic2LoadedBridge {

@@ -39,14 +39,14 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Fetch compileOnly IC2 v1.0.11 reference JARs
+      - name: Fetch compileOnly MHERA v2.0.0 reference JARs
         run: |
-          mkdir -p .ic2-deps
-          BASE="https://github.com/spectrum527/IndustrialCraft2-The-New-Era/releases/download/v1.0.11"
-          curl -fsSL -o .ic2-deps/ic2-forge-1.19.2-1.0.11.jar    "$BASE/ic2-forge-1.19.2-1.0.11.jar"
-          curl -fsSL -o .ic2-deps/ic2-neoforge-1.21.1-1.0.11.jar "$BASE/ic2-neoforge-1.21.1-1.0.11.jar"
-          curl -fsSL -o .ic2-deps/ic2-neoforge-26.1.2-1.0.11.jar "$BASE/ic2-neoforge-26.1.2-1.0.11.jar"
-          curl -fsSL -o .ic2-deps/ic2-neoforge-26.2-1.0.11.jar   "$BASE/ic2-neoforge-26.2-1.0.11.jar"
+          mkdir -p .mhera-deps
+          BASE="https://github.com/spectrum527/Machinera/releases/download/v2.0.0"
+          curl -fsSL -o .mhera-deps/mhera-forge-1.19.2-2.0.0.jar    "$BASE/mhera-forge-1.19.2-2.0.0.jar"
+          curl -fsSL -o .mhera-deps/mhera-neoforge-1.21.1-2.0.0.jar "$BASE/mhera-neoforge-1.21.1-2.0.0.jar"
+          curl -fsSL -o .mhera-deps/mhera-neoforge-26.1.2-2.0.0.jar "$BASE/mhera-neoforge-26.1.2-2.0.0.jar"
+          curl -fsSL -o .mhera-deps/mhera-neoforge-26.2-2.0.0.jar   "$BASE/mhera-neoforge-26.2-2.0.0.jar"
 
       - name: Build Core, JUnit 5 Tests, and NeoForge 1.21.1 / 26.1.2 / 26.2
         run: |
@@ -57,7 +57,7 @@ jobs:
         env:
           JAVA_HOME: ${{ env.JAVA_HOME_17 }}
         run: |
-          ./forge-1.19.2/gradlew --no-daemon -p forge-1.19.2 build reobfJar auditPackagedTyc2Jar
+          ./forge-1.19.2/gradlew --no-daemon -p forge-1.19.2 build reobfJar auditPackagedMneraJar
 
       - name: Static JAR & Bytecode Audit (All 4 Targets)
         run: python3 src/qa/audit_jars.py
@@ -65,9 +65,9 @@ jobs:
       - name: Upload 4-Target JAR Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: tyc2-jars
+          name: mnera-jars
           path: |
-            forge-1.19.2/build/libs/tyc2-forge-1.19.2-*.jar
-            src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-*.jar
-            src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-*.jar
-            src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-*.jar
+            forge-1.19.2/build/libs/mnera-forge-1.19.2-*.jar
+            src/neoforge/1.21.1/build/libs/mnera-neoforge-1.21.1-*.jar
+            src/neoforge/26.1.2/build/libs/mnera-neoforge-26.1.2-*.jar
+            src/neoforge/26.2/build/libs/mnera-neoforge-26.2-*.jar

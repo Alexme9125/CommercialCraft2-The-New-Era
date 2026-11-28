@@ -11,7 +11,7 @@ import net.minecraft.world.level.saveddata.SavedData;
  */
 public abstract class TyC2SavedDataBase extends SavedData {
 
-    private static final String STORAGE_NAME = "tyc2_economy";
+    private static final String STORAGE_NAME = "mnera_economy";
 
     /** Retrieves or creates the world-wide {@link TycoonSavedData} stored on the Overworld. */
     public static TycoonSavedData getOrCreate(ServerLevel overworld) {

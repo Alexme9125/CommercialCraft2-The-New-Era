@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
  */
 public final class TyC2RuntimeData {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("tyc2");
+    private static final Logger LOGGER = LoggerFactory.getLogger("mnera");
 
     private static volatile TyC2Config config = TyC2Config.defaults();
     private static volatile MintRecipeRegistry mintRecipes = MintRecipeRegistry.createDefault();
@@ -84,7 +84,7 @@ public final class TyC2RuntimeData {
 
     /** Returns the {@code config/tyc2/} directory path. */
     public static Path configDir() {
-        return FMLPaths.CONFIGDIR.get().resolve("tyc2");
+        return FMLPaths.CONFIGDIR.get().resolve("mnera");
     }
 
     /** Loads external config files on startup, generating clean starter files if missing. */
@@ -93,7 +93,7 @@ public final class TyC2RuntimeData {
         try {
             config = TyC2Config.loadOrCreate(dir.resolve("general.json"));
         } catch (Exception e) {
-            LOGGER.warn("Failed to load config/tyc2/general.json, using defaults: {}", e.getMessage());
+            LOGGER.warn("Failed to load config/mnera/general.json, using defaults: {}", e.getMessage());
             config = TyC2Config.defaults();
         }
         MintRecipeRegistry freshMint = MintRecipeRegistry.createDefault();
@@ -118,7 +118,7 @@ public final class TyC2RuntimeData {
         try {
             config = TyC2Config.loadOrCreate(dir.resolve("general.json"));
         } catch (Exception e) {
-            LOGGER.warn("Failed to reload config/tyc2/general.json: {}", e.getMessage());
+            LOGGER.warn("Failed to reload config/mnera/general.json: {}", e.getMessage());
         }
         loadExternalOverrides(dir, mintRecipes, goodsCatalog, workplaceCatalog);
         mergeDiscoveredModdedProfessions(workplaceCatalog, config);
@@ -134,17 +134,17 @@ public final class TyC2RuntimeData {
         try {
             targetMint.loadExternalConfig(dir.resolve("custom_mint_recipes.json"), true);
         } catch (Exception e) {
-            LOGGER.warn("Failed to load config/tyc2/custom_mint_recipes.json: {}", e.getMessage());
+            LOGGER.warn("Failed to load config/mnera/custom_mint_recipes.json: {}", e.getMessage());
         }
         try {
             targetGoods.loadExternalConfig(dir.resolve("custom_goods.json"), true);
         } catch (Exception e) {
-            LOGGER.warn("Failed to load config/tyc2/custom_goods.json: {}", e.getMessage());
+            LOGGER.warn("Failed to load config/mnera/custom_goods.json: {}", e.getMessage());
         }
         try {
             targetWorkplaces.loadExternalConfig(dir.resolve("custom_workplaces.json"), true);
         } catch (Exception e) {
-            LOGGER.warn("Failed to load config/tyc2/custom_workplaces.json: {}", e.getMessage());
+            LOGGER.warn("Failed to load config/mnera/custom_workplaces.json: {}", e.getMessage());
         }
     }
 
@@ -218,7 +218,7 @@ public final class TyC2RuntimeData {
             try {
                 config = TyC2Config.loadOrCreate(dir.resolve("general.json"));
             } catch (Exception e) {
-                LOGGER.warn("Failed to load config/tyc2/general.json during reload: {}", e.getMessage());
+                LOGGER.warn("Failed to load config/mnera/general.json during reload: {}", e.getMessage());
             }
 
             MintRecipeRegistry freshMint = MintRecipeRegistry.createDefault();
@@ -297,7 +297,7 @@ public final class TyC2RuntimeData {
             sortedKeys.sort(Comparator.comparing(ResourceLocation::toString));
             for (ResourceLocation rl : sortedKeys) {
                 // Only load files under tyc2 namespace for bare folder names (mint_recipes/goods/seasons/levels)
-                if (!folder.startsWith("tyc2/") && !"tyc2".equals(rl.getNamespace())) {
+                if (!folder.startsWith("tyc2/") && !"mnera".equals(rl.getNamespace())) {
                     continue;
                 }
                 String text = readResource(found.get(rl));
@@ -313,7 +313,7 @@ public final class TyC2RuntimeData {
                 List<Map.Entry<ResourceLocation, String>> out
         ) {
             Map<ResourceLocation, Resource> found = manager.listResources(
-                    "tyc2", rl -> rl.getPath().equals(pathSuffix)
+                    "mnera", rl -> rl.getPath().equals(pathSuffix)
             );
             for (Map.Entry<ResourceLocation, Resource> entry : found.entrySet()) {
                 String text = readResource(entry.getValue());

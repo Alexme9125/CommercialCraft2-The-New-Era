@@ -6,16 +6,16 @@ package com.tycooncraft.tyc2;
 public final class TyC2Constants {
 
     /** Canonical Mod ID across all 4 targets. */
-    public static final String MOD_ID = "tyc2";
+    public static final String MOD_ID = "mnera";
 
     /** Optional mod ID for IndustrialCraft²: The New Era. */
-    public static final String MOD_IC2 = "ic2";
+    public static final String MOD_IC2 = "mhera";
 
     /** Optional mod ID for EcoCraft²: The New Era. */
-    public static final String MOD_ECC2 = "ecc2";
+    public static final String MOD_ECC2 = "ecera";
 
     /** Optional mod ID for LogisticsCraft²: The New Era. */
-    public static final String MOD_LC2 = "lc2";
+    public static final String MOD_LC2 = "trera";
 
     /** Optional mod ID for Serene Seasons. */
     public static final String MOD_SERENE_SEASONS = "sereneseasons";
@@ -39,19 +39,19 @@ public final class TyC2Constants {
     public static final String MOD_EMI = "emi";
 
     /** LC2 Chunk Loading Upgrade canonical item ID. */
-    public static final String ITEM_LC2_CHUNK_LOADER = "lc2:chunk_loading_upgrade";
+    public static final String ITEM_LC2_CHUNK_LOADER = "trera:chunk_loading_upgrade";
 
     /** LC2 Smart Port canonical block ID. */
-    public static final String BLOCK_LC2_SMART_PORT = "lc2:smart_port";
+    public static final String BLOCK_LC2_SMART_PORT = "trera:smart_port";
 
     /** LC2 Cargo Station canonical block ID. */
-    public static final String BLOCK_LC2_CARGO_STATION = "lc2:cargo_station";
+    public static final String BLOCK_LC2_CARGO_STATION = "trera:cargo_station";
 
     /** PersistentData boolean tag marking a Villager as a TyC2 Village Mayor. */
-    public static final String TAG_MAYOR = "tyc2_mayor";
+    public static final String TAG_MAYOR = "mnera_mayor";
 
     /** PersistentData string tag storing the Mayor's village UUID. */
-    public static final String TAG_MAYOR_VILLAGE_ID = "tyc2_village_id";
+    public static final String TAG_MAYOR_VILLAGE_ID = "mnera_village_id";
 
     /** Village scanning radius (blocks) around Bell / Cooperation Hub. */
     public static final int VILLAGE_SCAN_RADIUS = 48;

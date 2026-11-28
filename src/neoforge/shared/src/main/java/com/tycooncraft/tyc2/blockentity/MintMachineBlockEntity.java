@@ -519,11 +519,11 @@ public final class MintMachineBlockEntity extends TyC2BlockEntityBase
                 continue;
             }
             String id = TyC2Native.itemId(stack);
-            if ("ic2:overclocker_upgrade".equals(id)) {
+            if ("mhera:overclocker_upgrade".equals(id)) {
                 oc += stack.getCount();
-            } else if ("ic2:transformer_upgrade".equals(id)) {
+            } else if ("mhera:transformer_upgrade".equals(id)) {
                 tf += stack.getCount();
-            } else if ("ic2:energy_storage_upgrade".equals(id)) {
+            } else if ("mhera:energy_storage_upgrade".equals(id)) {
                 es += stack.getCount();
             }
         }
@@ -743,7 +743,7 @@ public final class MintMachineBlockEntity extends TyC2BlockEntityBase
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.tyc2.mint_machine");
+        return Component.translatable("container.mnera.mint_machine");
     }
 
     @Override

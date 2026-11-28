@@ -27,7 +27,7 @@ class MacroEconomyAndSeasonsTest {
         assertEquals(1.0, engine.computeCpi(), 1e-6);
         assertEquals(MacroEconomyEngine.InflationState.STABLE, engine.getInflationState());
 
-        TradeGood iron = GoodsCatalog.createDefault().getById("tyc2:iron_ingot").orElseThrow();
+        TradeGood iron = GoodsCatalog.createDefault().getById("mnera:iron_ingot").orElseThrow();
         long baselinePrice = engine.quotePrice(iron, 1, 200L, "plains", Season.NONE, true).finalUnitPrice();
 
         // Over-minting drives CPI up (inflation)
@@ -57,7 +57,7 @@ class MacroEconomyAndSeasonsTest {
 
         // Guardrail floor: combined multiplier >= 0.25 and unit price >= 1 IC
         MacroEconomyEngine.PriceQuote extremeLow = defl.quotePrice(
-                GoodsCatalog.createDefault().getById("tyc2:rotten_flesh").orElseThrow(),
+                GoodsCatalog.createDefault().getById("mnera:rotten_flesh").orElseThrow(),
                 1, 0L, "plains", Season.NONE, false
         );
         assertTrue(extremeLow.combinedMultiplier() >= 0.25 - 1e-9);
@@ -94,14 +94,14 @@ class MacroEconomyAndSeasonsTest {
         DemandGenerator generator = new DemandGenerator(catalog, TyC2Config.defaults());
 
         // Check pricing directly on seasonal crops across Vanilla, IC2, FD, KC
-        TradeGood wheat = catalog.getById("tyc2:wheat").orElseThrow();
-        TradeGood melon = catalog.getById("tyc2:melon_slice").orElseThrow();
-        TradeGood beetroot = catalog.getById("tyc2:beetroot").orElseThrow();
-        TradeGood ic2Hops = catalog.getById("tyc2:ic2_hops").orElseThrow();
-        TradeGood fdOnion = catalog.getById("tyc2:fd_onion").orElseThrow();
-        TradeGood fdCabbage = catalog.getById("tyc2:fd_cabbage").orElseThrow();
-        TradeGood kcChili = catalog.getById("tyc2:kc_chili").orElseThrow();
-        TradeGood kcTea = catalog.getById("tyc2:kc_tea_leaf").orElseThrow();
+        TradeGood wheat = catalog.getById("mnera:wheat").orElseThrow();
+        TradeGood melon = catalog.getById("mnera:melon_slice").orElseThrow();
+        TradeGood beetroot = catalog.getById("mnera:beetroot").orElseThrow();
+        TradeGood ic2Hops = catalog.getById("mnera:mhera_hops").orElseThrow();
+        TradeGood fdOnion = catalog.getById("mnera:fd_onion").orElseThrow();
+        TradeGood fdCabbage = catalog.getById("mnera:fd_cabbage").orElseThrow();
+        TradeGood kcChili = catalog.getById("mnera:kc_chili").orElseThrow();
+        TradeGood kcTea = catalog.getById("mnera:kc_tea_leaf").orElseThrow();
 
         // In-season sell discount (0.75x) vs off-season buy premium (1.40x..1.65x)
         assertEquals(0.75, economy.computeSeasonFactor(wheat, Season.SPRING, false), 1e-6);
@@ -177,22 +177,22 @@ class MacroEconomyAndSeasonsTest {
         }
 
         // 2. Industrial tier milestone detection in both IC2 (verified 1.0.5 IDs) and Vanilla modes + company aggregation
-        assertEquals("ic2:resin", catalog.getById("tyc2:ic2_sticky_resin").orElseThrow().itemId());
-        assertEquals(IndustrialTier.TIER_1, IndustrialTier.detectFromItemId("ic2:macerator", true));
-        assertEquals(IndustrialTier.TIER_1, IndustrialTier.detectFromItemId("ic2:machine", true));
-        assertEquals(IndustrialTier.TIER_2, IndustrialTier.detectFromItemId("ic2:centrifuge", true));
-        assertEquals(IndustrialTier.TIER_2, IndustrialTier.detectFromItemId("ic2:advanced_machine", true));
-        assertEquals(IndustrialTier.TIER_4, IndustrialTier.detectFromItemId("ic2:uranium_fuel_rod", true));
-        assertEquals(IndustrialTier.TIER_5, IndustrialTier.detectFromItemId("ic2:iridium_shard", true));
-        assertEquals(IndustrialTier.TIER_5, IndustrialTier.detectFromItemId("ic2:iridium_neutron_reflector", true));
+        assertEquals("mhera:resin", catalog.getById("mnera:mhera_sticky_resin").orElseThrow().itemId());
+        assertEquals(IndustrialTier.TIER_1, IndustrialTier.detectFromItemId("mhera:macerator", true));
+        assertEquals(IndustrialTier.TIER_1, IndustrialTier.detectFromItemId("mhera:machine", true));
+        assertEquals(IndustrialTier.TIER_2, IndustrialTier.detectFromItemId("mhera:centrifuge", true));
+        assertEquals(IndustrialTier.TIER_2, IndustrialTier.detectFromItemId("mhera:advanced_machine", true));
+        assertEquals(IndustrialTier.TIER_4, IndustrialTier.detectFromItemId("mhera:uranium_fuel_rod", true));
+        assertEquals(IndustrialTier.TIER_5, IndustrialTier.detectFromItemId("mhera:iridium_shard", true));
+        assertEquals(IndustrialTier.TIER_5, IndustrialTier.detectFromItemId("mhera:iridium_neutron_reflector", true));
         assertEquals(IndustrialTier.TIER_2, IndustrialTier.detectFromItemId("minecraft:diamond_pickaxe", false));
         assertEquals(IndustrialTier.TIER_5, IndustrialTier.detectFromItemId("minecraft:elytra", false));
 
         IndustrialTier.Tracker tracker = new IndustrialTier.Tracker();
         UUID p1 = UUID.randomUUID();
         UUID p2 = UUID.randomUUID();
-        tracker.recordItemMilestone(p1, "ic2:batbox", true);
-        tracker.recordItemMilestone(p2, "ic2:mfe", true);
+        tracker.recordItemMilestone(p1, "mhera:batbox", true);
+        tracker.recordItemMilestone(p2, "mhera:mfe", true);
         assertEquals(IndustrialTier.TIER_3, tracker.getMaxTier(List.of(p1, p2)));
 
         // 3. Industrial tier cap keeps endgame Iridium locked until Player Tier 5 + Village Level 10
@@ -231,9 +231,9 @@ class MacroEconomyAndSeasonsTest {
                 }
             }
         }
-        assertTrue(seenSellItems.contains("ic2:iridium_shard"), "Lv 10 Tier 5 village must sell ic2:iridium_shard");
+        assertTrue(seenSellItems.contains("mhera:iridium_shard"), "Lv 10 Tier 5 village must sell mhera:iridium_shard");
         assertTrue(seenSellItems.contains("minecraft:enchanted_book"), "Lv 10 village must sell rare enchanted books");
-        assertTrue(seenSellItems.contains("ic2:alloy"), "Lv 10 village must sell rare alloys");
+        assertTrue(seenSellItems.contains("mhera:alloy"), "Lv 10 village must sell rare alloys");
         assertTrue(seenBuyCategories.contains(GoodsCategory.FOOD_FINE), "Lv 10 village must buy fine cuisine");
         assertTrue(seenFineMealNamespaces.contains("farmersdelight"), "Lv 10 must buy Farmer's Delight meals when loaded");
         assertTrue(seenFineMealNamespaces.contains("kaleidoscope_cookery"), "Lv 10 must buy Kaleidoscope Cookery dishes when loaded");

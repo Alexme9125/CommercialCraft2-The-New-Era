@@ -567,7 +567,7 @@ public final class VillageArchitectureCatalog {
             b.set(8, 1, z, p.fence());
         }
 
-        b.addMarker(SpawnMarker.MarkerKind.LC2_PORT_PAD, 4, 1, 3, "lc2:smart_port");
+        b.addMarker(SpawnMarker.MarkerKind.LC2_PORT_PAD, 4, 1, 3, "trera:smart_port");
         return b.roadAttach(4, 0).build();
     }
 
@@ -609,7 +609,7 @@ public final class VillageArchitectureCatalog {
             b.set(8, 1, i, p.slab() + "[type=bottom]");
         }
 
-        b.addMarker(SpawnMarker.MarkerKind.LC2_HELIPAD_CENTER, 4, 1, 4, "lc2:cargo_station");
+        b.addMarker(SpawnMarker.MarkerKind.LC2_HELIPAD_CENTER, 4, 1, 4, "trera:cargo_station");
         return b.roadAttach(4, 0).build();
     }
 }

@@ -21,7 +21,7 @@ import java.util.Objects;
 public final class WorkplaceArchitectureCatalog {
 
     private static final WorkplaceSpec GENERIC_FALLBACK_SPEC = new WorkplaceSpec(
-            "tyc2:generic",
+            "mnera:generic",
             "minecraft:crafting_table",
             WorkplaceArchetype.GENERIC,
             WorkplaceCatalog.DEFAULT_MODDED_BASE_COST_SMALL_IC,

@@ -167,14 +167,14 @@ public final class TyC2UiWidgets {
         long totalHours = SupplyCycleClock.remainingTotalHours(clamped);
         if (days > 0L) {
             if (hoursInDay > 0L) {
-                return Component.translatable("gui.tyc2.hub.refresh_days_hours", days, hoursInDay).getString();
+                return Component.translatable("gui.mnera.hub.refresh_days_hours", days, hoursInDay).getString();
             }
-            return Component.translatable("gui.tyc2.hub.refresh_days", days).getString();
+            return Component.translatable("gui.mnera.hub.refresh_days", days).getString();
         }
         if (totalHours > 0L) {
-            return Component.translatable("gui.tyc2.hub.refresh_hours", totalHours).getString();
+            return Component.translatable("gui.mnera.hub.refresh_hours", totalHours).getString();
         }
-        return Component.translatable("gui.tyc2.hub.refresh_soon").getString();
+        return Component.translatable("gui.mnera.hub.refresh_soon").getString();
     }
 
     /**
@@ -643,7 +643,7 @@ public final class TyC2UiWidgets {
 
         int titleArea = w - maxW - minW - 12;
         if (titleArea >= 20) {
-            String chartTitle = Component.translatable("gui.tyc2.economy.cpi_chart").getString();
+            String chartTitle = Component.translatable("gui.mnera.economy.cpi_chart").getString();
             drawCenteredFittedString(poseStack, font, chartTitle, x + maxW + 6, y + 3, titleArea, 0.80F, 0.52F, titleCol);
         }
 
@@ -757,17 +757,17 @@ public final class TyC2UiWidgets {
         if (displayNameFallback != null && !displayNameFallback.isBlank()) {
             return displayNameFallback;
         }
-        return Component.translatable("profession.tyc2.generic").getString();
+        return Component.translatable("profession.mnera.generic").getString();
     }
 
     /** Formats an aid project status string from {@link S2CHubSyncPacket.AidProjectDto}. */
     public static String formatAidStatus(S2CHubSyncPacket.AidProjectDto aid) {
         return switch (aid.statusName()) {
-            case "COLLECTING" -> Component.translatable("gui.tyc2.aid.status.collecting", aid.progressPct()).getString();
-            case "WAITING_SITE" -> Component.translatable("gui.tyc2.aid.status.waiting_site").getString();
-            case "NO_SITE" -> Component.translatable("gui.tyc2.aid.status.no_site").getString();
-            case "BUILDING" -> Component.translatable("gui.tyc2.aid.status.building", aid.progressPct()).getString();
-            default -> Component.translatable("gui.tyc2.aid.status.collecting", aid.progressPct()).getString();
+            case "COLLECTING" -> Component.translatable("gui.mnera.aid.status.collecting", aid.progressPct()).getString();
+            case "WAITING_SITE" -> Component.translatable("gui.mnera.aid.status.waiting_site").getString();
+            case "NO_SITE" -> Component.translatable("gui.mnera.aid.status.no_site").getString();
+            case "BUILDING" -> Component.translatable("gui.mnera.aid.status.building", aid.progressPct()).getString();
+            default -> Component.translatable("gui.mnera.aid.status.collecting", aid.progressPct()).getString();
         };
     }
 
@@ -776,17 +776,17 @@ public final class TyC2UiWidgets {
         List<Component> tips = new ArrayList<>();
         String profName = localizedProfessionName(aid.professionId(), aid.archetypeName(), aid.displayNameFallback());
         Component sizeComp = Component.translatable(
-                aid.large() ? "gui.tyc2.aid.size.large" : "gui.tyc2.aid.size.small"
+                aid.large() ? "gui.mnera.aid.size.large" : "gui.mnera.aid.size.small"
         );
         tips.add(Component.literal(profName + " - ").append(sizeComp).withStyle(ChatFormatting.GOLD));
-        tips.add(Component.translatable("gui.tyc2.aid.materials_tooltip").withStyle(ChatFormatting.AQUA));
+        tips.add(Component.translatable("gui.mnera.aid.materials_tooltip").withStyle(ChatFormatting.AQUA));
         for (S2CHubSyncPacket.MatDto m : aid.materials()) {
             boolean done = m.delivered() >= m.required();
             String itemName = TyC2Ids.localizedItemName(m.itemId(), null);
             tips.add(Component.literal("  " + itemName + ": " + m.delivered() + "/" + m.required())
                     .withStyle(done ? ChatFormatting.GREEN : ChatFormatting.YELLOW));
         }
-        tips.add(Component.translatable("gui.tyc2.aid.cost", aid.paidIc()).withStyle(ChatFormatting.GRAY));
+        tips.add(Component.translatable("gui.mnera.aid.cost", aid.paidIc()).withStyle(ChatFormatting.GRAY));
         return tips;
     }
 }

@@ -46,9 +46,9 @@ import net.minecraftforge.network.NetworkHooks;
  */
 public class CommTerminalItem extends Item {
 
-    public static final String TAG_ENERGY_EU = "tyc2_energy_eu";
-    public static final String TAG_BOUND_VILLAGES = "tyc2_bound_villages";
-    public static final String TAG_ACTIVE_INDEX = "tyc2_active_village_idx";
+    public static final String TAG_ENERGY_EU = "mnera_energy_eu";
+    public static final String TAG_BOUND_VILLAGES = "mnera_bound_villages";
+    public static final String TAG_ACTIVE_INDEX = "mnera_active_village_idx";
 
     public CommTerminalItem(Properties properties) {
         super(properties);
@@ -219,7 +219,7 @@ public class CommTerminalItem extends Item {
         Optional<VillageRecord> vOpt = data.getVillage(vid);
         if (vOpt.isPresent() && !TycoonForgeWorldManager.canAccessVillage(serverPlayer, data, vOpt.get())) {
             serverPlayer.displayClientMessage(
-                    Component.translatable("status.tyc2.hub.not_owner").withStyle(ChatFormatting.RED),
+                    Component.translatable("status.mnera.hub.not_owner").withStyle(ChatFormatting.RED),
                     true
             );
             return;
@@ -229,7 +229,7 @@ public class CommTerminalItem extends Item {
         if (res > 0) {
             serverPlayer.displayClientMessage(
                     Component.translatable(
-                            "status.tyc2.terminal.bound",
+                            "status.mnera.terminal.bound",
                             vName,
                             getBoundVillages(stack).size()
                     ).withStyle(ChatFormatting.GREEN),
@@ -237,13 +237,13 @@ public class CommTerminalItem extends Item {
             );
         } else if (res < 0) {
             serverPlayer.displayClientMessage(
-                    Component.translatable("status.tyc2.terminal.unbound", vName)
+                    Component.translatable("status.mnera.terminal.unbound", vName)
                             .withStyle(ChatFormatting.YELLOW),
                     true
             );
         } else {
             serverPlayer.displayClientMessage(
-                    Component.translatable("status.tyc2.terminal.max_bound")
+                    Component.translatable("status.mnera.terminal.max_bound")
                             .withStyle(ChatFormatting.RED),
                     true
             );
@@ -257,7 +257,7 @@ public class CommTerminalItem extends Item {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (!consumeAction(stack, TriModePowerMath.TerminalAction.OPEN_REMOTE_UI)) {
                 serverPlayer.displayClientMessage(
-                        Component.translatable("status.tyc2.terminal.low_power").withStyle(ChatFormatting.RED),
+                        Component.translatable("status.mnera.terminal.low_power").withStyle(ChatFormatting.RED),
                         true
                 );
                 return InteractionResultHolder.fail(stack);
@@ -269,7 +269,7 @@ public class CommTerminalItem extends Item {
                     serverPlayer,
                     new SimpleMenuProvider(
                             (id, inv, p) -> new CommTerminalMenu(id, inv, handSlot),
-                            Component.translatable("container.tyc2.comm_terminal")
+                            Component.translatable("container.mnera.comm_terminal")
                     ),
                     buf -> buf.writeVarInt(handSlot)
             );
@@ -300,20 +300,20 @@ public class CommTerminalItem extends Item {
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         int stored = getStoredEu(stack);
         tooltip.add(Component.translatable(
-                "tooltip.tyc2.comm_terminal.energy",
+                "tooltip.mnera.comm_terminal.energy",
                 stored,
                 TriModePowerMath.TERMINAL_MAX_CAPACITY_EU
         ).withStyle(stored > 0 ? ChatFormatting.AQUA : ChatFormatting.RED));
         tooltip.add(Component.translatable(
-                "tooltip.tyc2.comm_terminal.bound",
+                "tooltip.mnera.comm_terminal.bound",
                 getBoundVillages(stack).size()
         ).withStyle(ChatFormatting.GOLD));
         if (stored <= 0) {
-            tooltip.add(Component.translatable("tooltip.tyc2.comm_terminal.low_power")
+            tooltip.add(Component.translatable("tooltip.mnera.comm_terminal.low_power")
                     .withStyle(ChatFormatting.RED));
         }
-        tooltip.add(Component.translatable("tooltip.tyc2.comm_terminal.line1").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("tooltip.tyc2.comm_terminal.line2").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("tooltip.mnera.comm_terminal.line1").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("tooltip.mnera.comm_terminal.line2").withStyle(ChatFormatting.GRAY));
     }
 
     @Override

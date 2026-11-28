@@ -423,7 +423,7 @@ public final class PrimitiveMintMachineBlockEntity extends TyC2BlockEntityBase
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.tyc2.primitive_mint_machine");
+        return Component.translatable("container.mnera.primitive_mint_machine");
     }
 
     @Override

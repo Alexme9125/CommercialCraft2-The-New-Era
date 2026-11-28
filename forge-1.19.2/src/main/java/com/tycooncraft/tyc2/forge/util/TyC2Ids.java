@@ -46,7 +46,7 @@ import net.minecraftforge.registries.tags.ITagManager;
  */
 public final class TyC2Ids {
 
-    public static final String MOD_ID = "tyc2";
+    public static final String MOD_ID = "mnera";
 
     private TyC2Ids() {
     }
@@ -339,7 +339,7 @@ public final class TyC2Ids {
             return false;
         }
         String id = itemId(held);
-        boolean isIc2Wrench = "ic2:wrench".equals(id) || "ic2:electric_wrench".equals(id);
+        boolean isIc2Wrench = "mhera:wrench".equals(id) || "mhera:electric_wrench".equals(id);
         if (excludeIc2Wrench && isIc2Wrench) {
             return false;
         }

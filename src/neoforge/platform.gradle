@@ -1,16 +1,16 @@
 java.toolchain.languageVersion = JavaLanguageVersion.of(platformJava)
-base.archivesName = "tyc2-neoforge-$minecraftVersion"
+base.archivesName = "mnera-neoforge-$minecraftVersion"
 sourceSets.main.java.srcDir('../shared/src/main/java')
 
-def ic2Version = rootProject.property('ic2_version')
-def ic2Jar = rootProject.file(".ic2-deps/ic2-neoforge-${minecraftVersion}-${ic2Version}.jar")
-if (!ic2Jar.isFile()) {
-    throw new GradleException("Missing IC2 compileOnly dependency JAR: ${ic2Jar}")
+def mheraVersion = rootProject.property('mhera_version')
+def mheraJar = rootProject.file(".mhera-deps/mhera-neoforge-${minecraftVersion}-${mheraVersion}.jar")
+if (!mheraJar.isFile()) {
+    throw new GradleException("Missing MHERA compileOnly dependency JAR: ${mheraJar}")
 }
 
 dependencies {
     implementation project(':common')
-    compileOnly files(ic2Jar)
+    compileOnly files(mheraJar)
 }
 
 neoForge {
@@ -28,33 +28,33 @@ neoForge {
         }
     }
     mods {
-        tyc2 {
+        mnera {
             sourceSet sourceSets.main
             sourceSet project(':common').sourceSets.main
         }
     }
 }
 
-def generatedTyc2Resources = layout.buildDirectory.dir('generated/tyc2-resources')
-def generateTyc2Resources = tasks.register('generateTyc2Resources', Exec) {
+def generatedMneraResources = layout.buildDirectory.dir('generated/mnera-resources')
+def generateMneraResources = tasks.register('generateMneraResources', Exec) {
     def generator = rootProject.file('src/datagen/generate_resources.py')
     onlyIf { generator.isFile() }
     inputs.files(rootProject.fileTree('src/datagen') { include '*.py', '*.json', '*.tsv' })
-    inputs.files(rootProject.fileTree('assets/tyc2/lang') { include '*.json' })
+    inputs.files(rootProject.fileTree('assets/mnera/lang') { include '*.json' })
     inputs.property('minecraftTarget', minecraftVersion)
-    outputs.dir(generatedTyc2Resources)
+    outputs.dir(generatedMneraResources)
     commandLine 'python3', generator, '--target', "neoforge-${minecraftVersion}",
-            '--output', generatedTyc2Resources.get().asFile
+            '--output', generatedMneraResources.get().asFile
 }
 
 tasks.named('processResources') {
-    dependsOn generateTyc2Resources
+    dependsOn generateMneraResources
     filteringCharset = 'UTF-8'
     inputs.properties(
             version: project.version,
             neoForgeVersion: neoForgeVersion,
             minecraftVersion: minecraftVersion,
-            ic2Version: ic2Version,
+            mheraVersion: mheraVersion,
             loaderMetadata: loaderMetadata
     )
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -64,12 +64,12 @@ tasks.named('processResources') {
         into 'assets'
         exclude '**/*.md', '**/*.csv', '**/.git*', '**/.DS_Store', '**/preview/**', '**/brand/**'
     }
-    from(generatedTyc2Resources) { exclude '.tyc2-generated-output' }
+    from(generatedMneraResources) { exclude '.mnera-generated-output' }
     from('../metadata') {
         expand version: project.version,
                 neoForgeVersion: neoForgeVersion,
                 minecraftVersion: minecraftVersion,
-                ic2Version: ic2Version,
+                mheraVersion: mheraVersion,
                 loaderMetadata: loaderMetadata
     }
 }

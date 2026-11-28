@@ -36,15 +36,15 @@ public final class MintIngredient {
     static {
         Map<String, List<String>> m = new LinkedHashMap<>();
         m.put("ingots/copper", List.of("minecraft:copper_ingot"));
-        m.put("ingots/tin", List.of("ic2:tin_ingot"));
+        m.put("ingots/tin", List.of("mhera:tin_ingot"));
         m.put("ingots/iron", List.of("minecraft:iron_ingot"));
-        m.put("ingots/bronze", List.of("ic2:bronze_ingot"));
-        m.put("ingots/silver", List.of("ic2:silver_ingot"));
+        m.put("ingots/bronze", List.of("mhera:bronze_ingot"));
+        m.put("ingots/silver", List.of("mhera:silver_ingot"));
         m.put("ingots/gold", List.of("minecraft:gold_ingot"));
-        m.put("ingots/steel", List.of("ic2:steel_ingot", "ic2:refined_iron_ingot"));
-        m.put("ingots/lead", List.of("ic2:lead_ingot"));
+        m.put("ingots/steel", List.of("mhera:steel_ingot", "mhera:refined_iron_ingot"));
+        m.put("ingots/lead", List.of("mhera:lead_ingot"));
         m.put("ingots/netherite", List.of("minecraft:netherite_ingot"));
-        m.put("ingots/iridium", List.of("ic2:iridium", "ecc2:iridium_ingot"));
+        m.put("ingots/iridium", List.of("mhera:iridium", "ecera:iridium_ingot"));
         m.put("gems/diamond", List.of("minecraft:diamond"));
         m.put("gems/emerald", List.of("minecraft:emerald"));
         BUILTIN_TAG_FALLBACKS = Collections.unmodifiableMap(m);

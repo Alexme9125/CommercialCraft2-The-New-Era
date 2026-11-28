@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
  */
 public final class TyC2QaChecks {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("tyc2_qa");
+    private static final Logger LOGGER = LoggerFactory.getLogger("mnera_qa");
 
     private final Map<String, String> passedChecks = new LinkedHashMap<>();
     private final Map<String, String> metadata = new LinkedHashMap<>();

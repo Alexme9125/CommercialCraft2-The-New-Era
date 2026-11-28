@@ -31,10 +31,10 @@ public class CoinItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("tooltip.tyc2.coin.value", denomination.value())
+        tooltip.add(Component.translatable("tooltip.mnera.coin.value", denomination.value())
                 .withStyle(ChatFormatting.GOLD));
         if (denomination == CurrencyDenomination.X1 && Ic2Bridge.isLoaded()) {
-            tooltip.add(Component.translatable("tooltip.tyc2.coin.ic2_compat")
+            tooltip.add(Component.translatable("tooltip.mnera.coin.ic2_compat")
                     .withStyle(ChatFormatting.GRAY));
         }
     }

@@ -139,7 +139,7 @@ public final class TyC2Native {
 
     /** Syncs CommTerminal charged visual state (handled by item property overrides on 1.21.1). */
     public static void syncTerminalChargeVisual(ItemStack stack, boolean charged) {
-        // 1.21.1 uses registered ClampedItemPropertyFunction ("tyc2:empty") in TyC2ClientSetup.
+        // 1.21.1 uses registered ClampedItemPropertyFunction ("mnera:empty") in TyC2ClientSetup.
     }
 
     /** Looks up a registered item by qualified ID. */

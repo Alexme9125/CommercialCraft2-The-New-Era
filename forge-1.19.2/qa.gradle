@@ -15,14 +15,14 @@ sourceSets {
 }
 
 configurations {
-    qaIc2Mod {
+    qaMheraMod {
         canBeConsumed = false
         canBeResolved = true
     }
 }
 
 dependencies {
-    qaIc2Mod fg.deobf("com.industrialage.ia2:ic2-forge-1.19.2:${ic2_version}")
+    qaMheraMod fg.deobf("com.industrialage.ia2:mhera-forge-1.19.2:${mhera_version}")
 }
 
 minecraft {
@@ -30,12 +30,12 @@ minecraft {
         serverQaTyc2 {
             taskName 'runQaTyc2Server'
             parent runs.server
-            workingDirectory layout.buildDirectory.dir('run/qa-tyc2-server').get().asFile
+            workingDirectory layout.buildDirectory.dir('run/qa-mnera-server').get().asFile
             property 'forge.logging.console.level', 'info'
             property 'tyc2.qa.mode', 'server_write'
             property 'tyc2.qa.profile', 'standalone'
             mods {
-                tyc2_qa {
+                mnera_qa {
                     source sourceSets.qa
                 }
             }
@@ -43,12 +43,12 @@ minecraft {
         serverLiveTyc2 {
             taskName 'runLiveTyc2Server'
             parent runs.server
-            workingDirectory layout.buildDirectory.dir('run/live-tyc2-server').get().asFile
+            workingDirectory layout.buildDirectory.dir('run/live-mnera-server').get().asFile
             property 'forge.logging.console.level', 'info'
             property 'tyc2.qa.mode', 'live_server'
             property 'tyc2.qa.profile', 'enhanced'
             mods {
-                tyc2_qa {
+                mnera_qa {
                     source sourceSets.qa
                 }
             }
@@ -56,12 +56,12 @@ minecraft {
         clientLiveTyc2 {
             taskName 'runLiveTyc2Client'
             parent runs.client
-            workingDirectory layout.buildDirectory.dir('run/live-tyc2-client').get().asFile
+            workingDirectory layout.buildDirectory.dir('run/live-mnera-client').get().asFile
             property 'forge.logging.console.level', 'info'
             property 'tyc2.qa.mode', 'live_client'
             property 'tyc2.qa.profile', 'enhanced'
             mods {
-                tyc2_qa {
+                mnera_qa {
                     source sourceSets.qa
                 }
             }
@@ -69,25 +69,25 @@ minecraft {
     }
 }
 
-def qaBuildDir = layout.buildDirectory.dir('qa-tyc2')
+def qaBuildDir = layout.buildDirectory.dir('qa-mnera')
 def qaModsDir = qaBuildDir.map { it.dir('mods') }
-def packagedTyc2Jar = tasks.named('jar', Jar).flatMap { it.archiveFile }
-def packagedIc2Jar = file("../.ic2-deps/ic2-forge-1.19.2-${ic2_version}.jar")
-def lc2Candidates = [
-        providers.gradleProperty('lc2Jar').orNull ? file(providers.gradleProperty('lc2Jar').get()) : null,
-        file('../.ic2-deps/lc2-forge-1.19.2-1.1.0.jar'),
-        file('../../LC2/forge-1.19.2/build/libs/lc2-forge-1.19.2-1.1.0.jar')
+def packagedMneraJar = tasks.named('jar', Jar).flatMap { it.archiveFile }
+def packagedMheraJar = file("../.mhera-deps/mhera-forge-1.19.2-${mhera_version}.jar")
+def treraCandidates = [
+        providers.gradleProperty('treraJar').orNull ? file(providers.gradleProperty('treraJar').get()) : null,
+        file('../.mhera-deps/trera-forge-1.19.2-2.0.0.jar'),
+        file('../../LC2/forge-1.19.2/build/libs/trera-forge-1.19.2-2.0.0.jar')
 ].findAll { it != null }
-def packagedLc2Jar = lc2Candidates.find { it.isFile() } ?: lc2Candidates.last()
+def packagedTreraJar = treraCandidates.find { it.isFile() } ?: treraCandidates.last()
 
 // 1. Audit the exact SRG-reobfuscated production JAR before runtime execution.
-def auditPackagedTyc2Jar = tasks.register('auditPackagedTyc2Jar') {
+def auditPackagedMneraJar = tasks.register('auditPackagedMneraJar') {
     group = 'verification'
-    description = 'Verifies production tyc2-forge-1.19.2 JAR has zero QA/preview leaks, zero hard IC2 deps, valid MixinConfigs, assets, datapacks, and SRG bytecode.'
+    description = 'Verifies production mnera-forge-1.19.2 JAR has zero QA/preview leaks, zero hard MHERA deps, valid MixinConfigs, assets, datapacks, and SRG bytecode.'
     dependsOn 'reobfJar'
-    inputs.file(packagedTyc2Jar)
+    inputs.file(packagedMneraJar)
     doLast {
-        File jarFile = packagedTyc2Jar.get().asFile
+        File jarFile = packagedMneraJar.get().asFile
         if (!jarFile.isFile()) {
             throw new GradleException("Missing packaged production JAR: ${jarFile}")
         }
@@ -97,13 +97,19 @@ def auditPackagedTyc2Jar = tasks.register('auditPackagedTyc2Jar') {
                 throw new GradleException("Packaged JAR missing META-INF/MANIFEST.MF")
             }
             def mixinCfg = manifest.mainAttributes.getValue('MixinConfigs')
-            if (mixinCfg != 'tyc2.mixins.json') {
-                throw new GradleException("Expected MixinConfigs=tyc2.mixins.json in MANIFEST.MF, got: ${mixinCfg}")
+            if (mixinCfg != 'mnera.mixins.json') {
+                throw new GradleException("Expected MixinConfigs=mnera.mixins.json in MANIFEST.MF, got: ${mixinCfg}")
             }
             def entries = jf.entries().toList().collect { it.name }
-            def qaLeaks = entries.findAll { it.contains('tyc2_qa') || it.startsWith('com/tycooncraft/tyc2/qa/') }
+            def qaLeaks = entries.findAll { it.contains('mnera_qa') || it.contains('mne_qa') || it.contains('tyc2_qa') || it.startsWith('com/tycooncraft/tyc2/qa/') }
             if (!qaLeaks.isEmpty()) {
                 throw new GradleException("Production JAR leaked QA entries: ${qaLeaks}")
+            }
+            def legacyNsLeaks = entries.findAll {
+                it.startsWith('assets/mne/') || it.startsWith('data/mne/') || it.startsWith('assets/tyc2/') || it.startsWith('data/tyc2/')
+            }
+            if (!legacyNsLeaks.isEmpty()) {
+                throw new GradleException("Production JAR leaked legacy namespace entries: ${legacyNsLeaks.take(5)}")
             }
             def previewLeaks = entries.findAll { it.toLowerCase().contains('preview') && it.endsWith('.png') }
             if (!previewLeaks.isEmpty()) {
@@ -111,44 +117,46 @@ def auditPackagedTyc2Jar = tasks.register('auditPackagedTyc2Jar') {
             }
             def requiredEntries = [
                     'LICENSE',
-                    'tyc2.mixins.json',
+                    'mnera.mixins.json',
                     'wthit_plugins.json',
                     'META-INF/mods.toml',
-                    'assets/tyc2/lang/en_us.json',
-                    'assets/tyc2/lang/zh_cn.json',
-                    'assets/tyc2/textures/block/primitive_mint_machine_front.png',
-                    'assets/tyc2/textures/block/primitive_mint_machine_front_active.png',
-                    'assets/tyc2/textures/gui/primitive_mint_machine.png',
-                    'assets/tyc2/textures/gui/mint_machine.png',
-                    'data/tyc2/recipes/primitive_mint_machine.json',
-                    'data/tyc2/recipes/mint_machine_ic2.json',
-                    'data/tyc2/recipes/mint_machine_standalone.json',
-                    'data/tyc2/mint_recipes/default_vanilla.json',
-                    'data/tyc2/mint_recipes/default_ic2.json',
-                    'data/tyc2/goods/vanilla.json',
-                    'data/tyc2/goods/ic2.json',
-                    'data/tyc2/goods/ecc2.json',
-                    'data/tyc2/goods/farmers_delight.json',
-                    'data/tyc2/goods/kaleidoscope_cookery.json',
-                    'data/tyc2/seasons/harvest_seasons.json',
-                    'data/tyc2/levels/village_levels.json'
+                    'assets/mnera/lang/en_us.json',
+                    'assets/mnera/lang/zh_cn.json',
+                    'assets/mnera/textures/block/primitive_mint_machine_front.png',
+                    'assets/mnera/textures/block/primitive_mint_machine_front_active.png',
+                    'assets/mnera/textures/gui/primitive_mint_machine.png',
+                    'assets/mnera/textures/gui/mint_machine.png',
+                    'data/mnera/recipes/primitive_mint_machine.json',
+                    'data/mnera/recipes/mint_machine_mhera.json',
+                    'data/mnera/recipes/mint_machine_standalone.json',
+                    'data/mnera/mint_recipes/default_vanilla.json',
+                    'data/mnera/mint_recipes/default_mhera.json',
+                    'data/mnera/goods/vanilla.json',
+                    'data/mnera/goods/mhera.json',
+                    'data/mnera/goods/ecera.json',
+                    'data/mnera/goods/farmers_delight.json',
+                    'data/mnera/goods/kaleidoscope_cookery.json',
+                    'data/mnera/seasons/harvest_seasons.json',
+                    'data/mnera/levels/village_levels.json'
             ]
             for (String req : requiredEntries) {
                 if (!entries.contains(req)) {
                     throw new GradleException("Production JAR missing required entry: ${req}")
                 }
             }
-            if (entries.contains('data/tyc2/recipes/mint_machine.json')) {
-                throw new GradleException("Production JAR still contains stale unconditional data/tyc2/recipes/mint_machine.json")
+            if (entries.contains('data/mnera/recipes/mint_machine.json')
+                    || entries.contains('data/mnera/recipes/mint_machine_ic2.json')
+                    || entries.contains('data/mnera/recipes/mint_machine_mce.json')) {
+                throw new GradleException("Production JAR still contains stale mint_machine recipe")
             }
-            def texturePngs = entries.findAll { it.startsWith('assets/tyc2/textures/') && it.endsWith('.png') }
+            def texturePngs = entries.findAll { it.startsWith('assets/mnera/textures/') && it.endsWith('.png') }
             if (texturePngs.size() != 35) {
                 throw new GradleException("Expected 35 texture PNGs in Forge 1.19.2 JAR, found ${texturePngs.size()}: ${texturePngs}")
             }
             // Verify zh_cn.json & en_us.json key parity, %s placeholder parity, and ZERO mechanic-advertising strings
             def slurper = new JsonSlurper()
-            Map enLang = (Map) slurper.parseText(new String(jf.getInputStream(jf.getEntry('assets/tyc2/lang/en_us.json')).bytes, 'UTF-8'))
-            Map zhLang = (Map) slurper.parseText(new String(jf.getInputStream(jf.getEntry('assets/tyc2/lang/zh_cn.json')).bytes, 'UTF-8'))
+            Map enLang = (Map) slurper.parseText(new String(jf.getInputStream(jf.getEntry('assets/mnera/lang/en_us.json')).bytes, 'UTF-8'))
+            Map zhLang = (Map) slurper.parseText(new String(jf.getInputStream(jf.getEntry('assets/mnera/lang/zh_cn.json')).bytes, 'UTF-8'))
             if (enLang.keySet() != zhLang.keySet()) {
                 throw new GradleException("Lang key mismatch between en_us.json (${enLang.size()}) and zh_cn.json (${zhLang.size()})")
             }
@@ -195,9 +203,13 @@ def auditPackagedTyc2Jar = tasks.register('auditPackagedTyc2Jar') {
             if (!mixinAscii.contains('m_60734_')) {
                 throw new GradleException("Ic2CableBlockMixin.class does not appear SRG-reobfuscated (missing m_60734_)")
             }
-            logger.lifecycle("[TYC2-QA] Packaged Forge 1.19.2 JAR audit PASSED: ${jarFile.name} (${jarFile.length()} bytes, ${entries.size()} entries, 0 QA leaks, 0 hard IC2 deps)")
+            logger.lifecycle("[MNERA-QA] Packaged Forge 1.19.2 JAR audit PASSED: ${jarFile.name} (${jarFile.length()} bytes, ${entries.size()} entries, 0 QA leaks, 0 hard MHERA deps)")
         }
     }
+}
+tasks.register('auditPackagedTyc2Jar') {
+    group = 'verification'
+    dependsOn auditPackagedMneraJar
 }
 
 def resolveForgeRenamerAndSrg = {
@@ -220,15 +232,15 @@ def resolveForgeRenamerAndSrg = {
     return [renamerJar, srgForgeJar]
 }
 
-// 2. Round-trip the exact SRG-reobfuscated production TyC2 JAR to Mojang mappings for ForgeGradle dev runtime.
+// 2. Round-trip the exact SRG-reobfuscated production MNERA JAR to Mojang mappings for ForgeGradle dev runtime.
 def deobfPackagedTyc2Jar = tasks.register('deobfPackagedTyc2Jar', JavaExec) {
     group = 'verification'
-    description = 'Deobfuscates the exact packaged reobfuscated TyC2 JAR for ForgeGradle runtime.'
-    dependsOn 'reobfJar', auditPackagedTyc2Jar, 'createMcpToSrg'
-    def outJar = qaModsDir.map { it.file("tyc2-forge-${minecraft_version}-${version}.jar") }
+    description = 'Deobfuscates the exact packaged reobfuscated MNERA JAR for ForgeGradle runtime.'
+    dependsOn 'reobfJar', auditPackagedMneraJar, 'createMcpToSrg'
+    def outJar = qaModsDir.map { it.file("mnera-forge-${minecraft_version}-${version}.jar") }
     def mappingsFile = tasks.named('createMcpToSrg').flatMap { it.output }
-    inputs.file(packagedTyc2Jar)
-    inputs.file(packagedIc2Jar)
+    inputs.file(packagedMneraJar)
+    inputs.file(packagedMheraJar)
     inputs.file(mappingsFile)
     outputs.file(outJar)
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(17) }
@@ -243,16 +255,16 @@ def deobfPackagedTyc2Jar = tasks.register('deobfPackagedTyc2Jar', JavaExec) {
         classpath = files(renamerJar)
         def toolArgs = [
                 '--reverse',
-                '--input', packagedTyc2Jar.get().asFile.absolutePath,
+                '--input', packagedMneraJar.get().asFile.absolutePath,
                 '--output', outFile.absolutePath,
                 '--names', mappingsFile.get().asFile.absolutePath,
-                '--log', qaBuildDir.get().file('deobf-tyc2.log').asFile.absolutePath,
+                '--log', qaBuildDir.get().file('deobf-mnera.log').asFile.absolutePath,
                 '--lib', srgForgeJar.absolutePath,
-                '--lib', packagedIc2Jar.absolutePath
+                '--lib', packagedMheraJar.absolutePath
         ]
         configurations.compileClasspath.files.each { File lib ->
             String n = lib.name
-            if (!n.contains('_mapped_official_') && !n.startsWith('ic2-forge-')) {
+            if (!n.contains('_mapped_official_') && !n.startsWith('mhera-forge-')) {
                 toolArgs.addAll(['--lib', lib.absolutePath])
             }
         }
@@ -260,21 +272,21 @@ def deobfPackagedTyc2Jar = tasks.register('deobfPackagedTyc2Jar', JavaExec) {
     }
 }
 
-// 3. Round-trip the packaged SRG-reobfuscated LC2 1.19.2 JAR to Mojang mappings for Enhanced Mode QA.
+// 3. Round-trip the packaged SRG-reobfuscated TRERA 1.19.2 JAR to Mojang mappings for Enhanced Mode QA.
 def deobfPackagedLc2Jar = tasks.register('deobfPackagedLc2Jar', JavaExec) {
     group = 'verification'
-    description = 'Deobfuscates packaged LC2 Forge 1.19.2 JAR for Enhanced Mode ForgeGradle runtime.'
+    description = 'Deobfuscates packaged TRERA Forge 1.19.2 JAR for Enhanced Mode ForgeGradle runtime.'
     dependsOn 'createMcpToSrg'
-    def outJar = qaModsDir.map { it.file('lc2-forge-1.19.2-1.1.0.jar') }
+    def outJar = qaModsDir.map { it.file('trera-forge-1.19.2-2.0.0.jar') }
     def mappingsFile = tasks.named('createMcpToSrg').flatMap { it.output }
-    inputs.file(packagedIc2Jar)
+    inputs.file(packagedMheraJar)
     inputs.file(mappingsFile)
     outputs.file(outJar)
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(17) }
     mainClass = 'net.minecraftforge.renamer.Main'
     doFirst {
-        if (!packagedLc2Jar.isFile()) {
-            throw new GradleException("Missing packaged LC2 1.19.2 JAR: ${packagedLc2Jar}")
+        if (!packagedTreraJar.isFile()) {
+            throw new GradleException("Missing packaged TRERA 1.19.2 JAR: ${packagedTreraJar}")
         }
         File outFile = outJar.get().asFile
         outFile.parentFile.mkdirs()
@@ -285,16 +297,16 @@ def deobfPackagedLc2Jar = tasks.register('deobfPackagedLc2Jar', JavaExec) {
         classpath = files(renamerJar)
         def toolArgs = [
                 '--reverse',
-                '--input', packagedLc2Jar.absolutePath,
+                '--input', packagedTreraJar.absolutePath,
                 '--output', outFile.absolutePath,
                 '--names', mappingsFile.get().asFile.absolutePath,
-                '--log', qaBuildDir.get().file('deobf-lc2.log').asFile.absolutePath,
+                '--log', qaBuildDir.get().file('deobf-trera.log').asFile.absolutePath,
                 '--lib', srgForgeJar.absolutePath,
-                '--lib', packagedIc2Jar.absolutePath
+                '--lib', packagedMheraJar.absolutePath
         ]
         configurations.compileClasspath.files.each { File lib ->
             String n = lib.name
-            if (!n.contains('_mapped_official_') && !n.startsWith('ic2-forge-')) {
+            if (!n.contains('_mapped_official_') && !n.startsWith('mhera-forge-')) {
                 toolArgs.addAll(['--lib', lib.absolutePath])
             }
         }
@@ -331,18 +343,18 @@ def exportQaHostLaunch = { run, side ->
     jvm += config.properties.collect { key, value -> "-D${key}=${expand(value)}" }
     def env = config.environment.collectEntries { key, value -> [(key): expand(value)] }
 
-    // Keep ONLY tyc2_qa in MOD_CLASSES so Forge MUST load tyc2 from mods/tyc2-forge-1.19.2-1.0.0.jar!
+    // Keep ONLY mnera_qa in MOD_CLASSES so Forge MUST load mnera from mods/mnera-forge-1.19.2-2.0.0.jar!
     if (env.containsKey('MOD_CLASSES')) {
         def sep = File.pathSeparator
         def kept = env['MOD_CLASSES'].split(java.util.regex.Pattern.quote(sep))
-                .findAll { it.startsWith('tyc2_qa%%') }
+                .findAll { it.startsWith('mnera_qa%%') }
         if (kept.isEmpty()) {
-            throw new GradleException("Expected tyc2_qa entries in MOD_CLASSES for ${side}, got: ${env['MOD_CLASSES']}")
+            throw new GradleException("Expected mnera_qa entries in MOD_CLASSES for ${side}, got: ${env['MOD_CLASSES']}")
         }
         env['MOD_CLASSES'] = kept.join(sep)
     }
 
-    // Strip sourceSets.main output directories from JVM classpath so they cannot shadow mods/tyc2-*.jar
+    // Strip sourceSets.main output directories from JVM classpath so they cannot shadow mods/mnera-*.jar
     Set<File> mainOutputs = sourceSets.main.output.files.collect { it.canonicalFile } as Set
     def cpFiles = files(run.classpath, sourceSets.qa.runtimeClasspath).files
             .findAll { !mainOutputs.contains(it.canonicalFile) }
@@ -359,7 +371,7 @@ def exportQaHostLaunch = { run, side ->
 
 def prepareTyc2ServerQa = tasks.register('prepareTyc2ServerQa') {
     group = 'verification'
-    description = 'Stages packaged TyC2 (+ IC2/LC2) JARs and exports Forge 1.19.2 dedicated server QA manifest.'
+    description = 'Stages packaged MNERA (+ MHERA/TRERA) JARs and exports Forge 1.19.2 dedicated server QA manifest.'
     dependsOn 'qaClasses', deobfPackagedTyc2Jar, deobfPackagedLc2Jar
     dependsOn {
         def run = tasks.getByName('runQaTyc2Server')
@@ -369,18 +381,18 @@ def prepareTyc2ServerQa = tasks.register('prepareTyc2ServerQa') {
     outputs.file(launchManifest)
     outputs.upToDateWhen { false }
     doLast {
-        File tyc2DeobfJar = deobfPackagedTyc2Jar.get().outputs.files.singleFile
-        File ic2DeobfJar = configurations.qaIc2Mod.singleFile
-        File lc2DeobfJar = deobfPackagedLc2Jar.get().outputs.files.singleFile
+        File mneraDeobfJar = deobfPackagedTyc2Jar.get().outputs.files.singleFile
+        File mheraDeobfJar = configurations.qaMheraMod.singleFile
+        File treraDeobfJar = deobfPackagedLc2Jar.get().outputs.files.singleFile
         def manifest = [
                 server         : exportQaHostLaunch(tasks.getByName('runQaTyc2Server'), 'server'),
-                tyc2ModJar     : tyc2DeobfJar.absolutePath,
-                ic2ModJar      : ic2DeobfJar.absolutePath,
-                lc2ModJar      : lc2DeobfJar.absolutePath,
-                packagedTyc2Jar: packagedTyc2Jar.get().asFile.absolutePath,
-                packagedIc2Jar : packagedIc2Jar.absolutePath,
-                packagedLc2Jar : packagedLc2Jar.absolutePath,
-                runBaseDir     : layout.buildDirectory.dir('run/qa-tyc2').get().asFile.absolutePath,
+                tyc2ModJar     : mneraDeobfJar.absolutePath,
+                ic2ModJar      : mheraDeobfJar.absolutePath,
+                lc2ModJar      : treraDeobfJar.absolutePath,
+                packagedTyc2Jar: packagedMneraJar.get().asFile.absolutePath,
+                packagedIc2Jar : packagedMheraJar.absolutePath,
+                packagedLc2Jar : packagedTreraJar.absolutePath,
+                runBaseDir     : layout.buildDirectory.dir('run/qa-mnera').get().asFile.absolutePath,
                 reportDir      : qaBuildDir.get().asFile.absolutePath
         ]
         File target = launchManifest.get().asFile
@@ -391,7 +403,7 @@ def prepareTyc2ServerQa = tasks.register('prepareTyc2ServerQa') {
 
 def prepareTyc2LiveQa = tasks.register('prepareTyc2LiveQa') {
     group = 'verification'
-    description = 'Stages packaged TyC2 (+ IC2/LC2) JARs and exports Dedicated Server + Graphical Client manifest.'
+    description = 'Stages packaged MNERA (+ MHERA/TRERA) JARs and exports Dedicated Server + Graphical Client manifest.'
     dependsOn 'qaClasses', deobfPackagedTyc2Jar, deobfPackagedLc2Jar
     dependsOn {
         ['runLiveTyc2Server', 'runLiveTyc2Client'].collectMany { name ->
@@ -403,19 +415,19 @@ def prepareTyc2LiveQa = tasks.register('prepareTyc2LiveQa') {
     outputs.file(launchManifest)
     outputs.upToDateWhen { false }
     doLast {
-        File tyc2DeobfJar = deobfPackagedTyc2Jar.get().outputs.files.singleFile
-        File ic2DeobfJar = configurations.qaIc2Mod.singleFile
-        File lc2DeobfJar = deobfPackagedLc2Jar.get().outputs.files.singleFile
+        File mneraDeobfJar = deobfPackagedTyc2Jar.get().outputs.files.singleFile
+        File mheraDeobfJar = configurations.qaMheraMod.singleFile
+        File treraDeobfJar = deobfPackagedLc2Jar.get().outputs.files.singleFile
         def manifest = [
                 server         : exportQaHostLaunch(tasks.getByName('runLiveTyc2Server'), 'server'),
                 client         : exportQaHostLaunch(tasks.getByName('runLiveTyc2Client'), 'client'),
-                tyc2ModJar     : tyc2DeobfJar.absolutePath,
-                ic2ModJar      : ic2DeobfJar.absolutePath,
-                lc2ModJar      : lc2DeobfJar.absolutePath,
-                packagedTyc2Jar: packagedTyc2Jar.get().asFile.absolutePath,
-                packagedIc2Jar : packagedIc2Jar.absolutePath,
-                packagedLc2Jar : packagedLc2Jar.absolutePath,
-                runBaseDir     : layout.buildDirectory.dir('run/live-tyc2').get().asFile.absolutePath,
+                tyc2ModJar     : mneraDeobfJar.absolutePath,
+                ic2ModJar      : mheraDeobfJar.absolutePath,
+                lc2ModJar      : treraDeobfJar.absolutePath,
+                packagedTyc2Jar: packagedMneraJar.get().asFile.absolutePath,
+                packagedIc2Jar : packagedMheraJar.absolutePath,
+                packagedLc2Jar : packagedTreraJar.absolutePath,
+                runBaseDir     : layout.buildDirectory.dir('run/live-mnera').get().asFile.absolutePath,
                 reportDir      : qaBuildDir.get().asFile.absolutePath
         ]
         File target = launchManifest.get().asFile

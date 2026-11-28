@@ -40,50 +40,50 @@ import org.slf4j.LoggerFactory;
  */
 public final class TyC2ClientDriver {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("tyc2_client_qa");
+    private static final Logger LOGGER = LoggerFactory.getLogger("mnera_client_qa");
 
     private static final List<String> REQUIRED_BLOCK_SPRITES = List.of(
-            "tyc2:block/primitive_mint_machine_front",
-            "tyc2:block/primitive_mint_machine_front_active",
-            "tyc2:block/primitive_mint_machine_side",
-            "tyc2:block/primitive_mint_machine_top",
-            "tyc2:block/primitive_mint_machine_bottom",
-            "tyc2:block/mint_machine_front",
-            "tyc2:block/mint_machine_front_active",
-            "tyc2:block/mint_machine_side",
-            "tyc2:block/mint_machine_top",
-            "tyc2:block/mint_machine_bottom",
-            "tyc2:block/atm_machine_front",
-            "tyc2:block/atm_machine_side",
-            "tyc2:block/atm_machine_top",
-            "tyc2:block/atm_machine_bottom",
-            "tyc2:block/cooperation_hub_front",
-            "tyc2:block/cooperation_hub_side",
-            "tyc2:block/cooperation_hub_top",
-            "tyc2:block/cooperation_hub_bottom"
+            "mnera:block/primitive_mint_machine_front",
+            "mnera:block/primitive_mint_machine_front_active",
+            "mnera:block/primitive_mint_machine_side",
+            "mnera:block/primitive_mint_machine_top",
+            "mnera:block/primitive_mint_machine_bottom",
+            "mnera:block/mint_machine_front",
+            "mnera:block/mint_machine_front_active",
+            "mnera:block/mint_machine_side",
+            "mnera:block/mint_machine_top",
+            "mnera:block/mint_machine_bottom",
+            "mnera:block/atm_machine_front",
+            "mnera:block/atm_machine_side",
+            "mnera:block/atm_machine_top",
+            "mnera:block/atm_machine_bottom",
+            "mnera:block/cooperation_hub_front",
+            "mnera:block/cooperation_hub_side",
+            "mnera:block/cooperation_hub_top",
+            "mnera:block/cooperation_hub_bottom"
     );
 
     private static final List<String> REQUIRED_ITEM_SPRITES = List.of(
-            "tyc2:item/coin_1",
-            "tyc2:item/coin_5",
-            "tyc2:item/coin_10",
-            "tyc2:item/coin_20",
-            "tyc2:item/coin_50",
-            "tyc2:item/coin_100",
-            "tyc2:item/coin_200",
-            "tyc2:item/coin_500",
-            "tyc2:item/coin_1000",
-            "tyc2:item/comm_terminal",
-            "tyc2:item/comm_terminal_empty"
+            "mnera:item/coin_1",
+            "mnera:item/coin_5",
+            "mnera:item/coin_10",
+            "mnera:item/coin_20",
+            "mnera:item/coin_50",
+            "mnera:item/coin_100",
+            "mnera:item/coin_200",
+            "mnera:item/coin_500",
+            "mnera:item/coin_1000",
+            "mnera:item/comm_terminal",
+            "mnera:item/comm_terminal_empty"
     );
 
     private static final List<String> REQUIRED_GUI_RESOURCES = List.of(
-            "tyc2:textures/gui/primitive_mint_machine.png",
-            "tyc2:textures/gui/mint_machine.png",
-            "tyc2:textures/gui/atm_machine.png",
-            "tyc2:textures/gui/cooperation_hub.png",
-            "tyc2:textures/gui/comm_terminal.png",
-            "tyc2:textures/gui/mayor_negotiation.png"
+            "mnera:textures/gui/primitive_mint_machine.png",
+            "mnera:textures/gui/mint_machine.png",
+            "mnera:textures/gui/atm_machine.png",
+            "mnera:textures/gui/cooperation_hub.png",
+            "mnera:textures/gui/comm_terminal.png",
+            "mnera:textures/gui/mayor_negotiation.png"
     );
 
     private final Path input = Path.of("qa-input.txt");

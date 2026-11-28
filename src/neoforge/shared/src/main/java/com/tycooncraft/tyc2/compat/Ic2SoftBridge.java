@@ -51,7 +51,7 @@ public final class Ic2SoftBridge {
     public static boolean isIc2Loaded() {
         if (cachedLoaded == null) {
             try {
-                cachedLoaded = ModList.get() != null && ModList.get().isLoaded("ic2");
+                cachedLoaded = ModList.get() != null && ModList.get().isLoaded("mhera");
             } catch (Throwable ignored) {
                 cachedLoaded = false;
             }
@@ -112,7 +112,7 @@ public final class Ic2SoftBridge {
         if (!isIc2Loaded() || upgrades == null || upgrades.isEmpty()) {
             return List.of();
         }
-        return Loaded.resolveFaces(upgrades, "ic2:ejector_upgrade", "ic2:advanced_ejector_upgrade");
+        return Loaded.resolveFaces(upgrades, "mhera:ejector_upgrade", "mhera:advanced_ejector_upgrade");
     }
 
     /** Resolves configured pulling faces from installed IC2 pulling or advanced pulling upgrades. */
@@ -120,7 +120,7 @@ public final class Ic2SoftBridge {
         if (!isIc2Loaded() || upgrades == null || upgrades.isEmpty()) {
             return List.of();
         }
-        return Loaded.resolveFaces(upgrades, "ic2:pulling_upgrade", "ic2:advanced_pulling_upgrade");
+        return Loaded.resolveFaces(upgrades, "mhera:pulling_upgrade", "mhera:advanced_pulling_upgrade");
     }
 
     /** Returns {@code true} if {@code candidate} passes installed ejector/pulling upgrade filters. */
@@ -130,8 +130,8 @@ public final class Ic2SoftBridge {
         }
         return Loaded.matchesFilter(
                 upgrades,
-                ejector ? "ic2:ejector_upgrade" : "ic2:pulling_upgrade",
-                ejector ? "ic2:advanced_ejector_upgrade" : "ic2:advanced_pulling_upgrade",
+                ejector ? "mhera:ejector_upgrade" : "mhera:pulling_upgrade",
+                ejector ? "mhera:advanced_ejector_upgrade" : "mhera:advanced_pulling_upgrade",
                 candidate
         );
     }
@@ -154,9 +154,9 @@ public final class Ic2SoftBridge {
             return false;
         }
         String id = TyC2Native.itemId(held);
-        boolean isElectric = "ic2:electric_wrench".equals(id);
+        boolean isElectric = "mhera:electric_wrench".equals(id);
         boolean isWrench = isElectric
-                || "ic2:wrench".equals(id)
+                || "mhera:wrench".equals(id)
                 || CommonTagAliases.isWrenchTag(id, TyC2Native::itemIdHasTag);
         if (!isWrench) {
             return false;

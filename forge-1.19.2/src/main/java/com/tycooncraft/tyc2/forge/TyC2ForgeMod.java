@@ -52,9 +52,9 @@ public final class TyC2ForgeMod {
         }
 
         LOGGER.info(
-                "TycoonCraft² (Forge 1.19.2) initialized [ic2={}, ecc2={}, lc2={}, seasons={}].",
+                "Monetera (Forge 1.19.2) initialized [mhera={}, ecera={}, trera={}, seasons={}].",
                 Ic2Bridge.isLoaded(),
-                ModList.get().isLoaded("ecc2"),
+                ModList.get().isLoaded("ecera"),
                 Lc2SoftBridge.isLoaded(),
                 SeasonSoftBridge.isAnySeasonModLoaded()
         );

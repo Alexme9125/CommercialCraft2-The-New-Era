@@ -19,11 +19,11 @@ import net.minecraftforge.fml.ModList;
  * Zero-hard-dependency facade isolating all IndustrialCraft² ({@code ic2}) interactions.
  *
  * <p>This class intentionally imports ZERO {@code com.industrialage.*} classes; it only
- * loads {@link Ic2LoadedBridge} when {@code ModList.get().isLoaded("ic2")} is {@code true}.
+ * loads {@link Ic2LoadedBridge} when {@code ModList.get().isLoaded("mhera")} is {@code true}.
  */
 public final class Ic2Bridge {
 
-    public static final String MOD_ID = "ic2";
+    public static final String MOD_ID = "mhera";
 
     private Ic2Bridge() {
     }

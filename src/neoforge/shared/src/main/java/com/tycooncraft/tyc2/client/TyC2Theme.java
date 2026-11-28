@@ -281,15 +281,15 @@ public final class TyC2Theme {
         long hoursInDay = SupplyCycleClock.remainingWholeHoursInDay(clamped);
         long totalHours = SupplyCycleClock.remainingTotalHours(clamped);
         if (days > 0L && hoursInDay > 0L) {
-            return Component.translatable("gui.tyc2.hub.refresh_days_hours", days, hoursInDay).getString();
+            return Component.translatable("gui.mnera.hub.refresh_days_hours", days, hoursInDay).getString();
         }
         if (days > 0L) {
-            return Component.translatable("gui.tyc2.hub.refresh_days", days).getString();
+            return Component.translatable("gui.mnera.hub.refresh_days", days).getString();
         }
         if (totalHours > 0L) {
-            return Component.translatable("gui.tyc2.hub.refresh_hours", totalHours).getString();
+            return Component.translatable("gui.mnera.hub.refresh_hours", totalHours).getString();
         }
-        return Component.translatable("gui.tyc2.hub.refresh_soon").getString();
+        return Component.translatable("gui.mnera.hub.refresh_soon").getString();
     }
 
     /** Formats IC / circulation numbers compactly for tight status cells while keeping values <= 9,999 exact. */

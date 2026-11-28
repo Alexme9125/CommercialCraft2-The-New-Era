@@ -36,7 +36,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
  */
 public final class TyC2ProbeHelper {
 
-    private static final String KEY_KIND = "tyc2_kind";
+    private static final String KEY_KIND = "mnera_kind";
     private static final String KIND_HUB = "hub";
     private static final String KIND_PRIMITIVE_MINT = "primitive_mint";
     private static final String KIND_MINT = "mint";
@@ -70,32 +70,32 @@ public final class TyC2ProbeHelper {
                     .count();
             MacroEconomyEngine econ = data.economy();
             String regimeKey = switch (econ.getInflationState()) {
-                case DEFLATION -> "gui.tyc2.economy.deflation";
-                case STABLE -> "gui.tyc2.economy.stable";
-                default -> "gui.tyc2.economy.inflation";
+                case DEFLATION -> "gui.mnera.economy.deflation";
+                case STABLE -> "gui.mnera.economy.stable";
+                default -> "gui.mnera.economy.inflation";
             };
             tag.putString(KEY_KIND, KIND_HUB);
-            tag.putString("tyc2_village", v.getVillageName());
-            tag.putInt("tyc2_level", v.getLevel());
-            tag.putInt("tyc2_pop", v.getPopulation());
-            tag.putLong("tyc2_funds", v.getVillageBalance());
-            tag.putInt("tyc2_sells", (int) sellCount);
-            tag.putInt("tyc2_buys", (int) buyCount);
-            tag.putDouble("tyc2_cpi", econ.computeCpi());
-            tag.putString("tyc2_cpi_state", regimeKey);
-            tag.putInt("tyc2_in_used", v.getStorage().getUsedSlotCount(CooperationHubStorage.Zone.INBOUND));
-            tag.putInt("tyc2_out_used", v.getStorage().getUsedSlotCount(CooperationHubStorage.Zone.OUTBOUND));
-            tag.putBoolean("tyc2_chunk_loader", v.isChunkLoaderInstalled());
+            tag.putString("mnera_village", v.getVillageName());
+            tag.putInt("mnera_level", v.getLevel());
+            tag.putInt("mnera_pop", v.getPopulation());
+            tag.putLong("mnera_funds", v.getVillageBalance());
+            tag.putInt("mnera_sells", (int) sellCount);
+            tag.putInt("mnera_buys", (int) buyCount);
+            tag.putDouble("mnera_cpi", econ.computeCpi());
+            tag.putString("mnera_cpi_state", regimeKey);
+            tag.putInt("mnera_in_used", v.getStorage().getUsedSlotCount(CooperationHubStorage.Zone.INBOUND));
+            tag.putInt("mnera_out_used", v.getStorage().getUsedSlotCount(CooperationHubStorage.Zone.OUTBOUND));
+            tag.putBoolean("mnera_chunk_loader", v.isChunkLoaderInstalled());
 
             TyC2Config cfg = TyC2RuntimeData.config();
             VillageEmploymentStats emp = v.getEmploymentStats();
             int unempPct = emp.workforceCount() <= 0 ? 0 : (int) Math.round(emp.unemploymentRate() * 100.0);
-            tag.putInt("tyc2_unemp_pct", unempPct);
-            tag.putInt("tyc2_unemp_cnt", emp.unemployedCount());
-            tag.putInt("tyc2_workforce", emp.workforceCount());
+            tag.putInt("mnera_unemp_pct", unempPct);
+            tag.putInt("mnera_unemp_cnt", emp.unemployedCount());
+            tag.putInt("mnera_workforce", emp.workforceCount());
             if (emp.isLowUnemploymentBonusActive(cfg)) {
-                tag.putBoolean("tyc2_emp_bonus", true);
-                tag.putInt("tyc2_qty_pct", (int) Math.round((emp.tradeQuantityMultiplier(cfg) - 1.0) * 100.0));
+                tag.putBoolean("mnera_emp_bonus", true);
+                tag.putInt("mnera_qty_pct", (int) Math.round((emp.tradeQuantityMultiplier(cfg) - 1.0) * 100.0));
             }
             if (!v.getAidProjects().isEmpty()) {
                 AidConstructionProject headAid = v.getAidProjects().get(0);
@@ -106,28 +106,28 @@ public final class TyC2ProbeHelper {
                     }
                 }
                 int progPct = TycoonForgeWorldManager.resolveAidProgressPct(v, headAid);
-                tag.putBoolean("tyc2_aid_active", true);
-                tag.putString("tyc2_aid_prof", headAid.professionId() == null ? "" : headAid.professionId());
-                tag.putString("tyc2_aid_arch", headAid.archetype() == null ? "" : headAid.archetype().name());
-                tag.putString("tyc2_aid_fallback", headAid.displayNameFallback() == null ? "" : headAid.displayNameFallback());
-                tag.putBoolean("tyc2_aid_large", headAid.size() == WorkplaceSize.LARGE);
-                tag.putString("tyc2_aid_status", headAid.status().name());
-                tag.putInt("tyc2_aid_pct", progPct);
+                tag.putBoolean("mnera_aid_active", true);
+                tag.putString("mnera_aid_prof", headAid.professionId() == null ? "" : headAid.professionId());
+                tag.putString("mnera_aid_arch", headAid.archetype() == null ? "" : headAid.archetype().name());
+                tag.putString("mnera_aid_fallback", headAid.displayNameFallback() == null ? "" : headAid.displayNameFallback());
+                tag.putBoolean("mnera_aid_large", headAid.size() == WorkplaceSize.LARGE);
+                tag.putString("mnera_aid_status", headAid.status().name());
+                tag.putInt("mnera_aid_pct", progPct);
             }
         } else if (be instanceof PrimitiveMintMachineBlockEntity prim) {
             tag.putString(KEY_KIND, KIND_PRIMITIVE_MINT);
-            tag.putInt("tyc2_burn_sec", Math.max(0, prim.getBurnTicksRemaining() / 20));
-            tag.putInt("tyc2_progress", prim.getProgressPercent());
-            tag.putBoolean("tyc2_blocked_ind", prim.isBlockedByIndustrialTier());
+            tag.putInt("mnera_burn_sec", Math.max(0, prim.getBurnTicksRemaining() / 20));
+            tag.putInt("mnera_progress", prim.getProgressPercent());
+            tag.putBoolean("mnera_blocked_ind", prim.isBlockedByIndustrialTier());
         } else if (be instanceof MintMachineBlockEntity mint) {
             tag.putString(KEY_KIND, KIND_MINT);
-            tag.putInt("tyc2_eu", (int) Math.round(mint.getStoredEu()));
-            tag.putInt("tyc2_max_eu", mint.getMaxCapacityEu());
-            tag.putInt("tyc2_progress", mint.getProgressPercent());
+            tag.putInt("mnera_eu", (int) Math.round(mint.getStoredEu()));
+            tag.putInt("mnera_max_eu", mint.getMaxCapacityEu());
+            tag.putInt("mnera_progress", mint.getProgressPercent());
         } else if (be instanceof AtmMachineBlockEntity atm) {
             tag.putString(KEY_KIND, KIND_ATM);
-            tag.putInt("tyc2_eu", (int) Math.round(atm.getStoredEu()));
-            tag.putInt("tyc2_max_eu", TriModePowerMath.ATM_BASE_CAPACITY_EU);
+            tag.putInt("mnera_eu", (int) Math.round(atm.getStoredEu()));
+            tag.putInt("mnera_max_eu", TriModePowerMath.ATM_BASE_CAPACITY_EU);
         }
     }
 
@@ -143,66 +143,66 @@ public final class TyC2ProbeHelper {
         List<Component> lines = new ArrayList<>();
         switch (kind) {
             case KIND_HUB -> {
-                lines.add(Component.translatable("hud.tyc2.hub.village", tag.getString("tyc2_village")));
-                lines.add(Component.translatable("hud.tyc2.hub.level_pop", tag.getInt("tyc2_level"), tag.getInt("tyc2_pop")));
-                lines.add(Component.translatable("hud.tyc2.hub.funds", tag.getLong("tyc2_funds")));
-                lines.add(Component.translatable("hud.tyc2.hub.orders", tag.getInt("tyc2_sells"), tag.getInt("tyc2_buys")));
-                lines.add(Component.translatable("hud.tyc2.hub.warehouse", tag.getInt("tyc2_in_used"), tag.getInt("tyc2_out_used")));
-                String stateKey = tag.getString("tyc2_cpi_state");
+                lines.add(Component.translatable("hud.mnera.hub.village", tag.getString("mnera_village")));
+                lines.add(Component.translatable("hud.mnera.hub.level_pop", tag.getInt("mnera_level"), tag.getInt("mnera_pop")));
+                lines.add(Component.translatable("hud.mnera.hub.funds", tag.getLong("mnera_funds")));
+                lines.add(Component.translatable("hud.mnera.hub.orders", tag.getInt("mnera_sells"), tag.getInt("mnera_buys")));
+                lines.add(Component.translatable("hud.mnera.hub.warehouse", tag.getInt("mnera_in_used"), tag.getInt("mnera_out_used")));
+                String stateKey = tag.getString("mnera_cpi_state");
                 if (stateKey.isEmpty()) {
-                    stateKey = "gui.tyc2.economy.stable";
+                    stateKey = "gui.mnera.economy.stable";
                 }
                 lines.add(Component.translatable(
-                        "hud.tyc2.hub.cpi",
-                        String.format(Locale.ROOT, "%.2f", tag.getDouble("tyc2_cpi")),
+                        "hud.mnera.hub.cpi",
+                        String.format(Locale.ROOT, "%.2f", tag.getDouble("mnera_cpi")),
                         Component.translatable(stateKey)
                 ));
                 lines.add(Component.translatable(
-                        "hud.tyc2.hub.unemployment",
-                        tag.getInt("tyc2_unemp_pct"),
-                        tag.getInt("tyc2_unemp_cnt"),
-                        tag.getInt("tyc2_workforce")
+                        "hud.mnera.hub.unemployment",
+                        tag.getInt("mnera_unemp_pct"),
+                        tag.getInt("mnera_unemp_cnt"),
+                        tag.getInt("mnera_workforce")
                 ));
-                if (tag.getBoolean("tyc2_emp_bonus")) {
+                if (tag.getBoolean("mnera_emp_bonus")) {
                     lines.add(Component.translatable(
-                            "hud.tyc2.hub.employment_bonus",
-                            tag.getInt("tyc2_qty_pct")
+                            "hud.mnera.hub.employment_bonus",
+                            tag.getInt("mnera_qty_pct")
                     ));
                 }
-                if (tag.getBoolean("tyc2_chunk_loader")) {
-                    lines.add(Component.translatable("gui.tyc2.hub.chunk_loader.active"));
+                if (tag.getBoolean("mnera_chunk_loader")) {
+                    lines.add(Component.translatable("gui.mnera.hub.chunk_loader.active"));
                 }
-                if (tag.getBoolean("tyc2_aid_active")) {
-                    WorkplaceArchetype arch = parseArchetype(tag.getString("tyc2_aid_arch"));
-                    WorkplaceSize size = tag.getBoolean("tyc2_aid_large") ? WorkplaceSize.LARGE : WorkplaceSize.SMALL;
+                if (tag.getBoolean("mnera_aid_active")) {
+                    WorkplaceArchetype arch = parseArchetype(tag.getString("mnera_aid_arch"));
+                    WorkplaceSize size = tag.getBoolean("mnera_aid_large") ? WorkplaceSize.LARGE : WorkplaceSize.SMALL;
                     Component wpName = TyC2VillagerHelpers.workplaceDisplayComponent(
-                            tag.getString("tyc2_aid_prof"),
+                            tag.getString("mnera_aid_prof"),
                             arch,
-                            tag.getString("tyc2_aid_fallback"),
+                            tag.getString("mnera_aid_fallback"),
                             size
                     );
-                    AidConstructionProject.Status st = parseAidStatus(tag.getString("tyc2_aid_status"));
-                    Component statusComp = TyC2VillagerHelpers.aidStatusComponent(st, tag.getInt("tyc2_aid_pct"));
-                    lines.add(Component.translatable("hud.tyc2.hub.aid_active", wpName, statusComp));
+                    AidConstructionProject.Status st = parseAidStatus(tag.getString("mnera_aid_status"));
+                    Component statusComp = TyC2VillagerHelpers.aidStatusComponent(st, tag.getInt("mnera_aid_pct"));
+                    lines.add(Component.translatable("hud.mnera.hub.aid_active", wpName, statusComp));
                 }
             }
             case KIND_PRIMITIVE_MINT -> {
-                lines.add(Component.translatable("hud.tyc2.primitive_mint.scope"));
-                lines.add(Component.translatable("hud.tyc2.primitive_mint.fuel", tag.getInt("tyc2_burn_sec")));
-                lines.add(Component.translatable("hud.tyc2.primitive_mint.progress", tag.getInt("tyc2_progress")));
-                if (tag.getBoolean("tyc2_blocked_ind")) {
-                    lines.add(Component.translatable("gui.tyc2.primitive_mint.requires_industrial"));
+                lines.add(Component.translatable("hud.mnera.primitive_mint.scope"));
+                lines.add(Component.translatable("hud.mnera.primitive_mint.fuel", tag.getInt("mnera_burn_sec")));
+                lines.add(Component.translatable("hud.mnera.primitive_mint.progress", tag.getInt("mnera_progress")));
+                if (tag.getBoolean("mnera_blocked_ind")) {
+                    lines.add(Component.translatable("gui.mnera.primitive_mint.requires_industrial"));
                 }
             }
             case KIND_MINT -> {
-                int eu = tag.getInt("tyc2_eu");
-                int maxEu = tag.getInt("tyc2_max_eu");
-                lines.add(Component.translatable("hud.tyc2.mint.power", eu, maxEu, (long) eu * TriModePowerMath.EU_TO_FE_RATIO));
-                lines.add(Component.translatable("hud.tyc2.mint.progress", tag.getInt("tyc2_progress")));
+                int eu = tag.getInt("mnera_eu");
+                int maxEu = tag.getInt("mnera_max_eu");
+                lines.add(Component.translatable("hud.mnera.mint.power", eu, maxEu, (long) eu * TriModePowerMath.EU_TO_FE_RATIO));
+                lines.add(Component.translatable("hud.mnera.mint.progress", tag.getInt("mnera_progress")));
             }
             case KIND_ATM -> {
-                lines.add(Component.translatable("hud.tyc2.atm.ready"));
-                lines.add(Component.translatable("hud.tyc2.atm.power", tag.getInt("tyc2_eu"), tag.getInt("tyc2_max_eu")));
+                lines.add(Component.translatable("hud.mnera.atm.ready"));
+                lines.add(Component.translatable("hud.mnera.atm.power", tag.getInt("mnera_eu"), tag.getInt("mnera_max_eu")));
             }
             default -> {
             }
@@ -226,15 +226,15 @@ public final class TyC2ProbeHelper {
         try {
             UUID vid = UUID.fromString(pdata.getString(TycoonForgeWorldManager.TAG_VILLAGE_ID));
             TycoonForgeSavedData.get(level).getVillage(vid).ifPresent(v -> {
-                tag.putBoolean("tyc2_has_village", true);
-                tag.putBoolean("tyc2_partnered", v.isPartnered());
-                tag.putInt("tyc2_level", v.getLevel());
-                tag.putLong("tyc2_funds", v.getVillageBalance());
+                tag.putBoolean("mnera_has_village", true);
+                tag.putBoolean("mnera_partnered", v.isPartnered());
+                tag.putInt("mnera_level", v.getLevel());
+                tag.putLong("mnera_funds", v.getVillageBalance());
                 VillageEmploymentStats emp = v.getEmploymentStats();
                 int unempPct = emp.workforceCount() <= 0 ? 0 : (int) Math.round(emp.unemploymentRate() * 100.0);
-                tag.putInt("tyc2_unemp_pct", unempPct);
-                tag.putInt("tyc2_unemp_cnt", emp.unemployedCount());
-                tag.putInt("tyc2_workforce", emp.workforceCount());
+                tag.putInt("mnera_unemp_pct", unempPct);
+                tag.putInt("mnera_unemp_cnt", emp.unemployedCount());
+                tag.putInt("mnera_workforce", emp.workforceCount());
             });
         } catch (IllegalArgumentException ignored) {
             // Ignore malformed UUID
@@ -247,21 +247,21 @@ public final class TyC2ProbeHelper {
             return List.of();
         }
         List<Component> lines = new ArrayList<>(3);
-        if (!tag.getBoolean("tyc2_has_village")) {
-            lines.add(Component.translatable("hud.tyc2.mayor.unpartnered"));
+        if (!tag.getBoolean("mnera_has_village")) {
+            lines.add(Component.translatable("hud.mnera.mayor.unpartnered"));
             return lines;
         }
-        if (tag.getBoolean("tyc2_partnered")) {
-            lines.add(Component.translatable("hud.tyc2.mayor.partnered", tag.getInt("tyc2_level")));
-            lines.add(Component.translatable("hud.tyc2.hub.funds", tag.getLong("tyc2_funds")));
+        if (tag.getBoolean("mnera_partnered")) {
+            lines.add(Component.translatable("hud.mnera.mayor.partnered", tag.getInt("mnera_level")));
+            lines.add(Component.translatable("hud.mnera.hub.funds", tag.getLong("mnera_funds")));
         } else {
-            lines.add(Component.translatable("hud.tyc2.mayor.unpartnered"));
+            lines.add(Component.translatable("hud.mnera.mayor.unpartnered"));
         }
         lines.add(Component.translatable(
-                "hud.tyc2.mayor.unemployment",
-                tag.getInt("tyc2_unemp_pct"),
-                tag.getInt("tyc2_unemp_cnt"),
-                tag.getInt("tyc2_workforce")
+                "hud.mnera.mayor.unemployment",
+                tag.getInt("mnera_unemp_pct"),
+                tag.getInt("mnera_unemp_cnt"),
+                tag.getInt("mnera_workforce")
         ));
         return lines;
     }

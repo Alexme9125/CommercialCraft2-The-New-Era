@@ -251,7 +251,7 @@ public final class TyC2VillagerHelpers {
                 return Component.literal(deriveFallbackName(rl));
             }
         }
-        return Component.translatable("profession.tyc2.generic");
+        return Component.translatable("profession.mnera.generic");
     }
 
     /**
@@ -268,8 +268,8 @@ public final class TyC2VillagerHelpers {
             return prof;
         }
         String projKey = size == WorkplaceSize.LARGE
-                ? "project.tyc2.aid_workplace_large"
-                : "project.tyc2.aid_workplace_small";
+                ? "project.mnera.aid_workplace_large"
+                : "project.mnera.aid_workplace_small";
         return Component.empty()
                 .append(prof)
                 .append(Component.literal(" ("))
@@ -283,10 +283,10 @@ public final class TyC2VillagerHelpers {
     public static Component aidStatusComponent(AidConstructionProject.Status status, int progressPct) {
         int clamped = Math.max(0, Math.min(100, progressPct));
         return switch (status) {
-            case COLLECTING -> Component.translatable("gui.tyc2.aid.status.collecting", clamped);
-            case WAITING_SITE -> Component.translatable("gui.tyc2.aid.status.waiting_site");
-            case NO_SITE -> Component.translatable("gui.tyc2.aid.status.no_site");
-            case BUILDING -> Component.translatable("gui.tyc2.aid.status.building", clamped);
+            case COLLECTING -> Component.translatable("gui.mnera.aid.status.collecting", clamped);
+            case WAITING_SITE -> Component.translatable("gui.mnera.aid.status.waiting_site");
+            case NO_SITE -> Component.translatable("gui.mnera.aid.status.no_site");
+            case BUILDING -> Component.translatable("gui.mnera.aid.status.building", clamped);
         };
     }
 

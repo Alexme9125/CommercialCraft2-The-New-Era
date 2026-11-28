@@ -118,8 +118,8 @@ import net.minecraftforge.server.ServerLifecycleHooks;
  */
 public final class TycoonForgeWorldManager {
 
-    public static final String TAG_MAYOR = "tyc2_mayor";
-    public static final String TAG_VILLAGE_ID = "tyc2_village_id";
+    public static final String TAG_MAYOR = "mnera_mayor";
+    public static final String TAG_VILLAGE_ID = "mnera_village_id";
     public static final int VILLAGE_SCAN_RADIUS = 48;
     public static final int MIN_VILLAGE_SEPARATION = 96;
 
@@ -263,7 +263,7 @@ public final class TycoonForgeWorldManager {
                 event.setCanceled(true);
                 if (player instanceof ServerPlayer sp) {
                     sp.displayClientMessage(
-                            Component.translatable("status.tyc2.hub.protected").withStyle(ChatFormatting.RED),
+                            Component.translatable("status.mnera.hub.protected").withStyle(ChatFormatting.RED),
                             true
                     );
                 }
@@ -350,7 +350,7 @@ public final class TycoonForgeWorldManager {
                     villager.getNavigation().stop();
                     villager.getLookControl().setLookAt(player, 30.0F, 30.0F);
                     player.sendSystemMessage(Component.translatable(
-                            "mayor.tyc2.partnered_status",
+                            "mayor.mnera.partnered_status",
                             village.getVillageName(),
                             village.getLevel(),
                             village.getVillageBalance(),
@@ -374,7 +374,7 @@ public final class TycoonForgeWorldManager {
                 event.setCanceled(true);
                 event.setCancellationResult(InteractionResult.SUCCESS);
                 player.displayClientMessage(
-                        Component.translatable("mayor.tyc2.villager_redirect").withStyle(ChatFormatting.GOLD),
+                        Component.translatable("mayor.mnera.villager_redirect").withStyle(ChatFormatting.GOLD),
                         true
                 );
             }
@@ -420,18 +420,18 @@ public final class TycoonForgeWorldManager {
 
         broadcastToVillageStakeholders(
                 level, hubPos, village,
-                Component.translatable("mayor.tyc2.died", village.getVillageName()).withStyle(ChatFormatting.RED)
+                Component.translatable("mayor.mnera.died", village.getVillageName()).withStyle(ChatFormatting.RED)
         );
         if (outcome.action() == MayorElectionRules.Action.ELECTED_NEW_MAYOR
                 || outcome.action() == MayorElectionRules.Action.RESUMED_AND_ELECTED) {
             broadcastToVillageStakeholders(
                     level, hubPos, village,
-                    Component.translatable("mayor.tyc2.elected", village.getVillageName()).withStyle(ChatFormatting.GOLD)
+                    Component.translatable("mayor.mnera.elected", village.getVillageName()).withStyle(ChatFormatting.GOLD)
             );
         } else if (outcome.action() == MayorElectionRules.Action.PAUSED_DEPOPULATED && !wasPaused) {
             broadcastToVillageStakeholders(
                     level, hubPos, village,
-                    Component.translatable("mayor.tyc2.paused_depopulated", village.getVillageName())
+                    Component.translatable("mayor.mnera.paused_depopulated", village.getVillageName())
                             .withStyle(ChatFormatting.YELLOW)
             );
         }
@@ -517,7 +517,7 @@ public final class TycoonForgeWorldManager {
                     if (village.isPartnered()) {
                         broadcastToVillageStakeholders(
                                 level, hubPos, village,
-                                Component.translatable("mayor.tyc2.elected", village.getVillageName())
+                                Component.translatable("mayor.mnera.elected", village.getVillageName())
                                         .withStyle(ChatFormatting.GOLD)
                         );
                     }
@@ -526,7 +526,7 @@ public final class TycoonForgeWorldManager {
                     data.setDirty();
                     broadcastToVillageStakeholders(
                             level, hubPos, village,
-                            Component.translatable("mayor.tyc2.resumed", village.getVillageName())
+                            Component.translatable("mayor.mnera.resumed", village.getVillageName())
                                     .withStyle(ChatFormatting.GREEN)
                     );
                 }
@@ -536,7 +536,7 @@ public final class TycoonForgeWorldManager {
                         if (village.isPartnered()) {
                             broadcastToVillageStakeholders(
                                     level, hubPos, village,
-                                    Component.translatable("mayor.tyc2.paused_depopulated", village.getVillageName())
+                                    Component.translatable("mayor.mnera.paused_depopulated", village.getVillageName())
                                             .withStyle(ChatFormatting.YELLOW)
                             );
                         }
@@ -1019,16 +1019,16 @@ public final class TycoonForgeWorldManager {
             );
             broadcastToVillageStakeholders(
                     level, hubPos, village,
-                    Component.translatable("status.tyc2.aid.completed", village.getVillageName(), wpName)
+                    Component.translatable("status.mnera.aid.completed", village.getVillageName(), wpName)
                             .withStyle(ChatFormatting.GREEN)
             );
         } else {
             broadcastToVillageStakeholders(
                     level, hubPos, village,
                     Component.translatable(
-                            "status.tyc2.expansion.completed",
+                            "status.mnera.expansion.completed",
                             village.getVillageName(),
-                            Component.translatable("project.tyc2." + job.getProjectType().name().toLowerCase(Locale.ROOT))
+                            Component.translatable("project.mnera." + job.getProjectType().name().toLowerCase(Locale.ROOT))
                     ).withStyle(ChatFormatting.GREEN)
             );
         }
@@ -1105,7 +1105,7 @@ public final class TycoonForgeWorldManager {
                 player,
                 new SimpleMenuProvider(
                         (id, inv, p) -> new MayorNegotiationMenu(id, inv, village.getVillageId(), mayorEntityUuid),
-                        Component.translatable("container.tyc2.mayor_negotiation")
+                        Component.translatable("container.mnera.mayor_negotiation")
                 ),
                 buf -> {
                     buf.writeUUID(village.getVillageId());
@@ -1140,11 +1140,11 @@ public final class TycoonForgeWorldManager {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(level);
         Optional<VillageRecord> recOpt = data.getVillage(villageId);
         if (recOpt.isEmpty()) {
-            return new ActionFeedback(false, "status.tyc2.negotiation.missing_requirements");
+            return new ActionFeedback(false, "status.mnera.negotiation.missing_requirements");
         }
         VillageRecord village = recOpt.get();
         if (village.isPartnered()) {
-            return new ActionFeedback(true, "status.tyc2.hub.partnership_signed", village.getVillageName());
+            return new ActionFeedback(true, "status.mnera.hub.partnership_signed", village.getVillageName());
         }
         TyC2Config cfg = TyC2RuntimeData.config();
         long dayTime = level.getServer().overworld().getDayTime();
@@ -1156,12 +1156,12 @@ public final class TycoonForgeWorldManager {
         long resignCooldown = village.remainingResignCooldownTicks(tick, refreshTicks);
         if (resignCooldown > 0L) {
             return new ActionFeedback(
-                    false, "status.tyc2.negotiation.resign_cooldown", formatRemainingMcTime(resignCooldown)
+                    false, "status.mnera.negotiation.resign_cooldown", formatRemainingMcTime(resignCooldown)
             );
         }
         NegotiationStatus status = evaluateNegotiation(player, data);
         if (!status.allMet()) {
-            return new ActionFeedback(false, "status.tyc2.negotiation.missing_requirements");
+            return new ActionFeedback(false, "status.mnera.negotiation.missing_requirements");
         }
 
         // 1. Deduct currency (bank first if preferred or cash first -> pay remainder from bank)
@@ -1170,7 +1170,7 @@ public final class TycoonForgeWorldManager {
         long payFromBank = requiredIc - payFromCash;
         if (payFromCash > 0L) {
             if (!TyC2Ids.consumePhysicalCash(player, null, payFromCash, Ic2Bridge.isLoaded())) {
-                return new ActionFeedback(false, "status.tyc2.negotiation.missing_requirements");
+                return new ActionFeedback(false, "status.mnera.negotiation.missing_requirements");
             }
         }
         if (payFromBank > 0L) {
@@ -1183,7 +1183,7 @@ public final class TycoonForgeWorldManager {
                 if (payFromCash > 0L) {
                     TyC2Ids.giveCoinsToPlayer(player, payFromCash, Ic2Bridge.isLoaded());
                 }
-                return new ActionFeedback(false, "status.tyc2.negotiation.missing_requirements");
+                return new ActionFeedback(false, "status.mnera.negotiation.missing_requirements");
             }
         }
         if (payFromCash > 0L) {
@@ -1228,7 +1228,7 @@ public final class TycoonForgeWorldManager {
         endMayorNegotiation(player, village.getMayorState().getMayorEntityUuid());
         data.syncMacroAccountTotals();
         data.setDirty();
-        return new ActionFeedback(true, "status.tyc2.hub.partnership_signed", village.getVillageName());
+        return new ActionFeedback(true, "status.mnera.hub.partnership_signed", village.getVillageName());
     }
 
     /** Executes a player purchasing from a {@link OrderSide#VILLAGE_SELLS} order (cash or bank settlement). */
@@ -1259,27 +1259,27 @@ public final class TycoonForgeWorldManager {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         Optional<VillageRecord> vOpt = data.getVillage(villageId);
         if (vOpt.isEmpty()) {
-            return new ActionFeedback(false, "gui.tyc2.hub.no_orders");
+            return new ActionFeedback(false, "gui.mnera.hub.no_orders");
         }
         VillageRecord village = vOpt.get();
         Optional<VillageTradeOrder> oOpt = village.findOrder(orderId);
         if (oOpt.isEmpty()) {
-            return new ActionFeedback(false, "gui.tyc2.hub.no_orders");
+            return new ActionFeedback(false, "gui.mnera.hub.no_orders");
         }
         VillageTradeOrder order = oOpt.get();
         if (order.side() != OrderSide.VILLAGE_SELLS || order.isCompleted()) {
-            return new ActionFeedback(false, "gui.tyc2.hub.no_orders");
+            return new ActionFeedback(false, "gui.mnera.hub.no_orders");
         }
         int qty = Math.min(Math.max(1, requestedQty), order.remainingQty());
         if (qty <= 0) {
-            return new ActionFeedback(false, "gui.tyc2.hub.no_orders");
+            return new ActionFeedback(false, "gui.mnera.hub.no_orders");
         }
 
         ItemStack sample = TyC2Ids.createStack(order.itemId(), 1, "", order.enchantSpec());
         int maxStack = sample.isEmpty() ? 64 : sample.getMaxStackSize();
         String nbtJson = TyC2Ids.nbtJson(sample);
         if (!village.getStorage().canFitInOutbound(order.itemId(), qty, nbtJson, maxStack)) {
-            return new ActionFeedback(false, "status.tyc2.hub.outbound_full");
+            return new ActionFeedback(false, "status.mnera.hub.outbound_full");
         }
 
         long totalCost = order.totalPriceFor(qty);
@@ -1287,17 +1287,17 @@ public final class TycoonForgeWorldManager {
         if (useBank) {
             data.bank().getOrCreatePersonal(player.getUUID(), player.getGameProfile().getName());
             if (data.bank().getActiveBalance(player.getUUID()) < totalCost) {
-                return new ActionFeedback(false, "status.tyc2.atm.insufficient_balance");
+                return new ActionFeedback(false, "status.mnera.atm.insufficient_balance");
             }
         } else {
             long cash = TyC2Ids.countPlayerCash(player) + (cashSlot == null ? 0L : TyC2Ids.coinStackValue(cashSlot.getItem(0)));
             if (cash < totalCost) {
-                return new ActionFeedback(false, "status.tyc2.atm.insufficient_balance");
+                return new ActionFeedback(false, "status.mnera.atm.insufficient_balance");
             }
         }
 
         if (terminalStack != null && !CommTerminalItem.consumeAction(terminalStack, TriModePowerMath.TerminalAction.REMOTE_TRADE)) {
-            return new ActionFeedback(false, "status.tyc2.terminal.low_power");
+            return new ActionFeedback(false, "status.mnera.terminal.low_power");
         }
 
         long tick = player.getServer().overworld().getGameTime();
@@ -1312,7 +1312,7 @@ public final class TycoonForgeWorldManager {
             }
         } else {
             if (!TyC2Ids.consumePhysicalCash(player, cashSlot, totalCost, Ic2Bridge.isLoaded())) {
-                return new ActionFeedback(false, "status.tyc2.atm.insufficient_balance");
+                return new ActionFeedback(false, "status.mnera.atm.insufficient_balance");
             }
         }
 
@@ -1326,8 +1326,8 @@ public final class TycoonForgeWorldManager {
                 TyC2Ids.giveCoinsToPlayer(player, totalCost, Ic2Bridge.isLoaded());
             }
             return new ActionFeedback(false, res.failureCode() == VillageRecord.TradeFailureCode.OUTBOUND_FULL
-                    ? "status.tyc2.hub.outbound_full"
-                    : "gui.tyc2.hub.no_orders");
+                    ? "status.mnera.hub.outbound_full"
+                    : "gui.mnera.hub.no_orders");
         }
 
         if (!useBank) {
@@ -1339,7 +1339,7 @@ public final class TycoonForgeWorldManager {
         data.economy().recordTrade(order.itemId(), res.executedQty(), basePrice, false);
         data.syncMacroAccountTotals();
         data.setDirty();
-        return new ActionFeedback(true, "status.tyc2.hub.order_fulfilled", res.totalCurrency());
+        return new ActionFeedback(true, "status.mnera.hub.order_fulfilled", res.totalCurrency());
     }
 
     /** Executes a player fulfilling a {@link OrderSide#VILLAGE_BUYS} order from Hub Inbound slots (or player inv). */
@@ -1372,20 +1372,20 @@ public final class TycoonForgeWorldManager {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         Optional<VillageRecord> vOpt = data.getVillage(villageId);
         if (vOpt.isEmpty()) {
-            return new ActionFeedback(false, "gui.tyc2.hub.no_orders");
+            return new ActionFeedback(false, "gui.mnera.hub.no_orders");
         }
         VillageRecord village = vOpt.get();
         Optional<VillageTradeOrder> oOpt = village.findOrder(orderId);
         if (oOpt.isEmpty()) {
-            return new ActionFeedback(false, "gui.tyc2.hub.no_orders");
+            return new ActionFeedback(false, "gui.mnera.hub.no_orders");
         }
         VillageTradeOrder order = oOpt.get();
         if (order.side() != OrderSide.VILLAGE_BUYS || order.isCompleted()) {
-            return new ActionFeedback(false, "gui.tyc2.hub.no_orders");
+            return new ActionFeedback(false, "gui.mnera.hub.no_orders");
         }
         int desired = Math.min(Math.max(1, requestedQty), order.remainingQty());
         if (desired <= 0) {
-            return new ActionFeedback(false, "gui.tyc2.hub.no_orders");
+            return new ActionFeedback(false, "gui.mnera.hub.no_orders");
         }
 
         // 1. Check village funds affordability FIRST (before pulling player items or deducting Terminal EU)
@@ -1393,7 +1393,7 @@ public final class TycoonForgeWorldManager {
         if (affordableQty <= 0) {
             return new ActionFeedback(
                     false,
-                    "status.tyc2.hub.village_low_funds_detail",
+                    "status.mnera.hub.village_low_funds_detail",
                     village.getVillageBalance(),
                     order.unitPrice()
             );
@@ -1416,13 +1416,13 @@ public final class TycoonForgeWorldManager {
         if (currentMatchingInbound <= 0) {
             return new ActionFeedback(
                     false,
-                    isTerminal ? "status.tyc2.terminal.insufficient_goods" : "status.tyc2.hub.insufficient_goods"
+                    isTerminal ? "status.mnera.terminal.insufficient_goods" : "status.mnera.hub.insufficient_goods"
             );
         }
 
         // 5. Deduct Terminal 50 EU only when ready to settle
         if (terminalStack != null && !CommTerminalItem.consumeAction(terminalStack, TriModePowerMath.TerminalAction.REMOTE_TRADE)) {
-            return new ActionFeedback(false, "status.tyc2.terminal.low_power");
+            return new ActionFeedback(false, "status.mnera.terminal.low_power");
         }
 
         VillageRecord.TradeExecutionResult res = village.executeBuyOrderFromInboundMatching(
@@ -1432,16 +1432,16 @@ public final class TycoonForgeWorldManager {
             return switch (res.failureCode()) {
                 case INSUFFICIENT_INBOUND_ITEMS -> new ActionFeedback(
                         false,
-                        isTerminal ? "status.tyc2.terminal.insufficient_goods" : "status.tyc2.hub.insufficient_goods"
+                        isTerminal ? "status.mnera.terminal.insufficient_goods" : "status.mnera.hub.insufficient_goods"
                 );
                 case INSUFFICIENT_VILLAGE_FUNDS -> new ActionFeedback(
                         false,
-                        "status.tyc2.hub.village_low_funds_detail",
+                        "status.mnera.hub.village_low_funds_detail",
                         village.getVillageBalance(),
                         order.unitPrice()
                 );
-                case OUTBOUND_FULL -> new ActionFeedback(false, "status.tyc2.hub.outbound_full");
-                default -> new ActionFeedback(false, "gui.tyc2.hub.no_orders");
+                case OUTBOUND_FULL -> new ActionFeedback(false, "status.mnera.hub.outbound_full");
+                default -> new ActionFeedback(false, "gui.mnera.hub.no_orders");
             };
         }
 
@@ -1464,7 +1464,7 @@ public final class TycoonForgeWorldManager {
         data.economy().recordTrade(order.itemId(), res.executedQty(), basePrice, true);
         data.syncMacroAccountTotals();
         data.setDirty();
-        return new ActionFeedback(true, "status.tyc2.hub.order_fulfilled", res.totalCurrency());
+        return new ActionFeedback(true, "status.mnera.hub.order_fulfilled", res.totalCurrency());
     }
 
     /** Toggles per-order auto-fulfill flag. */
@@ -1499,19 +1499,19 @@ public final class TycoonForgeWorldManager {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         Optional<VillageRecord> vOpt = data.getVillage(villageId);
         if (vOpt.isEmpty()) {
-            return new ActionFeedback(false, "status.tyc2.hub.upgrade_failed");
+            return new ActionFeedback(false, "status.mnera.hub.upgrade_failed");
         }
         VillageRecord village = vOpt.get();
         if (!village.evaluateUpgrade(TyC2RuntimeData.levelTable()).eligible()) {
-            return new ActionFeedback(false, "status.tyc2.hub.upgrade_failed");
+            return new ActionFeedback(false, "status.mnera.hub.upgrade_failed");
         }
         if (terminalStack != null
                 && !CommTerminalItem.consumeAction(terminalStack, TriModePowerMath.TerminalAction.REMOTE_UPGRADE_OR_EXPANSION)) {
-            return new ActionFeedback(false, "status.tyc2.terminal.low_power");
+            return new ActionFeedback(false, "status.mnera.terminal.low_power");
         }
         long burned = village.tryUpgrade(TyC2RuntimeData.levelTable());
         if (burned <= 0L) {
-            return new ActionFeedback(false, "status.tyc2.hub.upgrade_failed");
+            return new ActionFeedback(false, "status.mnera.hub.upgrade_failed");
         }
         data.economy().recordVillageMoneySink(burned);
         data.syncMacroAccountTotals();
@@ -1522,10 +1522,10 @@ public final class TycoonForgeWorldManager {
         data.setDirty();
         return new ActionFeedback(
                 true,
-                "status.tyc2.hub.upgraded",
+                "status.mnera.hub.upgraded",
                 village.getVillageName(),
                 village.getLevel(),
-                Component.translatable("level.tyc2." + village.getLevel())
+                Component.translatable("level.mnera." + village.getLevel())
         );
     }
 
@@ -1548,7 +1548,7 @@ public final class TycoonForgeWorldManager {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         Optional<VillageRecord> vOpt = data.getVillage(villageId);
         if (vOpt.isEmpty()) {
-            return new ActionFeedback(false, "gui.tyc2.expansion.none");
+            return new ActionFeedback(false, "gui.mnera.expansion.none");
         }
         VillageRecord village = vOpt.get();
         ExpansionDesire exp = village.getActiveExpansion();
@@ -1570,7 +1570,7 @@ public final class TycoonForgeWorldManager {
         if (exp.allMaterialsDelivered() && village.getVillageBalance() < exp.constructionBudgetCost()) {
             return new ActionFeedback(
                     false,
-                    "status.tyc2.expansion.low_funds",
+                    "status.mnera.expansion.low_funds",
                     exp.constructionBudgetCost(),
                     village.getVillageBalance()
             );
@@ -1589,7 +1589,7 @@ public final class TycoonForgeWorldManager {
             if (!hasAnyInbound) {
                 return new ActionFeedback(
                         false,
-                        "status.tyc2.expansion.missing_materials",
+                        "status.mnera.expansion.missing_materials",
                         buildMissingMaterialsComponent(exp)
                 );
             }
@@ -1597,7 +1597,7 @@ public final class TycoonForgeWorldManager {
 
         if (terminalStack != null
                 && !CommTerminalItem.consumeAction(terminalStack, TriModePowerMath.TerminalAction.REMOTE_UPGRADE_OR_EXPANSION)) {
-            return new ActionFeedback(false, "status.tyc2.terminal.low_power");
+            return new ActionFeedback(false, "status.mnera.terminal.low_power");
         }
 
         int deliveredBefore = totalDelivered(exp);
@@ -1617,22 +1617,22 @@ public final class TycoonForgeWorldManager {
             return new ActionFeedback(
                     deliveredAny,
                     deliveredAny
-                            ? "status.tyc2.expansion.delivered_partial"
-                            : "status.tyc2.expansion.missing_materials",
+                            ? "status.mnera.expansion.delivered_partial"
+                            : "status.mnera.expansion.missing_materials",
                     buildMissingMaterialsComponent(updated)
             );
         }
         if (village.getVillageBalance() < updated.constructionBudgetCost()) {
             return new ActionFeedback(
                     false,
-                    "status.tyc2.expansion.low_funds",
+                    "status.mnera.expansion.low_funds",
                     updated.constructionBudgetCost(),
                     village.getVillageBalance()
             );
         }
         ServerLevel dimLevel = resolveLevel(player.getServer(), village.getDimensionId());
         if (dimLevel == null) {
-            return new ActionFeedback(false, "status.tyc2.expansion.no_site");
+            return new ActionFeedback(false, "status.mnera.expansion.no_site");
         }
         return tryLaunchExpansionConstruction(dimLevel, data, village, player.getServer().overworld().getGameTime());
     }
@@ -1672,13 +1672,13 @@ public final class TycoonForgeWorldManager {
     ) {
         ExpansionDesire exp = village.getActiveExpansion();
         if (exp == null) {
-            return new ActionFeedback(false, "gui.tyc2.expansion.none");
+            return new ActionFeedback(false, "gui.mnera.expansion.none");
         }
         ServerTerrainProbe probe = new ServerTerrainProbe(level, data.placedBlocks());
         String jobId = "job_" + gameTime + "_" + village.getOccupiedZones().size();
         ExpansionPlanner.PlanResult plan = PLANNER.plan(village, exp.projectType(), probe, jobId);
         if (!plan.success()) {
-            return new ActionFeedback(false, "status.tyc2.expansion.no_site");
+            return new ActionFeedback(false, "status.mnera.expansion.no_site");
         }
         long cost = exp.constructionBudgetCost();
         if (cost > 0L) {
@@ -1690,13 +1690,13 @@ public final class TycoonForgeWorldManager {
         data.syncMacroAccountTotals();
         data.setDirty();
 
-        Component projName = Component.translatable("project.tyc2." + exp.projectType().name().toLowerCase(Locale.ROOT));
+        Component projName = Component.translatable("project.mnera." + exp.projectType().name().toLowerCase(Locale.ROOT));
         broadcastToVillageStakeholders(
                 level, TyC2Ids.toMc(village.getHubPos()), village,
-                Component.translatable("status.tyc2.expansion.started", village.getVillageName(), projName)
+                Component.translatable("status.mnera.expansion.started", village.getVillageName(), projName)
                         .withStyle(ChatFormatting.AQUA)
         );
-        return new ActionFeedback(true, "status.tyc2.expansion.started", village.getVillageName(), projName);
+        return new ActionFeedback(true, "status.mnera.expansion.started", village.getVillageName(), projName);
     }
 
     /** Admin/command helper that plans & enqueues an expansion immediately without requiring materials. */
@@ -1716,15 +1716,15 @@ public final class TycoonForgeWorldManager {
         ExpansionPlanner.PlanResult plan = PLANNER.plan(village, type, probe, "cmd_job_" + gameTime);
         village.setExpansionPaused(wasPaused);
         if (!plan.success()) {
-            return new ActionFeedback(false, "status.tyc2.expansion.no_site");
+            return new ActionFeedback(false, "status.mnera.expansion.no_site");
         }
         PLANNER.commitPlan(village, plan, gameTime);
         data.setDirty();
         return new ActionFeedback(
                 true,
-                "status.tyc2.expansion.started",
+                "status.mnera.expansion.started",
                 village.getVillageName(),
-                Component.translatable("project.tyc2." + type.name().toLowerCase(Locale.ROOT))
+                Component.translatable("project.mnera." + type.name().toLowerCase(Locale.ROOT))
         );
     }
 
@@ -1747,29 +1747,29 @@ public final class TycoonForgeWorldManager {
         TyC2Config cfg = TyC2RuntimeData.config();
         Optional<VillageRecord> vOpt = data.getVillage(villageId);
         if (vOpt.isEmpty() || !vOpt.get().isPartnered()) {
-            return new ActionFeedback(false, "status.tyc2.hub.not_owner");
+            return new ActionFeedback(false, "status.mnera.hub.not_owner");
         }
         VillageRecord village = vOpt.get();
         if (village.getMayorState().isPausedDueToDepopulation()) {
-            return new ActionFeedback(false, "gui.tyc2.hub.paused_depopulated");
+            return new ActionFeedback(false, "gui.mnera.hub.paused_depopulated");
         }
         if (village.getAidProjects().size() >= cfg.maxQueuedAidProjects()) {
-            return new ActionFeedback(false, "status.tyc2.aid.queue_full", cfg.maxQueuedAidProjects());
+            return new ActionFeedback(false, "status.mnera.aid.queue_full", cfg.maxQueuedAidProjects());
         }
 
         String rawProf = professionId == null ? "" : professionId.trim();
         Optional<WorkplaceSpec> specOpt = TyC2RuntimeData.workplaceCatalog().getByProfessionId(rawProf);
         if (specOpt.isEmpty() || !specOpt.get().enabled() || !TyC2Ids.blockExists(specOpt.get().workstationBlockId())) {
-            return new ActionFeedback(false, "status.tyc2.aid.unknown_profession", rawProf);
+            return new ActionFeedback(false, "status.mnera.aid.unknown_profession", rawProf);
         }
         WorkplaceSpec spec = specOpt.get();
         WorkplaceSize effectiveSize = size == null ? WorkplaceSize.SMALL : size;
         if (!spec.isUnlockedAtLevel(village.getLevel(), effectiveSize)) {
-            return new ActionFeedback(false, "status.tyc2.aid.level_locked", spec.minVillageLevel(effectiveSize));
+            return new ActionFeedback(false, "status.mnera.aid.level_locked", spec.minVillageLevel(effectiveSize));
         }
         if (!village.canStartAidForProfession(spec.professionId())) {
             return new ActionFeedback(
-                    false, "status.tyc2.aid.profession_limit", WorkplaceCatalog.MAX_AID_BUILDS_PER_PROFESSION
+                    false, "status.mnera.aid.profession_limit", WorkplaceCatalog.MAX_AID_BUILDS_PER_PROFESSION
             );
         }
 
@@ -1782,13 +1782,13 @@ public final class TycoonForgeWorldManager {
         if (payBank) {
             data.bank().getOrCreatePersonal(player.getUUID(), player.getGameProfile().getName());
             if (data.bank().getActiveBalance(player.getUUID()) < costIc) {
-                return new ActionFeedback(false, "status.tyc2.atm.insufficient_balance");
+                return new ActionFeedback(false, "status.mnera.atm.insufficient_balance");
             }
         } else {
             long cash = TyC2Ids.countPlayerCash(player)
                     + (cashSlot == null ? 0L : TyC2Ids.coinStackValue(cashSlot.getItem(0)));
             if (cash < costIc) {
-                return new ActionFeedback(false, "status.tyc2.atm.insufficient_balance");
+                return new ActionFeedback(false, "status.mnera.atm.insufficient_balance");
             }
         }
 
@@ -1801,7 +1801,7 @@ public final class TycoonForgeWorldManager {
             ServerTerrainProbe probe = new ServerTerrainProbe(dimLevel, data.placedBlocks());
             ExpansionPlanner.PlanResult preview = PLANNER.planBlueprint(village, bp, probe, "aid_preview", true);
             if (!preview.success()) {
-                return new ActionFeedback(false, "status.tyc2.aid.no_site");
+                return new ActionFeedback(false, "status.mnera.aid.no_site");
             }
             preReservedZone = preview.reservedZone();
         }
@@ -1809,7 +1809,7 @@ public final class TycoonForgeWorldManager {
         // Deduct Terminal 100 EU ONLY after all eligibility, funds, and site checks pass
         if (terminalStack != null
                 && !CommTerminalItem.consumeAction(terminalStack, TriModePowerMath.TerminalAction.REMOTE_UPGRADE_OR_EXPANSION)) {
-            return new ActionFeedback(false, "status.tyc2.terminal.low_power");
+            return new ActionFeedback(false, "status.mnera.terminal.low_power");
         }
 
         long tick = player.getServer().overworld().getGameTime();
@@ -1830,7 +1830,7 @@ public final class TycoonForgeWorldManager {
             data.economy().recordBankMoneySink(costIc);
         } else {
             if (!TyC2Ids.consumePhysicalCash(player, cashSlot, costIc, Ic2Bridge.isLoaded())) {
-                return new ActionFeedback(false, "status.tyc2.atm.insufficient_balance");
+                return new ActionFeedback(false, "status.mnera.atm.insufficient_balance");
             }
             data.economy().recordMoneySink(costIc);
         }
@@ -1862,11 +1862,11 @@ public final class TycoonForgeWorldManager {
         if (dimLevel != null) {
             broadcastToVillageStakeholders(
                     dimLevel, hubPos, village,
-                    Component.translatable("status.tyc2.aid.started", village.getVillageName(), wpName, costIc)
+                    Component.translatable("status.mnera.aid.started", village.getVillageName(), wpName, costIc)
                             .withStyle(ChatFormatting.AQUA)
             );
         }
-        return new ActionFeedback(true, "status.tyc2.aid.started", village.getVillageName(), wpName, costIc);
+        return new ActionFeedback(true, "status.mnera.aid.started", village.getVillageName(), wpName, costIc);
     }
 
     /**
@@ -1883,20 +1883,20 @@ public final class TycoonForgeWorldManager {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         Optional<VillageRecord> vOpt = data.getVillage(villageId);
         if (vOpt.isEmpty()) {
-            return new ActionFeedback(false, "gui.tyc2.aid.queue_empty");
+            return new ActionFeedback(false, "gui.mnera.aid.queue_empty");
         }
         VillageRecord village = vOpt.get();
         Optional<AidConstructionProject> projOpt = village.findAidProject(projectId);
         if (projOpt.isEmpty()) {
-            return new ActionFeedback(false, "gui.tyc2.aid.queue_empty");
+            return new ActionFeedback(false, "gui.mnera.aid.queue_empty");
         }
         AidConstructionProject proj = projOpt.get();
         boolean isPayer = player.getUUID().equals(proj.payerPlayerUuid());
         if (!isPayer && !canManageVillage(player, data, village)) {
-            return new ActionFeedback(false, "status.tyc2.hub.not_owner");
+            return new ActionFeedback(false, "status.mnera.hub.not_owner");
         }
         if (!proj.canCancel()) {
-            return new ActionFeedback(false, "status.tyc2.aid.cannot_cancel");
+            return new ActionFeedback(false, "status.mnera.aid.cannot_cancel");
         }
 
         if (proj.reservedZone() != null) {
@@ -1934,7 +1934,7 @@ public final class TycoonForgeWorldManager {
         Component wpName = TyC2VillagerHelpers.workplaceDisplayComponent(
                 proj.professionId(), proj.archetype(), proj.displayNameFallback(), proj.size()
         );
-        return new ActionFeedback(true, "status.tyc2.aid.cancelled", wpName, refundIc);
+        return new ActionFeedback(true, "status.mnera.aid.cancelled", wpName, refundIc);
     }
 
     /** Admin/OP helper for {@code /tyc2 aid <profession> [small|large]} launching an aid workplace immediately. */
@@ -1947,7 +1947,7 @@ public final class TycoonForgeWorldManager {
     ) {
         Optional<WorkplaceSpec> specOpt = TyC2RuntimeData.workplaceCatalog().getByProfessionId(professionId);
         if (specOpt.isEmpty() || !specOpt.get().enabled() || !TyC2Ids.blockExists(specOpt.get().workstationBlockId())) {
-            return new ActionFeedback(false, "status.tyc2.aid.unknown_profession", professionId);
+            return new ActionFeedback(false, "status.mnera.aid.unknown_profession", professionId);
         }
         WorkplaceSpec spec = specOpt.get();
         WorkplaceSize effectiveSize = size == null ? WorkplaceSize.SMALL : size;
@@ -1958,7 +1958,7 @@ public final class TycoonForgeWorldManager {
         String jobId = "aid_job_" + projectId;
         ExpansionPlanner.PlanResult plan = PLANNER.planBlueprint(village, bp, probe, jobId, true);
         if (!plan.success()) {
-            return new ActionFeedback(false, "status.tyc2.aid.no_site");
+            return new ActionFeedback(false, "status.mnera.aid.no_site");
         }
         PLANNER.commitPlanWithPriority(village, plan, gameTime, true);
         AidConstructionProject proj = AidConstructionProject.create(
@@ -1981,10 +1981,10 @@ public final class TycoonForgeWorldManager {
         );
         broadcastToVillageStakeholders(
                 level, TyC2Ids.toMc(village.getHubPos()), village,
-                Component.translatable("status.tyc2.aid.building", village.getVillageName(), wpName)
+                Component.translatable("status.mnera.aid.building", village.getVillageName(), wpName)
                         .withStyle(ChatFormatting.AQUA)
         );
-        return new ActionFeedback(true, "status.tyc2.aid.building", village.getVillageName(), wpName);
+        return new ActionFeedback(true, "status.mnera.aid.building", village.getVillageName(), wpName);
     }
 
     /** Computes display progress percentage (0..100) for an aid project, using live block placement when BUILDING. */
@@ -2069,7 +2069,7 @@ public final class TycoonForgeWorldManager {
             data.setDirty();
             broadcastToVillageStakeholders(
                     level, hubPos, village,
-                    Component.translatable("status.tyc2.aid.building", village.getVillageName(), wpName)
+                    Component.translatable("status.mnera.aid.building", village.getVillageName(), wpName)
                             .withStyle(ChatFormatting.AQUA)
             );
         } else if (proj.status() == AidConstructionProject.Status.WAITING_SITE) {
@@ -2077,7 +2077,7 @@ public final class TycoonForgeWorldManager {
             data.setDirty();
             broadcastToVillageStakeholders(
                     level, hubPos, village,
-                    Component.translatable("status.tyc2.aid.no_site_waiting", village.getVillageName(), wpName)
+                    Component.translatable("status.mnera.aid.no_site_waiting", village.getVillageName(), wpName)
                             .withStyle(ChatFormatting.YELLOW)
             );
         }
@@ -2164,29 +2164,29 @@ public final class TycoonForgeWorldManager {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         Optional<VillageRecord> vOpt = data.getVillage(villageId);
         if (vOpt.isEmpty()) {
-            return new ActionFeedback(false, "status.tyc2.hub.not_owner");
+            return new ActionFeedback(false, "status.mnera.hub.not_owner");
         }
         VillageRecord village = vOpt.get();
         if (!canManageVillage(player, data, village)) {
-            return new ActionFeedback(false, "status.tyc2.hub.not_owner");
+            return new ActionFeedback(false, "status.mnera.hub.not_owner");
         }
         if (!player.getLevel().dimension().location().toString().equals(village.getDimensionId())) {
-            return new ActionFeedback(false, "status.tyc2.hub.wrong_dimension");
+            return new ActionFeedback(false, "status.mnera.hub.wrong_dimension");
         }
         ServerLevel dimLevel = resolveLevel(player.getServer(), village.getDimensionId());
         if (dimLevel == null) {
-            return new ActionFeedback(false, "status.tyc2.hub.not_owner");
+            return new ActionFeedback(false, "status.mnera.hub.not_owner");
         }
         BlockPos oldPos = TyC2Ids.toMc(village.getHubPos());
         if (!dimLevel.isLoaded(oldPos)
                 || !dimLevel.getBlockState(oldPos).is(TyC2ForgeRegistries.COOPERATION_HUB_BLOCK.get())) {
-            return new ActionFeedback(false, "status.tyc2.hub.not_owner");
+            return new ActionFeedback(false, "status.mnera.hub.not_owner");
         }
         if (dimLevel.getBlockEntity(oldPos) instanceof CooperationHubBlockEntity hubBe) {
             hubBe.dropUpgradesTo(player);
         }
         if (!dimLevel.removeBlock(oldPos, false)) {
-            return new ActionFeedback(false, "status.tyc2.hub.not_owner");
+            return new ActionFeedback(false, "status.mnera.hub.not_owner");
         }
         village.setHubDeployed(false);
         ItemStack boundHub = new ItemStack(TyC2ForgeRegistries.COOPERATION_HUB_ITEM.get());
@@ -2197,7 +2197,7 @@ public final class TycoonForgeWorldManager {
             player.drop(boundHub, false);
         }
         data.setDirty();
-        return new ActionFeedback(true, "status.tyc2.hub.relocated");
+        return new ActionFeedback(true, "status.mnera.hub.relocated");
     }
 
     /** Terminates partnership, refunds pending aid projects, restores the village Bell, and clears queues safely. */
@@ -2205,11 +2205,11 @@ public final class TycoonForgeWorldManager {
         TycoonForgeSavedData data = TycoonForgeSavedData.get(player.getServer());
         Optional<VillageRecord> vOpt = data.getVillage(villageId);
         if (vOpt.isEmpty()) {
-            return new ActionFeedback(false, "status.tyc2.hub.not_owner");
+            return new ActionFeedback(false, "status.mnera.hub.not_owner");
         }
         VillageRecord village = vOpt.get();
         if (!canManageVillage(player, data, village)) {
-            return new ActionFeedback(false, "status.tyc2.hub.not_owner");
+            return new ActionFeedback(false, "status.mnera.hub.not_owner");
         }
         String name = village.getVillageName();
         long tick = player.getServer().overworld().getGameTime();
@@ -2260,7 +2260,7 @@ public final class TycoonForgeWorldManager {
         }
         data.syncMacroAccountTotals();
         data.setDirty();
-        return new ActionFeedback(true, "status.tyc2.hub.partnership_terminated", name);
+        return new ActionFeedback(true, "status.mnera.hub.partnership_terminated", name);
     }
 
     // --- Internal Helpers ---
@@ -2327,7 +2327,7 @@ public final class TycoonForgeWorldManager {
                 pdata.putBoolean(TAG_MAYOR, true);
                 pdata.putString(TAG_VILLAGE_ID, villageIdStr);
                 Component displayComp = resolveMayorDisplayComponent(v, village);
-                v.setCustomName(Component.translatable("mayor.tyc2.name_format", displayComp)
+                v.setCustomName(Component.translatable("mayor.mnera.name_format", displayComp)
                         .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
                 v.setCustomNameVisible(true);
                 v.setPersistenceRequired();
@@ -2683,12 +2683,12 @@ public final class TycoonForgeWorldManager {
         long days = clamped / SupplyCycleClock.TICKS_PER_DAY;
         long hours = (clamped % SupplyCycleClock.TICKS_PER_DAY) / 1_000L;
         if (days > 0L && hours > 0L) {
-            return Component.translatable("gui.tyc2.hub.refresh_days_hours", days, hours);
+            return Component.translatable("gui.mnera.hub.refresh_days_hours", days, hours);
         }
         if (days > 0L) {
-            return Component.translatable("gui.tyc2.hub.refresh_days", days);
+            return Component.translatable("gui.mnera.hub.refresh_days", days);
         }
-        return Component.translatable("gui.tyc2.hub.refresh_hours", Math.max(1L, hours));
+        return Component.translatable("gui.mnera.hub.refresh_hours", Math.max(1L, hours));
     }
 
     private static int countMatchingItems(Inventory inv, java.util.function.Predicate<ItemStack> predicate) {

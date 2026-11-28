@@ -78,7 +78,7 @@ final class TyC2QaAssert {
             }
         }
         try (Writer w = Files.newBufferedWriter(propsFile)) {
-            props.store(w, "TycoonCraft 2 Forge 1.19.2 QA Report (" + label + ")");
+            props.store(w, "Monetera Forge 1.19.2 QA Report (" + label + ")");
         }
 
         JsonObject json = new JsonObject();
@@ -118,7 +118,7 @@ final class TyC2QaAssert {
                 props.setProperty("metric." + e.getKey(), e.getValue());
             }
             try (Writer w = Files.newBufferedWriter(propsFile)) {
-                props.store(w, "TycoonCraft 2 Forge 1.19.2 QA Failure (" + label + ")");
+                props.store(w, "Monetera Forge 1.19.2 QA Failure (" + label + ")");
             }
             StringWriter sw = new StringWriter();
             error.printStackTrace(new PrintWriter(sw));

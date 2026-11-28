@@ -300,7 +300,7 @@ def scan_log_for_errors(log_path: Path, role: str) -> None:
             or "MixinTransformerError" in line
             or "MixinPrepareError" in line
             or "Critical injection failure" in line
-            or ("mixin" in lower and "tyc2" in lower and ("error" in lower or "failed" in lower))
+            or ("mixin" in lower and ("mnera" in lower or "tyc2" in lower) and ("error" in lower or "failed" in lower))
         )
         is_classload = (
             "NoClassDefFoundError" in line
@@ -313,10 +313,10 @@ def scan_log_for_errors(log_path: Path, role: str) -> None:
             ("/ERROR]" in line or "Exception" in line or "AssertionError" in line)
             and (
                 "com.tycooncraft.tyc2" in line
-                or "tyc2:" in line
-                or "tyc2.mixins.json" in line
-                or ("missing texture" in lower and "tyc2" in lower)
-                or ("unable to load model" in lower and "tyc2" in lower)
+                or "mnera:" in line
+                or "mnera.mixins.json" in line
+                or ("missing texture" in lower and "mnera" in lower)
+                or ("unable to load model" in lower and "mnera" in lower)
             )
         )
         if is_mixin or is_classload or is_tyc2_err:
@@ -369,7 +369,7 @@ def run_joint_test(mc_version: str, profile: str, lang: str, screenshots_dir: Pa
 
         # Verify /tyc2 status command works live from client -> server -> client chat!
         before_chat = session.act("state").get("chatCount", 0)
-        session.act("command", cmd="tyc2 status")
+        session.act("command", cmd="mnera status")
         st_chat = session.wait_until(
             "tyc2_status_chat",
             lambda s: s.get("chatCount", 0) > before_chat

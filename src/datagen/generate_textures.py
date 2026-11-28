@@ -32,8 +32,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TEX_ROOT = REPO_ROOT / "assets" / "tyc2" / "textures"
-DEFAULT_PREVIEW = REPO_ROOT / "assets" / "tyc2" / "preview" / "texture_atlas_preview.png"
+TEX_ROOT = REPO_ROOT / "assets" / "mnera" / "textures"
+DEFAULT_PREVIEW = REPO_ROOT / "assets" / "mnera" / "preview" / "texture_atlas_preview.png"
 
 
 # =============================================================================
@@ -1427,7 +1427,7 @@ def _draw_panel_frame(px, w: int, h: int, theme: str = "steel"):
     elif theme == "stone":
         # Warm stone-and-forged-iron panel for Primitive Minting Machine
         c_out = rgba("#1E1B18")
-        c_hi = rgba("#ECE7DF")
+        c_hi = rgba("#ECERA7DF")
         c_bg = rgba("#C2BEB5")
         c_bg2 = rgba("#BBB6AC")
         c_sh = rgba("#5C564D")

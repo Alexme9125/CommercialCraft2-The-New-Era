@@ -44,7 +44,7 @@ public final class TyC2Mod {
         }
 
         LOGGER.info(
-                "TycoonCraft²: The New Era initialized (optional compat: ic2={}, ecc2={}, lc2={})",
+                "Monetera initialized (optional compat: mhera={}, ecera={}, trera={})",
                 Ic2SoftBridge.isIc2Loaded(),
                 ModList.get() != null && ModList.get().isLoaded(TyC2Constants.MOD_ECC2),
                 Lc2SoftBridge.isLc2Loaded()

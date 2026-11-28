@@ -24,13 +24,13 @@ class JsonConfigAndApiTest {
     @Test
     void jsonLiteRfc8259RoundTripAndValidation() {
         Map<String, Object> doc = new LinkedHashMap<>();
-        doc.put("title", "商业时代2: \"New Era\"\nLine2");
+        doc.put("title", "经贸纪元: \"New Era\"\nLine2");
         doc.put("intVal", 42L);
         doc.put("negVal", -100L);
         doc.put("floatVal", 0.55);
         doc.put("flag", true);
         doc.put("nothing", null);
-        doc.put("items", List.of("ic2:coin", "tyc2:coin_1000", 123L, false));
+        doc.put("items", List.of("mhera:coin", "mnera:coin_1000", 123L, false));
 
         String compact = JsonLite.toJson(doc);
         String pretty = JsonLite.toPrettyJson(doc);
@@ -51,7 +51,7 @@ class JsonConfigAndApiTest {
 
     @Test
     void configLoadSaveAndGuardrailClamping(@TempDir Path tempDir) throws Exception {
-        Path cfgPath = tempDir.resolve("config/tyc2/general.json");
+        Path cfgPath = tempDir.resolve("config/mnera/general.json");
         TyC2Config created = TyC2Config.loadOrCreate(cfgPath);
         assertTrue(Files.exists(cfgPath));
         assertTrue(created.disableIc2MetalFormerCoinRecipe());
@@ -210,7 +210,7 @@ class JsonConfigAndApiTest {
         // Seasonal overlay overrides harvest seasons for wheat
         String overlay = "{\"seasons\": {\"minecraft:wheat\": [\"SPRING\", \"WINTER\"]}}";
         assertTrue(catalog.mergeSeasonsOverlayJson(overlay) >= 1);
-        TradeGood wheat = catalog.getById("tyc2:wheat").orElseThrow();
+        TradeGood wheat = catalog.getById("mnera:wheat").orElseThrow();
         assertTrue(wheat.isInSeason(Season.WINTER));
         assertTrue(wheat.isOffSeason(Season.SUMMER));
     }

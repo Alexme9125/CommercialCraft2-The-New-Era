@@ -61,8 +61,8 @@ class MintAndBankingTest {
         assertEquals(CurrencyDenomination.X1000, neth1000.get().recipe().outputDenomination());
 
         // IC2 Iridium + Alloy gated by ic2 mod
-        assertTrue(registry.findMatch("ic2:iridium", 1, "ic2:alloy", 1, null, mod -> false).isEmpty());
-        var ic2Iridium = registry.findMatch("ic2:iridium", 1, "ic2:alloy", 1, null, "ic2"::equals);
+        assertTrue(registry.findMatch("mhera:iridium", 1, "mhera:alloy", 1, null, mod -> false).isEmpty());
+        var ic2Iridium = registry.findMatch("mhera:iridium", 1, "mhera:alloy", 1, null, "mhera"::equals);
         assertTrue(ic2Iridium.isPresent());
         assertEquals(CurrencyDenomination.X1000, ic2Iridium.get().recipe().outputDenomination());
     }
@@ -99,14 +99,14 @@ class MintAndBankingTest {
                       "durationTicks": 90
                     },
                     {
-                      "id": "tyc2:mint_copper_1",
+                      "id": "mnera:mint_copper_1",
                       "disabled": true
                     }
                   ]
                 }
                 """;
         assertEquals(2, registry.mergeFromJson(customJson));
-        assertTrue(registry.getById("tyc2:mint_copper_1").isEmpty());
+        assertTrue(registry.getById("mnera:mint_copper_1").isEmpty());
         var customMatch = registry.findMatch("mekanism:ingot_osmium", 2, null, 0, null, mod -> false);
         assertTrue(customMatch.isPresent());
         assertEquals("custom:osmium_mint", customMatch.get().recipe().id());
@@ -121,12 +121,12 @@ class MintAndBankingTest {
         assertEquals(6, primitiveRecipes.size());
         assertEquals(
                 Set.of(
-                        "tyc2:mint_copper_1",
-                        "tyc2:mint_iron_5",
-                        "tyc2:mint_iron_pair_10",
-                        "tyc2:mint_gold_20",
-                        "tyc2:mint_gold_iron_50",
-                        "tyc2:mint_gold_emerald_100"
+                        "mnera:mint_copper_1",
+                        "mnera:mint_iron_5",
+                        "mnera:mint_iron_pair_10",
+                        "mnera:mint_gold_20",
+                        "mnera:mint_gold_iron_50",
+                        "mnera:mint_gold_emerald_100"
                 ),
                 primitiveRecipes.stream().map(MintRecipe::id).collect(java.util.stream.Collectors.toSet())
         );
@@ -148,15 +148,15 @@ class MintAndBankingTest {
                 {"minecraft:netherite_scrap", 1, "minecraft:gold_ingot", 2},
                 {"minecraft:netherite_ingot", 1, null, 0},
                 {"minecraft:netherite_ingot", 1, "minecraft:diamond", 1},
-                {"ic2:tin_ingot", 1, null, 0},
-                {"minecraft:copper_ingot", 1, "ic2:tin_ingot", 1},
-                {"ic2:bronze_ingot", 1, null, 0},
-                {"ic2:silver_ingot", 1, null, 0},
-                {"ic2:steel_ingot", 1, null, 0},
-                {"ic2:refined_iron_ingot", 1, null, 0},
-                {"ic2:alloy", 1, "minecraft:gold_ingot", 1},
-                {"ic2:alloy", 2, "minecraft:diamond", 1},
-                {"ic2:iridium", 1, "ic2:alloy", 1}
+                {"mhera:tin_ingot", 1, null, 0},
+                {"minecraft:copper_ingot", 1, "mhera:tin_ingot", 1},
+                {"mhera:bronze_ingot", 1, null, 0},
+                {"mhera:silver_ingot", 1, null, 0},
+                {"mhera:steel_ingot", 1, null, 0},
+                {"mhera:refined_iron_ingot", 1, null, 0},
+                {"mhera:alloy", 1, "minecraft:gold_ingot", 1},
+                {"mhera:alloy", 2, "minecraft:diamond", 1},
+                {"mhera:iridium", 1, "mhera:alloy", 1}
         };
         for (Object[] c : industrialOnlyCases) {
             String s0 = (String) c[0];
@@ -178,8 +178,8 @@ class MintAndBankingTest {
         assertTrue(registry.isValidPrimitiveInputItem("minecraft:emerald", null));
         assertFalse(registry.isValidPrimitiveInputItem("minecraft:diamond", null));
         assertFalse(registry.isValidPrimitiveInputItem("minecraft:netherite_ingot", null));
-        assertFalse(registry.isValidPrimitiveInputItem("ic2:tin_ingot", null));
-        assertFalse(registry.isValidPrimitiveInputItem("ic2:alloy", null));
+        assertFalse(registry.isValidPrimitiveInputItem("mhera:tin_ingot", null));
+        assertFalse(registry.isValidPrimitiveInputItem("mhera:alloy", null));
 
         // JSON serialization round-trip preserves primitive_allowed
         String jsonOut = registry.toJson();
@@ -190,9 +190,9 @@ class MintAndBankingTest {
         reloaded.mergeFromJson(jsonOut);
         assertEquals(registry.allRecipes().size(), reloaded.allRecipes().size());
         assertEquals(6, reloaded.getPrimitiveRecipes().size());
-        assertTrue(reloaded.getById("tyc2:mint_copper_1").orElseThrow().primitiveAllowed());
-        assertFalse(reloaded.getById("tyc2:mint_diamond_gold_200").orElseThrow().primitiveAllowed());
-        assertFalse(reloaded.getById("tyc2:mint_tin_1").orElseThrow().primitiveAllowed());
+        assertTrue(reloaded.getById("mnera:mint_copper_1").orElseThrow().primitiveAllowed());
+        assertFalse(reloaded.getById("mnera:mint_diamond_gold_200").orElseThrow().primitiveAllowed());
+        assertFalse(reloaded.getById("mnera:mint_tin_1").orElseThrow().primitiveAllowed());
 
         // Custom datapack JSON explicitly overriding primitive_allowed
         reloaded.mergeFromJson("""

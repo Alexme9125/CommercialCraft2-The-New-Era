@@ -25,12 +25,12 @@ public enum WorkplaceArchetype {
 
     /**
      * Returns the canonical localization key for this profession archetype
-     * (e.g. {@code "profession.tyc2.farmer"}).
+     * (e.g. {@code "profession.mnera.farmer"}).
      *
      * @return lang translation key
      */
     public String langKey() {
-        return "profession.tyc2." + name().toLowerCase(Locale.ROOT);
+        return "profession.mnera." + name().toLowerCase(Locale.ROOT);
     }
 
     /**

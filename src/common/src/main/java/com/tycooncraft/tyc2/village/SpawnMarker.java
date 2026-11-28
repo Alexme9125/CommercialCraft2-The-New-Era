@@ -10,7 +10,7 @@ import java.util.Objects;
  * @param dx local X offset
  * @param dy local Y offset
  * @param dz local Z offset
- * @param hint entity ID or block hint (e.g. {@code "minecraft:cow"}, {@code "lc2:smart_port"})
+ * @param hint entity ID or block hint (e.g. {@code "minecraft:cow"}, {@code "trera:smart_port"})
  */
 public record SpawnMarker(MarkerKind kind, int dx, int dy, int dz, String hint) {
 

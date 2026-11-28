@@ -93,7 +93,7 @@ public final class CooperationHubBlock extends TyC2BlockBase {
                     if (placer instanceof Player p) {
                         TyC2Native.sendActionBar(
                                 p,
-                                Component.translatable("status.tyc2.hub.protected").withStyle(ChatFormatting.RED)
+                                Component.translatable("status.mnera.hub.protected").withStyle(ChatFormatting.RED)
                         );
                     }
                     return;
@@ -116,7 +116,7 @@ public final class CooperationHubBlock extends TyC2BlockBase {
                         if (placer instanceof Player p) {
                             TyC2Native.sendActionBar(
                                     p,
-                                    Component.translatable("status.tyc2.hub.protected").withStyle(ChatFormatting.RED)
+                                    Component.translatable("status.mnera.hub.protected").withStyle(ChatFormatting.RED)
                             );
                         }
                         return;
@@ -137,7 +137,7 @@ public final class CooperationHubBlock extends TyC2BlockBase {
                         }
                         TyC2Native.sendActionBar(
                                 p,
-                                Component.translatable("status.tyc2.hub.wrong_dimension").withStyle(ChatFormatting.RED)
+                                Component.translatable("status.mnera.hub.wrong_dimension").withStyle(ChatFormatting.RED)
                         );
                     }
                     return;
@@ -152,7 +152,7 @@ public final class CooperationHubBlock extends TyC2BlockBase {
                 if (placer instanceof Player p) {
                     TyC2Native.sendActionBar(
                             p,
-                            Component.translatable("status.tyc2.hub.protected").withStyle(ChatFormatting.RED)
+                            Component.translatable("status.mnera.hub.protected").withStyle(ChatFormatting.RED)
                     );
                 }
             }

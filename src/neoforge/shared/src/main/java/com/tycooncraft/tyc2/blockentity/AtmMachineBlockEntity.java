@@ -396,7 +396,7 @@ public final class AtmMachineBlockEntity extends TyC2BlockEntityBase
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.tyc2.atm_machine");
+        return Component.translatable("container.mnera.atm_machine");
     }
 
     @Override

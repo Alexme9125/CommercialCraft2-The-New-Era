@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static production JAR auditor for all 4 TyC2 targets."""
+"""Static production JAR auditor for all 4 Monetera (mnera) targets."""
 
 from __future__ import annotations
 
@@ -40,28 +40,28 @@ BANNED_ADVERTISING_PHRASES = (
 TARGETS = [
     (
         "neoforge-1.21.1",
-        ROOT / f"src/neoforge/1.21.1/build/libs/tyc2-neoforge-1.21.1-{NEOFORGE_VER}.jar",
+        ROOT / f"src/neoforge/1.21.1/build/libs/mnera-neoforge-1.21.1-{NEOFORGE_VER}.jar",
         "META-INF/neoforge.mods.toml",
         False,
         False,
     ),
     (
         "neoforge-26.1.2",
-        ROOT / f"src/neoforge/26.1.2/build/libs/tyc2-neoforge-26.1.2-{NEOFORGE_VER}.jar",
+        ROOT / f"src/neoforge/26.1.2/build/libs/mnera-neoforge-26.1.2-{NEOFORGE_VER}.jar",
         "META-INF/neoforge.mods.toml",
         False,
         True,
     ),
     (
         "neoforge-26.2",
-        ROOT / f"src/neoforge/26.2/build/libs/tyc2-neoforge-26.2-{NEOFORGE_VER}.jar",
+        ROOT / f"src/neoforge/26.2/build/libs/mnera-neoforge-26.2-{NEOFORGE_VER}.jar",
         "META-INF/neoforge.mods.toml",
         False,
         True,
     ),
     (
         "forge-1.19.2",
-        ROOT / f"forge-1.19.2/build/libs/tyc2-forge-1.19.2-{FORGE_VER}.jar",
+        ROOT / f"forge-1.19.2/build/libs/mnera-forge-1.19.2-{FORGE_VER}.jar",
         "META-INF/mods.toml",
         True,
         False,
@@ -81,10 +81,16 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
         entries = set(zf.namelist())
         class_entries = [e for e in entries if e.endswith(".class")]
 
-        # Check QA leak & preview leak
-        qa_leaks = [e for e in entries if "/qa/" in e or "tyc2_qa" in e]
+        # Check QA leak & preview leak & legacy namespace leak
+        qa_leaks = [e for e in entries if "/qa/" in e or "mnera_qa" in e or "mne_qa" in e or "tyc2_qa" in e]
         if qa_leaks:
             issues.append(f"[{name}] QA leaks in production JAR: {qa_leaks[:5]}")
+        legacy_ns_leaks = [
+            e for e in entries
+            if e.startswith(("assets/mne/", "data/mne/", "assets/tyc2/", "data/tyc2/"))
+        ]
+        if legacy_ns_leaks:
+            issues.append(f"[{name}] Legacy namespace leaks in production JAR: {legacy_ns_leaks[:5]}")
         preview_leaks = [e for e in entries if "preview" in e.lower() and e.endswith(".png")]
         if preview_leaks:
             issues.append(f"[{name}] Preview PNG leaked in production JAR: {preview_leaks}")
@@ -101,10 +107,10 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
             unexpanded = re.findall(r"\$\{[^}]+\}", toml_text)
             if unexpanded:
                 issues.append(f"[{name}] Unexpanded template vars in {mods_toml_path}: {unexpanded}")
-            if 'modId="tyc2"' not in toml_text and 'modId = "tyc2"' not in toml_text:
-                issues.append(f"[{name}] modId=tyc2 not found in {mods_toml_path}")
-            # Verify ic2 / ecc2 / lc2 are NOT mandatory dependencies
-            for opt_mod in ("ic2", "ecc2", "lc2"):
+            if 'modId="mnera"' not in toml_text and 'modId = "mnera"' not in toml_text:
+                issues.append(f"[{name}] modId=mnera not found in {mods_toml_path}")
+            # Verify mhera / ecera / trera are NOT mandatory dependencies
+            for opt_mod in ("mhera", "ecera", "trera"):
                 pattern = re.compile(
                     rf'modId\s*=\s*"{opt_mod}".*?(?:mandatory\s*=\s*true|type\s*=\s*"required")',
                     re.DOTALL,
@@ -112,16 +118,16 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
                 for block in toml_text.split("[[dependencies"):
                     if pattern.search(block):
                         issues.append(f"[{name}] Optional mod '{opt_mod}' marked REQUIRED/mandatory in {mods_toml_path}!")
-            if 'modId="ecc2"' not in toml_text and 'modId = "ecc2"' not in toml_text:
-                issues.append(f"[{name}] Optional mod 'ecc2' missing from {mods_toml_path}")
+            if 'modId="ecera"' not in toml_text and 'modId = "ecera"' not in toml_text:
+                issues.append(f"[{name}] Optional mod 'ecera' missing from {mods_toml_path}")
 
         # Check mixins JSON
-        if "tyc2.mixins.json" not in entries:
-            issues.append(f"[{name}] Missing tyc2.mixins.json")
+        if "mnera.mixins.json" not in entries:
+            issues.append(f"[{name}] Missing mnera.mixins.json")
         else:
-            mixin_cfg = json.loads(zf.read("tyc2.mixins.json").decode("utf-8"))
+            mixin_cfg = json.loads(zf.read("mnera.mixins.json").decode("utf-8"))
             if not mixin_cfg.get("plugin"):
-                issues.append(f"[{name}] tyc2.mixins.json missing plugin (needed for conditional IC2 mixins)")
+                issues.append(f"[{name}] mnera.mixins.json missing plugin (needed for conditional MHERA mixins)")
             pkg = mixin_cfg.get("package", "").replace(".", "/")
             for key in ("mixins", "client", "server"):
                 for cls in mixin_cfg.get(key, []):
@@ -135,30 +141,30 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
         # Forge MANIFEST.MF check
         if is_forge:
             manifest = zf.read("META-INF/MANIFEST.MF").decode("utf-8") if "META-INF/MANIFEST.MF" in entries else ""
-            if "MixinConfigs: tyc2.mixins.json" not in manifest:
-                issues.append(f"[{name}] Forge MANIFEST.MF missing 'MixinConfigs: tyc2.mixins.json'")
+            if "MixinConfigs: mnera.mixins.json" not in manifest:
+                issues.append(f"[{name}] Forge MANIFEST.MF missing 'MixinConfigs: mnera.mixins.json'")
 
         # Assets checks (35 textures: 18 block + 11 item + 6 GUI)
-        pngs = [e for e in entries if e.startswith("assets/tyc2/textures/") and e.endswith(".png")]
+        pngs = [e for e in entries if e.startswith("assets/mnera/textures/") and e.endswith(".png")]
         if len(pngs) < 35:
-            issues.append(f"[{name}] Expected >=35 textures under assets/tyc2/textures/, found {len(pngs)}")
+            issues.append(f"[{name}] Expected >=35 textures under assets/mnera/textures/, found {len(pngs)}")
         for req_png in (
-            "assets/tyc2/textures/block/primitive_mint_machine_front.png",
-            "assets/tyc2/textures/block/primitive_mint_machine_front_active.png",
-            "assets/tyc2/textures/block/primitive_mint_machine_side.png",
-            "assets/tyc2/textures/block/primitive_mint_machine_top.png",
-            "assets/tyc2/textures/block/primitive_mint_machine_bottom.png",
-            "assets/tyc2/textures/gui/primitive_mint_machine.png",
+            "assets/mnera/textures/block/primitive_mint_machine_front.png",
+            "assets/mnera/textures/block/primitive_mint_machine_front_active.png",
+            "assets/mnera/textures/block/primitive_mint_machine_side.png",
+            "assets/mnera/textures/block/primitive_mint_machine_top.png",
+            "assets/mnera/textures/block/primitive_mint_machine_bottom.png",
+            "assets/mnera/textures/gui/primitive_mint_machine.png",
         ):
             if req_png not in entries:
                 issues.append(f"[{name}] Missing Primitive Mint texture: {req_png}")
 
-        for lang in ("assets/tyc2/lang/en_us.json", "assets/tyc2/lang/zh_cn.json"):
+        for lang in ("assets/mnera/lang/en_us.json", "assets/mnera/lang/zh_cn.json"):
             if lang not in entries:
                 issues.append(f"[{name}] Missing {lang}")
-        if "assets/tyc2/lang/en_us.json" in entries and "assets/tyc2/lang/zh_cn.json" in entries:
-            en = json.loads(zf.read("assets/tyc2/lang/en_us.json").decode("utf-8"))
-            zh = json.loads(zf.read("assets/tyc2/lang/zh_cn.json").decode("utf-8"))
+        if "assets/mnera/lang/en_us.json" in entries and "assets/mnera/lang/zh_cn.json" in entries:
+            en = json.loads(zf.read("assets/mnera/lang/en_us.json").decode("utf-8"))
+            zh = json.loads(zf.read("assets/mnera/lang/zh_cn.json").decode("utf-8"))
             if set(en.keys()) != set(zh.keys()):
                 issues.append(f"[{name}] Lang key mismatch: en={len(en)}, zh={len(zh)}")
             else:
@@ -175,38 +181,42 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
                         if phrase.lower() in zh_val.lower():
                             issues.append(f"[{name}] Banned advertising phrase '{phrase}' in zh_cn['{key}']: {zh_val}")
 
-        models = [e for e in entries if e.startswith("assets/tyc2/models/") and e.endswith(".json")]
-        blockstates = [e for e in entries if e.startswith("assets/tyc2/blockstates/") and e.endswith(".json")]
+        models = [e for e in entries if e.startswith("assets/mnera/models/") and e.endswith(".json")]
+        blockstates = [e for e in entries if e.startswith("assets/mnera/blockstates/") and e.endswith(".json")]
         if len(models) < 21:
             issues.append(f"[{name}] Expected >=21 models, found {len(models)}")
         if len(blockstates) < 4:
             issues.append(f"[{name}] Expected 4 blockstates, found {len(blockstates)}")
         if is_26x:
-            items_26 = [e for e in entries if e.startswith("assets/tyc2/items/") and e.endswith(".json")]
+            items_26 = [e for e in entries if e.startswith("assets/mnera/items/") and e.endswith(".json")]
             if len(items_26) < 14:
-                issues.append(f"[{name}] Expected 14 26.x item definitions under assets/tyc2/items/, found {len(items_26)}")
-            if "assets/tyc2/items/primitive_mint_machine.json" not in entries:
-                issues.append(f"[{name}] Missing 26.x item definition assets/tyc2/items/primitive_mint_machine.json")
+                issues.append(f"[{name}] Expected 14 26.x item definitions under assets/mnera/items/, found {len(items_26)}")
+            if "assets/mnera/items/primitive_mint_machine.json" not in entries:
+                issues.append(f"[{name}] Missing 26.x item definition assets/mnera/items/primitive_mint_machine.json")
 
-        # Conditional recipe checks (primitive_mint_machine + mint_machine_ic2 + mint_machine_standalone, NO stale mint_machine.json)
-        recipe_dir = "data/tyc2/recipes" if is_forge else "data/tyc2/recipe"
+        # Conditional recipe checks (primitive_mint_machine + mint_machine_mhera + mint_machine_standalone, NO stale mint_machine.json or mint_machine_ic2.json)
+        recipe_dir = "data/mnera/recipes" if is_forge else "data/mnera/recipe"
         for req_recipe in (
             f"{recipe_dir}/primitive_mint_machine.json",
-            f"{recipe_dir}/mint_machine_ic2.json",
+            f"{recipe_dir}/mint_machine_mhera.json",
             f"{recipe_dir}/mint_machine_standalone.json",
             f"{recipe_dir}/atm_machine.json",
             f"{recipe_dir}/comm_terminal.json",
         ):
             if req_recipe not in entries:
                 issues.append(f"[{name}] Missing recipe: {req_recipe}")
-        stale_mint = f"{recipe_dir}/mint_machine.json"
-        if stale_mint in entries:
-            issues.append(f"[{name}] Stale unconditional recipe still present: {stale_mint}")
+        for stale_rec in (
+            f"{recipe_dir}/mint_machine.json",
+            f"{recipe_dir}/mint_machine_ic2.json",
+            f"{recipe_dir}/mint_machine_mce.json",
+        ):
+            if stale_rec in entries:
+                issues.append(f"[{name}] Stale recipe still present: {stale_rec}")
         cond_key = "conditions" if is_forge else "neoforge:conditions"
-        if f"{recipe_dir}/mint_machine_ic2.json" in entries:
-            ic2_rec = json.loads(zf.read(f"{recipe_dir}/mint_machine_ic2.json").decode("utf-8"))
-            if cond_key not in ic2_rec:
-                issues.append(f"[{name}] mint_machine_ic2.json missing '{cond_key}'")
+        if f"{recipe_dir}/mint_machine_mhera.json" in entries:
+            mhera_rec = json.loads(zf.read(f"{recipe_dir}/mint_machine_mhera.json").decode("utf-8"))
+            if cond_key not in mhera_rec:
+                issues.append(f"[{name}] mint_machine_mhera.json missing '{cond_key}'")
         if f"{recipe_dir}/mint_machine_standalone.json" in entries:
             std_rec = json.loads(zf.read(f"{recipe_dir}/mint_machine_standalone.json").decode("utf-8"))
             if cond_key not in std_rec:
@@ -243,10 +253,10 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
             "minecraft:iron_ingot", "minecraft:gold_ingot", "minecraft:copper_ingot",
             "minecraft:redstone", "minecraft:glass_pane", "minecraft:chest",
             "minecraft:iron_block", "minecraft:redstone_block", "minecraft:diamond",
-            "minecraft:stone_bricks", "ic2:iron_plate", "ic2:circuit",
+            "minecraft:stone_bricks", "ic2:iron_plate", "ic2:circuit", "mhera:iron_plate", "mhera:circuit",
         }
         wrong_ns = "c:" if is_forge else "forge:"
-        for rname in ("primitive_mint_machine", "mint_machine_ic2", "mint_machine_standalone", "atm_machine", "comm_terminal"):
+        for rname in ("primitive_mint_machine", "mint_machine_mhera", "mint_machine_standalone", "atm_machine", "comm_terminal"):
             rpath = f"{recipe_dir}/{rname}.json"
             if rpath not in entries:
                 continue
@@ -272,16 +282,16 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
 
         # Data presets checks
         required_data = [
-            "data/tyc2/mint_recipes/default_vanilla.json",
-            "data/tyc2/mint_recipes/default_ic2.json",
-            "data/tyc2/goods/vanilla.json",
-            "data/tyc2/goods/ic2.json",
-            "data/tyc2/goods/ecc2.json",
-            "data/tyc2/goods/farmers_delight.json",
-            "data/tyc2/goods/kaleidoscope_cookery.json",
-            "data/tyc2/seasons/harvest_seasons.json",
-            "data/tyc2/levels/village_levels.json",
-            "data/tyc2/workplaces/vanilla_workplaces.json",
+            "data/mnera/mint_recipes/default_vanilla.json",
+            "data/mnera/mint_recipes/default_mhera.json",
+            "data/mnera/goods/vanilla.json",
+            "data/mnera/goods/mhera.json",
+            "data/mnera/goods/ecera.json",
+            "data/mnera/goods/farmers_delight.json",
+            "data/mnera/goods/kaleidoscope_cookery.json",
+            "data/mnera/seasons/harvest_seasons.json",
+            "data/mnera/levels/village_levels.json",
+            "data/mnera/workplaces/vanilla_workplaces.json",
         ]
         for req in required_data:
             if req not in entries:
@@ -307,9 +317,9 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
             issues.append(f"[{name}] Missing EMI plugin class in JAR: {emi_cls}")
 
         # Verify vanilla_workplaces.json covers all 13 vanilla villager professions
-        if "data/tyc2/workplaces/vanilla_workplaces.json" in entries:
+        if "data/mnera/workplaces/vanilla_workplaces.json" in entries:
             try:
-                wp_data = json.loads(zf.read("data/tyc2/workplaces/vanilla_workplaces.json").decode("utf-8"))
+                wp_data = json.loads(zf.read("data/mnera/workplaces/vanilla_workplaces.json").decode("utf-8"))
                 wp_entries = wp_data.get("workplaces", [])
                 wp_profs = {str(w.get("professionId", "")).lower() for w in wp_entries if isinstance(w, dict)}
                 expected_profs = {
@@ -334,33 +344,38 @@ def audit_jar(name: str, jar_path: Path, mods_toml_path: str, is_forge: bool, is
                 issues.append(f"[{name}] Failed parsing vanilla_workplaces.json: {exc}")
 
         # Verify core Aid Construction, 7-biome, and HUD localization keys exist
-        if "assets/tyc2/lang/en_us.json" in entries:
-            en_keys = set(json.loads(zf.read("assets/tyc2/lang/en_us.json").decode("utf-8")).keys())
+        if "assets/mnera/lang/en_us.json" in entries:
+            en_keys = set(json.loads(zf.read("assets/mnera/lang/en_us.json").decode("utf-8")).keys())
             for req_key in (
-                "biome.tyc2.jungle",
-                "biome.tyc2.swamp",
-                "project.tyc2.aid_workplace_small",
-                "project.tyc2.aid_workplace_large",
-                "gui.tyc2.hub.tab.aid",
-                "hud.tyc2.hub.unemployment",
-                "hud.tyc2.hub.employment_bonus",
-                "hud.tyc2.hub.aid_active",
-                "hud.tyc2.mayor.unemployment",
-                "status.tyc2.aid.started",
-                "status.tyc2.aid.cancelled",
-                "status.tyc2.aid.completed",
-                "gui.tyc2.order.tooltip.accepts_tag",
+                "biome.mnera.jungle",
+                "biome.mnera.swamp",
+                "project.mnera.aid_workplace_small",
+                "project.mnera.aid_workplace_large",
+                "gui.mnera.hub.tab.aid",
+                "hud.mnera.hub.unemployment",
+                "hud.mnera.hub.employment_bonus",
+                "hud.mnera.hub.aid_active",
+                "hud.mnera.mayor.unemployment",
+                "status.mnera.aid.started",
+                "status.mnera.aid.cancelled",
+                "status.mnera.aid.completed",
+                "gui.mnera.order.tooltip.accepts_tag",
             ):
                 if req_key not in en_keys:
                     issues.append(f"[{name}] Missing required lang key: {req_key}")
 
-        # Validate ALL JSON files in JAR
+        # Validate ALL JSON files in JAR & ensure zero legacy namespace strings
+        legacy_ns_tokens = ('"mne:"', '"mce:"', '"ece:"', '"tre:"', '"tyc2:"')
         for e in entries:
             if e.endswith(".json"):
+                text = zf.read(e).decode("utf-8")
                 try:
-                    json.loads(zf.read(e).decode("utf-8"))
+                    json.loads(text)
                 except Exception as exc:
                     issues.append(f"[{name}] Invalid JSON {e}: {exc}")
+                for tok in legacy_ns_tokens:
+                    if tok in text:
+                        issues.append(f"[{name}] Legacy namespace token {tok} found in {e}")
 
         # Bytecode audit: ZERO com/industrialage, mcp/mobius/waila, or dev/emi/emi outside compat/ and mixin/
         bad_opt_refs = []

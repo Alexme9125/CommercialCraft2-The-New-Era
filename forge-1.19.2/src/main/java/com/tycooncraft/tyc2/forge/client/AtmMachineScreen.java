@@ -57,39 +57,39 @@ public class AtmMachineScreen extends AbstractContainerScreen<AtmMachineMenu> {
         super.init();
 
         // Controls panel (35, 56, 72x68)
-        amountBox = new EditBox(font, leftPos + 37, topPos + 58, 68, 11, Component.translatable("gui.tyc2.atm.amount_placeholder"));
+        amountBox = new EditBox(font, leftPos + 37, topPos + 58, 68, 11, Component.translatable("gui.mnera.atm.amount_placeholder"));
         amountBox.setMaxLength(12);
         amountBox.setValue("100");
         addRenderableWidget(amountBox);
 
-        targetBox = new EditBox(font, leftPos + 37, topPos + 71, 68, 11, Component.translatable("gui.tyc2.atm.recipient_placeholder"));
+        targetBox = new EditBox(font, leftPos + 37, topPos + 71, 68, 11, Component.translatable("gui.mnera.atm.recipient_placeholder"));
         targetBox.setMaxLength(32);
         addRenderableWidget(targetBox);
 
         // Row 1: Deposit / Deposit All / Withdraw (100% localized)
         addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 36, topPos + 84, 22, 12, Component.translatable("gui.tyc2.atm.btn.deposit_short"),
+                leftPos + 36, topPos + 84, 22, 12, Component.translatable("gui.mnera.atm.btn.deposit_short"),
                 btn -> sendAction(C2SAtmActionPacket.Action.DEPOSIT_SLOT, 0L, "")
         ));
         addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 59, topPos + 84, 22, 12, Component.translatable("gui.tyc2.atm.btn.deposit_all_short"),
+                leftPos + 59, topPos + 84, 22, 12, Component.translatable("gui.mnera.atm.btn.deposit_all_short"),
                 btn -> sendAction(C2SAtmActionPacket.Action.DEPOSIT_ALL, 0L, "")
         ));
         addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 82, topPos + 84, 24, 12, Component.translatable("gui.tyc2.atm.btn.withdraw_short"),
+                leftPos + 82, topPos + 84, 24, 12, Component.translatable("gui.mnera.atm.btn.withdraw_short"),
                 btn -> sendAction(C2SAtmActionPacket.Action.WITHDRAW_AMOUNT, parseAmount(100L), "")
         ));
 
         // Row 2: Denomination picker & exact withdraw
         addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 36, topPos + 97, 11, 12, Component.translatable("gui.tyc2.prev"),
+                leftPos + 36, topPos + 97, 11, 12, Component.translatable("gui.mnera.prev"),
                 btn -> {
                     selectedDenomIndex = Math.floorMod(selectedDenomIndex - 1, CurrencyDenomination.values().length);
                     updateButtonLabels();
                 }
         ));
         denomBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 48, topPos + 97, 46, 12, Component.translatable("gui.tyc2.atm.withdraw_denom", 100),
+                leftPos + 48, topPos + 97, 46, 12, Component.translatable("gui.mnera.atm.withdraw_denom", 100),
                 btn -> {
                     CurrencyDenomination denom = CurrencyDenomination.values()[selectedDenomIndex];
                     long raw = parseAmount(1L);
@@ -103,7 +103,7 @@ public class AtmMachineScreen extends AbstractContainerScreen<AtmMachineMenu> {
                 }
         ));
         addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 95, topPos + 97, 11, 12, Component.translatable("gui.tyc2.next"),
+                leftPos + 95, topPos + 97, 11, 12, Component.translatable("gui.mnera.next"),
                 btn -> {
                     selectedDenomIndex = Math.floorMod(selectedDenomIndex + 1, CurrencyDenomination.values().length);
                     updateButtonLabels();
@@ -112,15 +112,15 @@ public class AtmMachineScreen extends AbstractContainerScreen<AtmMachineMenu> {
 
         // Row 3: Transfer / Personal-Company switch / Company Management (100% localized)
         addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 36, topPos + 110, 23, 12, Component.translatable("gui.tyc2.atm.btn.send"),
+                leftPos + 36, topPos + 110, 23, 12, Component.translatable("gui.mnera.atm.btn.send"),
                 btn -> sendAction(C2SAtmActionPacket.Action.TRANSFER, parseAmount(0L), targetBox.getValue())
         ));
         modeBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 60, topPos + 110, 26, 12, Component.translatable("gui.tyc2.atm.btn.switch_acct"),
+                leftPos + 60, topPos + 110, 26, 12, Component.translatable("gui.mnera.atm.btn.switch_acct"),
                 btn -> toggleSettlementMode()
         ));
         companyPanelBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 87, topPos + 110, 19, 12, Component.translatable("gui.tyc2.atm.btn.company"),
+                leftPos + 87, topPos + 110, 19, 12, Component.translatable("gui.mnera.atm.btn.company"),
                 btn -> {
                     showCompanyPanel = !showCompanyPanel;
                     updateButtonLabels();
@@ -129,24 +129,24 @@ public class AtmMachineScreen extends AbstractContainerScreen<AtmMachineMenu> {
 
         // Right LCD (111, 56, 75x68) sub-controls: Company create/join/leave OR Log pagination
         createCoBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 114, topPos + 70, 69, 13, Component.translatable("gui.tyc2.account.create_company"),
+                leftPos + 114, topPos + 70, 69, 13, Component.translatable("gui.mnera.account.create_company"),
                 btn -> sendAction(C2SAtmActionPacket.Action.CREATE_COMPANY, 0L, targetBox.getValue())
         ));
         joinCoBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 114, topPos + 86, 69, 13, Component.translatable("gui.tyc2.account.join_company"),
+                leftPos + 114, topPos + 86, 69, 13, Component.translatable("gui.mnera.account.join_company"),
                 btn -> sendAction(C2SAtmActionPacket.Action.JOIN_COMPANY, 0L, targetBox.getValue())
         ));
         leaveCoBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 114, topPos + 102, 69, 13, Component.translatable("gui.tyc2.account.leave_company"),
+                leftPos + 114, topPos + 102, 69, 13, Component.translatable("gui.mnera.account.leave_company"),
                 btn -> sendAction(C2SAtmActionPacket.Action.LEAVE_COMPANY, 0L, sync == null ? "" : sync.activeCompanyId)
         ));
 
         logPrevBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 157, topPos + 111, 12, 11, Component.translatable("gui.tyc2.prev"),
+                leftPos + 157, topPos + 111, 12, 11, Component.translatable("gui.mnera.prev"),
                 btn -> logPage = Math.max(0, logPage - 1)
         ));
         logNextBtn = addRenderableWidget(new TyC2UiWidgets.CompactButton(
-                leftPos + 171, topPos + 111, 12, 11, Component.translatable("gui.tyc2.next"),
+                leftPos + 171, topPos + 111, 12, 11, Component.translatable("gui.mnera.next"),
                 btn -> logPage = Math.min(5, logPage + 1)
         ));
 
@@ -165,7 +165,7 @@ public class AtmMachineScreen extends AbstractContainerScreen<AtmMachineMenu> {
 
     private void updateButtonLabels() {
         CurrencyDenomination denom = CurrencyDenomination.values()[selectedDenomIndex];
-        denomBtn.setMessage(Component.translatable("gui.tyc2.atm.withdraw_denom", denom.value()));
+        denomBtn.setMessage(Component.translatable("gui.mnera.atm.withdraw_denom", denom.value()));
         companyPanelBtn.setHighlighted(showCompanyPanel);
         modeBtn.setHighlighted(sync != null && sync.companyMode);
 
@@ -232,10 +232,10 @@ public class AtmMachineScreen extends AbstractContainerScreen<AtmMachineMenu> {
         // Top LCD (8, 18, 204x32)
         if (sync != null) {
             String acctHeader = sync.companyMode
-                    ? Component.translatable("gui.tyc2.account.company_named", sync.activeCompanyName).getString()
-                    : Component.translatable("gui.tyc2.account.personal").getString();
+                    ? Component.translatable("gui.mnera.account.company_named", sync.activeCompanyName).getString()
+                    : Component.translatable("gui.mnera.account.personal").getString();
             font.draw(poseStack, font.plainSubstrByWidth(acctHeader, 110), 32, 21, 0x55FFFF);
-            String balStr = Component.translatable("gui.tyc2.atm.balance", sync.activeBalance()).getString();
+            String balStr = Component.translatable("gui.mnera.atm.balance", sync.activeBalance()).getString();
             font.draw(poseStack, balStr, 32, 31, 0x66FF88);
             if (sync.companyMode && !sync.activeCompanyInvite.isEmpty()) {
                 font.draw(poseStack, sync.activeCompanyInvite, 146, 21, 0xFFCC44);
@@ -262,19 +262,19 @@ public class AtmMachineScreen extends AbstractContainerScreen<AtmMachineMenu> {
             if (showCompanyPanel) {
                 TyC2UiWidgets.drawFittedString(
                         poseStack, font,
-                        Component.translatable("gui.tyc2.account.company").getString(),
+                        Component.translatable("gui.mnera.account.company").getString(),
                         114, 59, 69, 0.65F, 0x55FFFF
                 );
             } else {
                 TyC2UiWidgets.drawFittedString(
                         poseStack, font,
-                        Component.translatable("gui.tyc2.atm.history").getString(),
+                        Component.translatable("gui.mnera.atm.history").getString(),
                         114, 59, 69, 0.65F, 0x55FFFF
                 );
                 if (sync.logs.isEmpty()) {
                     TyC2UiWidgets.drawFittedString(
                             poseStack, font,
-                            Component.translatable("gui.tyc2.atm.no_history").getString(),
+                            Component.translatable("gui.mnera.atm.no_history").getString(),
                             114, 72, 69, 0.62F, 0x8899AA
                     );
                 } else {
@@ -301,7 +301,7 @@ public class AtmMachineScreen extends AbstractContainerScreen<AtmMachineMenu> {
             int eu = menu.getStoredEu();
             renderTooltip(
                     poseStack,
-                    Component.translatable("gui.tyc2.energy.eu_fe", eu, menu.getMaxEu(), (long) eu * TriModePowerMath.EU_TO_FE_RATIO),
+                    Component.translatable("gui.mnera.energy.eu_fe", eu, menu.getMaxEu(), (long) eu * TriModePowerMath.EU_TO_FE_RATIO),
                     mouseX, mouseY
             );
         }
